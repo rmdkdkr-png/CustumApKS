@@ -3,6 +3,7 @@ package com.sangosp;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.ActivityNotFoundException;
+import android.content.ClipData;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Build;
@@ -123,11 +124,32 @@ public class MainActivity extends Activity {
         super.onActivityResult(requestCode, resultCode, data);
         if (requestCode != REQ_PICK_FILE || pendingFileCallback == null) return;
 
-        Uri[] result = (resultCode == RESULT_OK)
-            ? WebChromeClient.FileChooserParams.parseResult(resultCode, data)
-            : null;
-        pendingFileCallback.onReceiveValue(result);   // 취소면 null — 그래야 다시 열 수 있습니다
+        pendingFileCallback.onReceiveValue(pickedUris(resultCode, data));
         pendingFileCallback = null;
+    }
+
+    /**
+     * 선택 결과에서 Uri 를 꺼냅니다. 고른 게 없으면 null — WebView 는 그래야
+     * 선택이 끝난 걸로 보고 다음 요청을 열어 줍니다.
+     *
+     * WebChromeClient.FileChooserParams.parseResult() 와 같은 일을 하지만,
+     * 그쪽은 WebView 프로바이더를 거쳐서 테스트로 확인할 수가 없습니다.
+     */
+    static Uri[] pickedUris(int resultCode, Intent data) {
+        if (resultCode != RESULT_OK || data == null) return null;
+
+        Uri single = data.getData();
+        if (single != null) return new Uri[] { single };
+
+        ClipData clip = data.getClipData();       // 다중 선택을 지원하는 파일앱 대비
+        if (clip != null && clip.getItemCount() > 0) {
+            Uri[] uris = new Uri[clip.getItemCount()];
+            for (int i = 0; i < clip.getItemCount(); i++) {
+                uris[i] = clip.getItemAt(i).getUri();
+            }
+            return uris;
+        }
+        return null;
     }
 
     private void hideBars() {
