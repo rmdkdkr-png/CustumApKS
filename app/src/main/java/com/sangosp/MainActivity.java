@@ -2,11 +2,16 @@ package com.sangosp;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.content.ActivityNotFoundException;
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.WindowManager;
+import android.webkit.ValueCallback;
 import android.webkit.WebChromeClient;
+import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
@@ -17,7 +22,12 @@ import android.webkit.WebViewClient;
  */
 public class MainActivity extends Activity {
 
+    private static final int REQ_PICK_FILE = 1001;
+
     private WebView web;
+
+    /** onShowFileChooser 가 넘겨준 콜백. 결과를 반드시 한 번 돌려줘야 다음 선택이 열립니다. */
+    private ValueCallback<Uri[]> pendingFileCallback;
 
     @SuppressLint("SetJavaScriptEnabled")
     @Override
@@ -44,14 +54,80 @@ public class MainActivity extends Activity {
         s.setSupportZoom(false);
         s.setTextZoom(100);
 
-        web.setWebViewClient(new WebViewClient());
-        web.setWebChromeClient(new WebChromeClient());   // 파일 선택 다이얼로그 등
+        web.setWebViewClient(new WebViewClient() {
+            /**
+             * 게임은 file:///android_asset 안에서만 돕니다. 바깥 http(s) 주소
+             * (게임 ZIP 받으러 가는 superfighter.com 링크)는 기본 브라우저로 넘깁니다.
+             * 이 WebView 에서 열면 실행 중이던 DOSBox 가 통째로 날아갑니다.
+             */
+            @Override
+            public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
+                return openExternally(request.getUrl());
+            }
+        });
+
+        web.setWebChromeClient(new WebChromeClient() {
+            /**
+             * 기본 구현은 아무것도 하지 않아서 <input type="file"> 이 먹통이 됩니다.
+             * 직접 파일 선택창을 띄우고 결과를 콜백으로 돌려줘야 합니다.
+             */
+            @Override
+            public boolean onShowFileChooser(WebView view,
+                                             ValueCallback<Uri[]> callback,
+                                             FileChooserParams params) {
+                // 앞선 선택이 결과 없이 남아 있으면 먼저 닫아 줍니다. 안 그러면 영영 잠깁니다.
+                if (pendingFileCallback != null) {
+                    pendingFileCallback.onReceiveValue(null);
+                }
+                pendingFileCallback = callback;
+
+                Intent intent = params.createIntent();
+                intent.addCategory(Intent.CATEGORY_OPENABLE);
+                // accept=".zip" 을 그대로 쓰면 ZIP 의 MIME 이 기기마다 제각각(application/zip,
+                // application/x-zip-compressed, octet-stream…)이라 파일이 아예 안 보이는 일이 잦습니다.
+                intent.setType("*/*");
+
+                try {
+                    startActivityForResult(intent, REQ_PICK_FILE);
+                } catch (ActivityNotFoundException e) {
+                    pendingFileCallback = null;
+                    return false;
+                }
+                return true;
+            }
+        });
+
         WebView.setWebContentsDebuggingEnabled(true);
 
         setContentView(web);
         hideBars();
 
         web.loadUrl("file:///android_asset/index.html");
+    }
+
+    /** http(s) 면 기본 브라우저로 넘기고 true. 그 외(file: 등)는 WebView 가 그대로 처리. */
+    private boolean openExternally(Uri uri) {
+        if (uri == null) return false;
+        String scheme = uri.getScheme();
+        if (!"http".equals(scheme) && !"https".equals(scheme)) return false;
+        try {
+            startActivity(new Intent(Intent.ACTION_VIEW, uri));
+            return true;
+        } catch (ActivityNotFoundException e) {
+            return false;   // 열 브라우저가 없으면 WebView 에 맡깁니다
+        }
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQ_PICK_FILE || pendingFileCallback == null) return;
+
+        Uri[] result = (resultCode == RESULT_OK)
+            ? WebChromeClient.FileChooserParams.parseResult(resultCode, data)
+            : null;
+        pendingFileCallback.onReceiveValue(result);   // 취소면 null — 그래야 다시 열 수 있습니다
+        pendingFileCallback = null;
     }
 
     private void hideBars() {
@@ -85,7 +161,7 @@ public class MainActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        // 게임 중 뒤로가기로 앱이 꺼지지 않게 — 두 번 누르면 종료
+        // 게임 중 뒤로가기로 앱이 꺼지지 않게
         if (web != null && web.canGoBack()) { web.goBack(); return; }
         moveTaskToBack(true);
     }
