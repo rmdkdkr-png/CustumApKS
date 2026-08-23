@@ -1,15 +1,24 @@
 # 넘김 — 대사표 생성기와 거기서 나온 것
 
-2026-08-23. **이 폴더는 이 저장소 것이 아니다.** `ss2-sp-runner` 로 옮길 물건을 잠시 둔 자리다.
+2026-08-23. **여기 있는 것은 이미 제자리로 갔다.** 아래 세 가지에 그대로 올라가 있다.
 
-왜 여기 있나: 만든 방이 `ss2-sp-runner` · `ss2-sp-core` · `emu-ex-plus-alpha` 에는 쓰지 못하고
-(`add_repo` 거부) 이 저장소에만 쓸 수 있었다. 사라지기 전에 남긴다.
+| 저장소 | 가지 | 무엇 |
+|---|---|---|
+| `ss2-sp-runner` | `claude/gen-lines` | `tools/gen_lines.js` + 기준표 문서 갱신 |
+| `ss2-sp-core` | `claude/regen-lines` | `src/ss2comm_lines.h` |
+| `emu-ex-plus-alpha` | `claude/regen-lines` | `NGP.emu/src/ss2comm/ss2comm_lines.h` |
 
-| 파일 | 갈 곳 |
+**뒤 둘은 같은 파일이라 반드시 같이 병합해야 한다** (§15 세 갈래 규칙).
+헤더 md5 는 양쪽 다 `25eee52f4ee9ea3a16a4a2447082d594` 다.
+
+이 폴더는 그 작업의 기록으로 남긴다. 처음에는 세 저장소에 쓰지 못해(`add_repo` 거부)
+여기에만 둘 수 있었고, 나중에 권한이 열려 제자리로 옮겼다.
+
+| 파일 | 무엇 |
 |---|---|
-| `tools/gen_lines.js` | `ss2-sp-runner/tools/gen_lines.js` |
-| `ss2comm_lines.h.new` | **바로 넣지 마라.** 아래 §3 을 읽고 정할 것 |
-| `gen_lines_run.log` | 참고용 — 돌린 결과 그대로 |
+| `tools/gen_lines.js` | 사본 — 원본은 `ss2-sp-runner/tools/` |
+| `ss2comm_lines.h.new` | 사본 — 코어판·앱판에 이미 들어갔다 |
+| `gen_lines_run.log` · `verify_*.log` · `newheader_apk_*.log` | 돌린 결과 그대로 |
 
 ---
 
