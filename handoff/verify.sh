@@ -31,11 +31,11 @@ cnt(){ LC_ALL=C grep -a -o -F "$1" lib/arm64-v8a/libmain.so | wc -l | tr -d ' ';
 while IFS='|' read -r s want; do ok "$s" "$(cnt "$s")" "$want"; done <<'T'
 SS2 Commentator|1
 SS2 Commentary Vibration|1
-겐주로|24
-하오마루|25
+겐주로|27
+하오마루|30
 리쿠도렛카|1
 마를 봉하는 사람|1
-유파는 달라도 저분처럼|1
+유파는 달라도 저분처럼|2
 한조는 잘 있으려나|1
 첫 판 — 정정당당히, 승부!|1
 훌륭하오|1
@@ -44,6 +44,10 @@ SS2 Commentary Vibration|1
 진조니|0
 오미고토|0
 하오마루라. 그저 검을 휘두르는 인간이군|0
+등의 흉터는 제 어미가 낸 것이다|1
+붓 안에 창이 숨어 있다. 묵혈필창이지|1
+두 자루의 무게를 아는 손이다|1
+붓 한 자루로 싸우는 화가|0
 딸들|0
 붓 한 자루로 싸우는 화가|0
 T
