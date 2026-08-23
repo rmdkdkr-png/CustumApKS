@@ -31,8 +31,8 @@ cnt(){ LC_ALL=C grep -a -o -F "$1" lib/arm64-v8a/libmain.so | wc -l | tr -d ' ';
 while IFS='|' read -r s want; do ok "$s" "$(cnt "$s")" "$want"; done <<'T'
 SS2 Commentator|1
 SS2 Commentary Vibration|1
-겐주로|27
-하오마루|31
+겐주로|30
+하오마루|36
 리쿠도렛카|1
 마를 봉하는 사람|1
 유파는 달라도 저분처럼|2
@@ -50,6 +50,10 @@ SS2 Commentary Vibration|1
 허, 둘 다 하오마루냐! 어느 쪽이 진짜 술꾼이지|1
 뭐냐 저건. 사람이 아니잖아|1
 간다라다. 내가 지은 것이지|1
+허, 나를 쓰는군! 술은 내가 산다|1
+너, 술은 하나?|1
+키바가미 겐주로다|1
+카프카미|0
 붓 한 자루로 싸우는 화가|0
 딸들|0
 붓 한 자루로 싸우는 화가|0
