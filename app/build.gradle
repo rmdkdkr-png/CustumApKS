@@ -1,0 +1,31 @@
+plugins { id "com.android.application" }
+
+android {
+    namespace "com.sangosp"
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.sangosp"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            // 서명 없이도 CI 에서 debug 키로 빌드하도록 debug 만 씁니다
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    // 2.7MB HTML 은 압축하지 않으면 로딩이 더 빠릅니다
+    androidResources { noCompress "html" }
+}
+
+dependencies { }
