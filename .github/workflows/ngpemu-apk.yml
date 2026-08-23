@@ -1,0 +1,221 @@
+# NGP.emu SS2 APK — 빌드 환경이 없는 방을 위한 길
+#
+# 왜 이게 여기 있나:
+#   APK 를 굽는 정석은 emu-ex-plus-alpha 저장소다. 그런데 그 저장소에 쓰지 못하는 방이 있다
+#   (dl.google.com 차단 + 저장소 쓰기 거부). 그런 방도 이 저장소에는 쓸 수 있다.
+#   그래서 여기에 길을 하나 더 둔다. 여기에 밀어 넣으면 APK 가 나온다.
+#
+# 쓰는 법:
+#   1) 고친 NGP.emu 소스를 이 저장소의 NGP.emu/src/ 아래에 올린다 (없으면 원본 그대로 굽는다)
+#   2) 밀어 넣는다. 그걸로 끝. 이 워크플로가 알아서 돈다
+#   3) 몇 분 뒤 Actions 아티팩트와 ngpemu-latest 릴리스에 APK 가 붙는다
+#
+#   받는 곳:
+#   https://github.com/rmdkdkr-png/CustumApKS/releases/download/ngpemu-latest/NgpEmu.apk
+#
+# 처음 한 번은 30~40분 걸린다(imagine + EmuFramework 를 통째로 만든다).
+# 그 다음부터는 캐시가 살아서 5분 안쪽이다.
+#
+# 자세한 배경과 함정은 emu-ex-plus-alpha/BUILD.md 를 봐라.
+
+name: NGP.emu SS2 APK
+
+on:
+  push:
+    paths:
+      - 'NGP.emu/**'
+      - '.github/workflows/ngpemu-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    name: Build NgpEmu APK
+    runs-on: ubuntu-latest
+    steps:
+    # ── 이 저장소 (덮어쓸 소스가 있으면 여기 들어 있다) ──
+    - name: 이 저장소를 받아 둔다
+      uses: actions/checkout@v4
+      with:
+        path: __overlay
+
+    # ── 본체 (공개 저장소라 토큰 없이 받아진다) ──
+    - name: emu-ex-plus-alpha 를 받는다
+      uses: actions/checkout@v4
+      with:
+        repository: rmdkdkr-png/emu-ex-plus-alpha
+        ref: master
+        fetch-depth: 0
+
+    - name: 캐시 열쇠 만들기
+      id: basekey
+      run: echo "key=ngpemu-base-v1-${{ hashFiles('imagine/**', 'EmuFramework/**') }}" >> "$GITHUB_OUTPUT"
+
+    - name: 밑작업 캐시가 있나 본다
+      id: basecache
+      uses: actions/cache/restore@v4
+      with:
+        path: ./
+        key: ${{ steps.basekey.outputs.key }}
+
+    # ── 도구 ──
+    - name: 시스템 의존물
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y --no-install-recommends autoconf automake autopoint bash \
+          gcc-arm-linux-gnueabi file gawk gettext git libtool libtool-bin make nasm \
+          pkg-config unzip wget
+
+    - name: CMake — 반드시 4.3.x
+      uses: lukka/get-cmake@latest
+      with:
+        # imagine/cmake/config.cmake 가 CMAKE_EXPERIMENTAL_CXX_IMPORT_STD 를
+        # 451f2fe2-a8a2-47c3-bc32-94786d8fc91b 로 박아 뒀고, 이 UUID는 CMake 4.3 전용이다.
+        # 4.4+ 를 깔면 `import std` 가 꺼지고 imagine/emuframework configure 가 죽는다.
+        cmakeVersion: "~4.3.0"
+
+    - name: JDK 21
+      uses: actions/setup-java@v4
+      with:
+        distribution: 'temurin'
+        java-version: '21'
+
+    - name: 디버그 서명 키 — 없으면 마지막 서명 단계에서 죽는다
+      env:
+        DEBUG_KEYSTORE: ${{ secrets.DEBUG_KEYSTORE }}
+      run: |
+        mkdir -p ~/.android
+        if [ -n "$DEBUG_KEYSTORE" ]; then
+          echo "$DEBUG_KEYSTORE" | base64 --decode > ~/.android/debug.keystore
+          echo "비밀값에 있던 키를 쓴다"
+        else
+          keytool -genkey -v -keystore ~/.android/debug.keystore -storepass android \
+            -alias androiddebugkey -keypass android -keyalg RSA -validity 10000 \
+            -dname "CN=Android Debug,O=Android,C=US"
+          echo "비밀값이 없어 새로 만들었다 (개인 설치용이라 이걸로 충분하다)"
+        fi
+
+    # ── 밑작업 (캐시가 없을 때만) ──
+    - name: NDK r30-beta1 + 환경
+      if: steps.basecache.outputs.cache-hit != 'true'
+      run: |
+        mkdir -p imagine-sdk
+        NDK_VERSION='r30-beta1'
+        wget -q "https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip"
+        unzip -q android-ndk-${NDK_VERSION}-linux.zip
+        rm android-ndk-${NDK_VERSION}-linux.zip
+        mv android-ndk-${NDK_VERSION} android-ndk
+        {
+          echo "ANDROID_NDK_PATH=${{ github.workspace }}/android-ndk"
+          echo "EMUFRAMEWORK_PATH=${{ github.workspace }}/EmuFramework"
+          echo "IMAGINE_PATH=${{ github.workspace }}/imagine"
+          echo "IMAGINE_SDK_PATH=${{ github.workspace }}/imagine-sdk"
+        } >> env.github
+        cat env.github >> $GITHUB_ENV
+
+    - name: 번들 라이브러리 — 이걸 건너뛰면 archive_entry_crc32 로 링크가 죽는다
+      if: steps.basecache.outputs.cache-hit != 'true'
+      working-directory: imagine/bundle/all
+      run: ./makeAll-android.sh install
+      shell: bash
+
+    - name: imagine + EmuFramework
+      if: steps.basecache.outputs.cache-hit != 'true'
+      run: |
+        $IMAGINE_PATH/android.sh config
+        $IMAGINE_PATH/android.sh installLinks --config Release
+        $EMUFRAMEWORK_PATH/android.sh config
+        $EMUFRAMEWORK_PATH/android.sh installLinks --config Release
+
+    - name: 캐시 저장 (.git 은 빼고 — 캐시를 작게 유지한다)
+      if: steps.basecache.outputs.cache-hit != 'true'
+      run: rm -rf .git
+    - name: 캐시 저장
+      if: steps.basecache.outputs.cache-hit != 'true'
+      uses: actions/cache/save@v4
+      with:
+        path: ./
+        key: ${{ steps.basekey.outputs.key }}
+
+    - name: 캐시를 썼으면 환경만 다시 세운다
+      if: steps.basecache.outputs.cache-hit == 'true'
+      run: cat env.github >> $GITHUB_ENV
+
+    # ── 이 저장소가 들고 있는 소스로 덮어쓴다 ──
+    - name: 덮어쓸 소스가 있나 본다
+      id: overlay
+      run: |
+        if [ -d __overlay/NGP.emu/src ]; then
+          echo "이 저장소의 NGP.emu/src 로 덮어쓴다"
+          rm -rf NGP.emu/src
+          cp -a __overlay/NGP.emu/src NGP.emu/src
+          echo "used=yes" >> "$GITHUB_OUTPUT"
+        else
+          echo "덮어쓸 것이 없다 — emu-ex-plus-alpha master 그대로 굽는다"
+          echo "used=no" >> "$GITHUB_OUTPUT"
+        fi
+        if [ -d __overlay/NGP.emu/res ]; then
+          cp -a __overlay/NGP.emu/res/. NGP.emu/res/
+          echo "res 도 덮어썼다"
+        fi
+        rm -rf __overlay
+
+    - name: 롬이 섞여 들어왔는지 본다 — 금지선
+      run: |
+        found=$(find . -name '*.ngc' -o -name '*.ngp' -o -name 'st_*.bin' | head -5)
+        if [ -n "$found" ]; then
+          echo "롬/세이브스테이트가 들어 있다. 멈춘다:"; echo "$found"; exit 1
+        fi
+        echo "롬 없음"
+
+    # ── APK ──
+    - name: APK 만들기
+      working-directory: NGP.emu
+      run: make -f android.mk android-apk CONFIG=Release V=1 -j$(nproc)
+
+    - name: 확인하고 이름 붙이기
+      id: pack
+      run: |
+        mkdir -p dist
+        APK=NGP.emu/build/android/build/outputs/apk/release/NgpEmu-release.apk
+        cp "$APK" dist/NgpEmu.apk
+        SDK=$(ls -d $ANDROID_HOME/build-tools/* | sort -V | tail -1)
+        "$SDK/aapt2" dump badging dist/NgpEmu.apk | head -1
+        echo "--- ABI ---"; unzip -l dist/NgpEmu.apk | grep -c 'lib/.*\.so'
+        echo "--- 해설 문자열 ---"
+        cd /tmp && unzip -o -q "$GITHUB_WORKSPACE/dist/NgpEmu.apk" lib/arm64-v8a/libmain.so
+        for s in "SS2 Commentator" "SS2 Commentary Display"; do
+          printf '%-26s %s\n' "$s" "$(grep -a -c -F "$s" lib/arm64-v8a/libmain.so)"
+        done
+        echo "덮어쓴 소스 사용: ${{ steps.overlay.outputs.used }}"
+
+    - name: 아티팩트로 올리기
+      uses: actions/upload-artifact@v4
+      with:
+        name: NgpEmu-apk
+        path: dist/NgpEmu.apk
+
+    # ── 릴리스에 붙인다 — 막힌 방도 이 주소로는 받을 수 있다 ──
+    - name: 릴리스에 붙이기
+      # ncipollo/release-action v1.16.0
+      uses: ncipollo/release-action@440c8c1cb0ed28b9f43e4d1d670870f059653174
+      with:
+        prerelease: true
+        allowUpdates: true
+        removeArtifacts: true
+        replacesArtifacts: true
+        tag: ngpemu-latest
+        name: "NGP.emu SS2 — 최신 빌드"
+        body: |
+          `${{ github.sha }}` 로 구운 것.
+          덮어쓴 소스 사용: ${{ steps.overlay.outputs.used }}
+
+          받는 법:
+          ```
+          curl -sL -o NgpEmu.apk \
+            https://github.com/rmdkdkr-png/CustumApKS/releases/download/ngpemu-latest/NgpEmu.apk
+          ```
+          디버그 서명(v1+v2). 개인 설치용으로 충분하다.
+        artifacts: "dist/NgpEmu.apk"
