@@ -34,8 +34,8 @@ cnt(){ LC_ALL=C grep -a -o -F "$1" lib/arm64-v8a/libmain.so | wc -l | tr -d ' ';
 while IFS='|' read -r s want; do ok "$s" "$(cnt "$s")" "$want"; done <<'T'
 SS2 Commentator|1
 SS2 Commentary Vibration|1
-겐주로|30
-하오마루|36
+겐주로|47
+하오마루|52
 리쿠도렛카|1
 마를 봉하는 사람|1
 유파는 달라도 저분처럼|2
@@ -61,6 +61,9 @@ SS2 Commentary Vibration|1
 너, 술은 하나?|1
 키바가미 겐주로다|1
 모로즈미 타이잔|2
+니코친 밑에서 겐주로와 한솥밥 먹던 몸이다, 핫핫하!|1
+시키 씨는 제 뜻이 어디 있는지 저도 모른대요… 슬퍼요|1
+유가… 그 목소리가, 머리에서 안 나가|1
 타무리키|0
 한조 님께 배운|0
 카프카미|0
