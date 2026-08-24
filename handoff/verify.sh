@@ -29,7 +29,7 @@ ok gpOverlay.png "$(md5sum < assets/gpOverlay.png | cut -d' ' -f1)" 24bed154fbd4
 echo "--- libmain.so 안 문자열 개수 (LC_ALL=C grep -a -o -F)"
 # 주의: 「승부!」「한 판!」 같은 8바이트짜리 구령 리터럴은 컴파일러가 명령어
 # 즉치값으로 인라인해서 .so 에서 grep 이 안 된다 (x86 코어의 movabs 로 확인).
-# 그래서 짧은 구령은 표에 못 올린다 — 「한 판!|3」은 대사표의 세 줄이다.
+# 그래서 짧은 구령은 표에 못 올린다 — 「한 판!|3
 cnt(){ LC_ALL=C grep -a -o -F "$1" lib/arm64-v8a/libmain.so | wc -l | tr -d ' '; }
 while IFS='|' read -r s want; do ok "$s" "$(cnt "$s")" "$want"; done <<'T'
 SS2 Commentator|1
@@ -43,6 +43,10 @@ SS2 Commentary Vibration|1
 자아 — 정정당당히!|1
 %d회전!|1
 한 판!|3
+%s가 크게 맞았다! 핫하!|1
+%s의 다리가 풀렸다, 지금이다!!|1
+%s에게 베였다… 다음엔 내가 벤다|1
+%s는 손도 못 대는군, 핫핫하!|1
 승부 결정!|1
 훌륭하오|2
 첫 판 — 정정당당히|0
