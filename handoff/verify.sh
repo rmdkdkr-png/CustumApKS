@@ -34,6 +34,7 @@ cnt(){ LC_ALL=C grep -a -o -F "$1" lib/arm64-v8a/libmain.so | wc -l | tr -d ' ';
 while IFS='|' read -r s want; do ok "$s" "$(cnt "$s")" "$want"; done <<'T'
 SS2 Commentator|1
 SS2 Commentary Vibration|1
+SS2 Side Art|1
 겐주로|47
 하오마루|52
 리쿠도렛카|1
