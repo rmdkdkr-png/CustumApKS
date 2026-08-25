@@ -14,6 +14,8 @@ def ext(d, name):
 
 def harvest(state_path, label, rows=range(3,15), cols=range(1,13)):
     d = open(state_path,"rb").read()
+    if d[:2] == b"\x1f\x8b":            # 앱(NGP.emu) 상태는 gzip 포장
+        import gzip; d = gzip.decompress(d)
     sv = ext(d,"ScrollVRAM"); cr = ext(d,"CharacterRAM"); pl = ext(d,"ColorPaletteRAM")
     cells = []          # (rom_addr, palno, hflip, vflip) — addr<0 = 롬에서 못 찾음
     pals  = {}
