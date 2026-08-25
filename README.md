@@ -23,3 +23,11 @@ Android Studio 로 이 폴더를 열고 Run, 또는:
 저작권 때문에 게임은 포함하지 않았습니다.
 앱을 처음 켜면 ZIP 을 고르는 화면이 나옵니다. Sango Fighter 2 무료 배포판 ZIP 을
 한 번 물려주면 기기 안에 보관되고 다음부터 자동으로 실행됩니다.
+
+## 릴리즈
+
+| 버전 | 파일 | 비고 |
+|---|---|---|
+| **SS2-1.0.0** | [`release/ss2-v1.0.0/NgpEmu-SS2-v1.0.0.apk`](release/ss2-v1.0.0/NgpEmu-SS2-v1.0.0.apk) | [릴리즈 노트](release/ss2-v1.0.0/RELEASE_NOTES.md) · 전체 이력 [CHANGELOG](handoff/CHANGELOG.md) |
+
+롬은 포함되지 않는다 — 본인 소유 롬으로 구동할 것.
