@@ -12,8 +12,8 @@ echo "===== 4) 검증 기준표 ====="
 B=$(aapt2 dump badging "$APK" | head -1)
 echo "  badging: $B"
 ok package     "$(grep -oE "^package: name='[^']*'" <<<"$B" | cut -d"'" -f2)"        com.rmdkdkr.ngpemu.ss2
-ok versionCode "$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<<"$B")" 16010590
-ok versionName "$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$B")" 1.5.85-SS2-1.0.0
+ok versionCode "$(sed -n "s/.*versionCode='\([^']*\)'.*/\1/p" <<<"$B")" 16010591
+ok versionName "$(sed -n "s/.*versionName='\([^']*\)'.*/\1/p" <<<"$B")" 1.5.85-SS2-1.0.1
 
 echo "--- ABI 4종"
 LIST=$(unzip -l "$APK")          # pipefail + grep -q 가 unzip 에 SIGPIPE 를 내므로 먼저 담는다
