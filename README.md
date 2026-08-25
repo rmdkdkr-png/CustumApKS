@@ -28,7 +28,7 @@ Android Studio 로 이 폴더를 열고 Run, 또는:
 
 | 버전 | 파일 | 비고 |
 |---|---|---|
-| **SS2-1.0.1** | ['''release/ss2-v1.0.1/NgpEmu-SS2-v1.0.1.apk'''](release/ss2-v1.0.1/NgpEmu-SS2-v1.0.1.apk) | 일시정지 메뉴·변형 로테이션·전황 연출·SS2 전용 잠금 — [CHANGELOG](handoff/CHANGELOG.md) |
+| **SS2-1.0.1** | [`release/ss2-v1.0.1/NGPcustumSP-v1.0.1.apk`](release/ss2-v1.0.1/NGPcustumSP-v1.0.1.apk) | 앱 이름 NGPcustumSP · 간다라 기둥 · SP 배치 오버레이(타이거니) · 일시정지 · 전황 연출 · SS2 전용 잠금 — [릴리즈 노트](release/ss2-v1.0.1/RELEASE_NOTES.md) |
 | SS2-1.0.0 | [`release/ss2-v1.0.0/NgpEmu-SS2-v1.0.0.apk`](release/ss2-v1.0.0/NgpEmu-SS2-v1.0.0.apk) | [릴리즈 노트](release/ss2-v1.0.0/RELEASE_NOTES.md) · 전체 이력 [CHANGELOG](handoff/CHANGELOG.md) |
 
 롬은 포함되지 않는다 — 본인 소유 롬으로 구동할 것.
