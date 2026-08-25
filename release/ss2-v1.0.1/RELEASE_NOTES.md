@@ -50,4 +50,6 @@ NGPcustumSP는 Robert Broglia의 emu-ex-plus-alpha(NGP.emu)·Mednafen 코어를 
 - 글꼴 Galmuri © Lee Minseo — SIL Open Font License 1.1
 - 게임 『사무라이 쇼다운!2』의 그래픽·음악·상표는 **SNK** 소유입니다.
   본 앱은 팬 프로젝트이며 SNK·Robert Broglia와 무관합니다
-- 한글 번역 패치는 제3자(한글화팀)의 저작물입니다 — 패치된 롬을 재배포하지 마세요
+- 한글 번역 패치(v0.99b)는 **이 프로젝트 제작자 본인의 작업**입니다 —
+  패치는 https://github.com/rmdkdkr-png/KrPatch 에서 받아 본인 소유의 원본 롬에
+  직접 적용하세요 (패치가 적용된 롬 자체는 배포하지 않습니다)
