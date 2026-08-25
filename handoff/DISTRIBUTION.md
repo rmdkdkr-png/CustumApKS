@@ -32,13 +32,12 @@ GPL은 개조판 배포를 명시적으로 허용한다. 파는 것도 된다. �
 - **「neo emu」도 못 쓴다** (2026-08-25 확인): NEO.emu는 **같은 저작자의 또 다른
   유료 앱**(네오지오 아케이드 에뮬, `com.explusalpha.NeoEmu`, Play 스토어 판매 중)이다.
   「neo emu 커스텀」이라 붙이면 하필 그 앱의 개조판으로 오인된다.
-- 별칭 후보 (엔진 층 이름 SS2comm에서): **「SS2comm」**, 「사쇼2 포켓 해설판」,
-  「검혼해설」, 「SamSho2P 해설 에뮬」 — 유저 지명 대기. 본문에는 항상
-  「Robert Broglia의 emu-ex-plus-alpha(NGP.emu) 기반, Mednafen 코어」를 명기.
+- **확정 별칭: 「NGPcustumSP」** (유저 지명, 2026-08-25 — conf.mk metadata_name 반영).
+  본문에는 항상 「Robert Broglia의 emu-ex-plus-alpha(NGP.emu) 기반, Mednafen 코어」를 명기.
 - 이미 지켜둔 것: 앱 ID가 `com.rmdkdkr.ngpemu.ss2` 로 스토어판(`com.explusalpha.NgpEmu`)과
   달라 나란히 설치되고 세이브도 안 겹친다. **SS2 전용 잠금**이 걸려 있어 범용
   에뮬 대체재가 되지 않는다(원작자 이익 보호 — 1.0.1의 의도).
-- 앱 표시명 `NGP.emu SS2`(conf.mk metadata_name)는 배포 전에 별칭으로 바꾸는 게 안전하다.
+- 앱 표시명은 `NGPcustumSP` 로 변경 완료 (conf.mk metadata_name, 2026-08-25).
   ※ metadata_pkgName(NgpEmu)은 빌드 워크플로가 참조하므로 그대로.
 
 ## 4. SNK 저작물 — 현행 원칙이 곧 답이다
@@ -72,7 +71,7 @@ GPL은 개조판 배포를 명시적으로 허용한다. 파는 것도 된다. �
 - 커뮤니티 글 + APK 직접 배포(사이드로드)가 맞다. 릴리즈는 이 저장소의
   `release/ss2-vX.Y.Z/`(APK + SHA256 + 노트)를 그대로 쓴다.
 - 릴리즈 노트 필수 문구(요약):
-  1) (별칭 확정 대기) — emu-ex-plus-alpha(NGP.emu, Robert Broglia)·Mednafen 기반 개조판
+  1) NGPcustumSP — emu-ex-plus-alpha(NGP.emu, Robert Broglia)·Mednafen 기반 개조판
   2) GPL v3/v2 — 소스: (앱 포크 저장소)·(이 저장소)
   3) 글꼴 Galmuri © Lee Minseo, SIL OFL 1.1
   4) 롬 미포함. 사무라이 쇼다운!2 롬(유저 소유)이 있어야 작동. 게임 저작권 SNK.
