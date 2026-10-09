@@ -1,6 +1,44 @@
 # 인수인계 — 새 방에서 이어받기
 
-2026-08-26 기준. **새 세션·새 계정에서 이 문서부터 읽으면 바로 이어갈 수 있다.**
+2026-08-26 기준(아래 본문). **2026-10-09 추가분은 바로 아래 「0-1」에 있다.**
+새 세션·새 계정에서 이 문서부터 읽으면 바로 이어갈 수 있다.
+
+---
+
+## 0-1. 2026-10-09 추가 — 프레임 생성(120Hz) · 그 사이 다른 방이 한 일
+
+### 그 사이(8/29~9/8) 다른 세션이 한 일 — main 에 +76 커밋
+- `ss2-sp-core` main: 해설 음성/더빙(CAST_v4), 대사 재작성 v3/v4, **SvC 원버튼 구현**(0x092C bit7 페이싱),
+  **9/7 유저 지시로 코어에서 기둥·해설 계통 폐기**(0d6bd17, d17fcc5 — 옵션표·오버레이에서 뺌, 코드는 남아 있음).
+- 가지 `svc-core`(9/8, main 대비 +124/-49): 라스트블레이드 전캐릭 6320/6320 + KOF R-2 초필 "SP 4.06", PR #1·#2 병합.
+  merge-base 35efe91(8/28) → **기둥 폐기 커밋을 안 담고 있다.** `sp-supers-followups`, `lb-allchars` 도 있다.
+- `emu-ex-plus-alpha` master 26d905f0: 롬 게이트 SS2→SS2+SvC, SVC 모던 조작.
+- 미해결: svc-core 와 main 의 합치기, 127식 팔청 안 나감, SvC P1 HP 오프셋.
+
+### 이번(10/9) 작업 — 프레임 생성
+유저 요청: 「프레임 제네레이션, 내 폴드6에서 120Hz 로 되게」 + 「DLSS 같은 거 어떻게 안 되나」.
+
+| 저장소 | 브랜치 | 커밋 | 내용 |
+|---|---|---|---|
+| `ss2-sp-core` | **`framegen`** (main 에서 가지) | a11e3ad 소스, ff2c116 코어 5종 | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `emu-ex-plus-alpha` | 작업 트리(푸시는 APK 빌드 확인 뒤) | — | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 |
+| `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
+
+- 방식: 픽셀을 섞지 않는다. K2GE 스프라이트표·스크롤 레지스터를 스캔라인별로 캡처해 위치만 반 옮긴
+  자리에 **같은 타일**을 원본 렌더러 규칙으로 다시 그린다. 기본은 **예측**(상태 저장→한 프레임 미리→합성→
+  복원, 추가 지연 0). 세부·설정 절차·DLSS 답은 코어 `docs/프레임생성.md`.
+- 검증은 롬 없이(합성 상태·합성 롬) 1,546 + 55 건 통과. **실제 롬 화면 실측은 아직** — 롬을 올려
+  `tools/svc/svcrun.c` 류 하네스로 돌리거나 폰에서 직접 봐야 한다. 폴백(60Hz 로 보이는 순간)이 잦으면
+  `SS2FG_SPR_MAX_STEP`(24)·더티 정책(`ss2fg.c`)을 손본다.
+- RetroArch 쪽: 안정판엔 「Screen Resolution」120Hz 모드 항목이 없다(2026-09-26 이후 nightly). 안정판이면
+  Threaded Video 끄고 Vertical Refresh Rate 120 을 직접. 삼성 게임 부스터가 60Hz 로 묶을 수 있다.
+- 앱 쪽: 「프레임 타이밍 옵션 → 화면 주사율 덮어쓰기 = 120Hz」로 둬야 빈 슬롯이 생긴다(기본은 60Hz 요청).
+- 코어 `framegen` → main 병합은 유저 확인 뒤(svc-core 와의 관계도 함께 정리).
+- 이 방의 빌드 환경: NDK r27(코어), 앱은 `emu-ex-plus-alpha/BUILD.md` 그대로(NDK r30-beta1, CMake 4.3.4).
+  `makeAll-android-arm64.sh` 만 돌리면 `android.sh config` 가 armv7 SDK 를 못 찾아 죽는다 — **전 ABI
+  `makeAll-android.sh`** 를 돌려야 한다.
+
+---
 
 ---
 
