@@ -268,6 +268,33 @@ claude
 
 ---
 
+## 9-1. 이 방을 로컬로 — 두 방이 같은 PC 에서 서로 연락하게 (2026-10-09)
+
+클라우드 방(「커스텀 apk」)은 선생님 PC 에 닿지 못한다. 그래서 같은 계정의 다른 방
+(PocketCore 를 만지는 「패치 포팅」프로젝트의 Cowork 방 — Claude Desktop 윈도우에 묶여 있음)에
+직접 메시지를 못 보낸다. 방끼리 직접 연락하려면 **두 방이 같은 PC 에 묶여 있어야** 한다.
+
+### 하는 법 (윈도우)
+1. PocketCore 방이 묶인 그 윈도우 PC 에서 **Claude Desktop** 을 연다.
+2. 거기서 **「커스텀 apk」방(Code)** 을 연다 → 이 방이 그 PC 에 연결된다.
+   (대안: 그 PC 터미널에서 작업 폴더로 가 `claude remote-control` 을 치면 그 폴더의 방이 앱에 뜬다.)
+3. 그 상태에서 이 방에 「열었다」고 말하면, 방이 연락 목록(같은 PC 의 방들)을 다시 보고
+   PocketCore 방에 바로 메시지를 보낸다.
+
+### 그 전까지의 통로
+- **PocketCore PR #2** (https://github.com/rmdkdkr-png/PocketCore/pull/2) — 코어 쪽 계약 문서를 담은 PR.
+  댓글이 달리면 「커스텀 apk」방이 구독으로 즉시 받는다. 그쪽 방에 「PR #2 읽고 댓글로 답해」한 줄이면 된다.
+- 왜 다른 길이 막혔나: 세션 이름/ID 전송은 Cowork 방이 목록에 안 뜸, Routine 주입은
+  「그 방은 자기 컴퓨터에 묶인 작업만 받는다」고 거부, 프로젝트 채팅엔 주소가 없음.
+
+### 저장소 넷
+```sh
+git clone https://github.com/rmdkdkr-png/ss2-sp-core          # 코어(main 에 프레임 생성 포함)
+git clone https://github.com/rmdkdkr-png/emu-ex-plus-alpha    # 앱판(framegen 가지)
+git clone https://github.com/rmdkdkr-png/CustumApKS           # 릴리즈·문서(가지 claude/emu-ex-plus-alpha-build-9yqxli)
+git clone https://github.com/rmdkdkr-png/PocketCore           # 다른 방의 앱(feat/framegen-art)
+```
+
 ## 10. 하지 말 것 (지금까지 지킨 선)
 
 1. **롬·세이브스테이트를 저장소·릴리즈·문서에 넣지 않는다.** 커밋 전 위 검사 실행
