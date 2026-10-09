@@ -20,7 +20,7 @@
 
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
-| `ss2-sp-core` | **`framegen`** (main 에서 가지) | a11e3ad 소스, ff2c116 코어 5종 | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `ss2-sp-core` | **`framegen`** (main 에서 가지) | ee87648 (소스 a11e3ad·5a8000d·a8499f6, 코어 5종 재빌드 포함) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
 | `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | 6f77174 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
