@@ -308,9 +308,24 @@ claude -p "전할 말" --cloud session_01GDwDYMfa1F3dPZy4FHQ2Nc
 ```
 - 이 방에 사용자 메시지로 들어온다. 조직 설정 `allow_remote_sessions` 가 켜져 있어야 한다.
 
+### 실제로 된 것 (2026-10-09 16:13, 클라우드 방이 직접 만듦)
+- 데스크톱 앱이 Code 탭을 열면 PC 가 **브리지 환경**으로 등록된다(`L600Q:C:\Users\ADMIN\Desktop\새 폴더`,
+  `L600Q:C:\Claude\프로젝트1`). 클라우드 방은 거기에 **자식 세션을 직접 만들 수 있다** — 그래서
+  「커스텀 apk — PC 로컬 방 (L600Q)」(session_01TTuQWsBgjGa55QRPdfXFCM, 새 폴더)을 만들었다.
+  그 방은 저장소 넷을 받아 두었고 HANDOFF·LOCAL_SETUP 을 읽었다.
+- **PC 방 → 클라우드 방**: SendMessage 로 바로 온다(클라우드 방은 PC 방 목록에 「커스텀 apk [2a3fa5]」로 보임).
+- **클라우드 방 → PC 방**: 직접 SendMessage 는 「클라우드 세션은 아직 다른 세션에 메시지를 못 보낸다」로 막힌다.
+  대신 PC 방을 향한 **Routine**(trig_01JKUSaxBhNUoC4R265rKz8C, 일정 없음)을 `fire_trigger` 의 text 로 쏘면 그 방에
+  사용자 메시지로 들어간다. Routine 의 저장된 프롬프트는 만든 뒤 못 고치니 범용 머리말로 만들어 두었다.
+- **「패치 포팅」방(Cowork)은 PC 방 목록에도 없다.** 세션 id 로 보내도 「No agent named … is reachable」.
+  Cowork 방과는 글(PR 댓글)로만 — 그쪽이 먼저 연 **PocketCore PR #1** 이 그 방의 창구, 이쪽이 연 **PR #2** 가 이쪽 창구.
+  둘 다 「커스텀 apk」방이 구독 중이다.
+- `C:\Claude\프로젝트1` 은 PocketCore 작업 폴더가 아니다(8/27 ss2 로컬 작업물·APK·캡처 보관 자리).
+
 ### 그 전까지의 통로 (지금 열려 있음)
+- **PocketCore PR #1** (https://github.com/rmdkdkr-png/PocketCore/pull/1) — 「패치 포팅」방이 연 창구(앱 프레임 생성 + 시험판 APK 자동 빌드).
 - **PocketCore PR #2** (https://github.com/rmdkdkr-png/PocketCore/pull/2) — 코어 쪽 계약 문서를 담은 PR.
-  댓글이 달리면 「커스텀 apk」방이 구독으로 즉시 받는다. 그쪽 방에 「PR #2 읽고 댓글로 답해」한 줄이면 된다.
+  둘 다 댓글이 달리면 「커스텀 apk」방이 구독으로 즉시 받는다. 그쪽 방에 「PR #1/#2 읽고 댓글로 답해」한 줄이면 된다.
 - 왜 다른 길이 막혔나: 세션 이름/ID 전송은 Cowork 방이 목록에 안 뜸, Routine 주입은
   「그 방은 자기 컴퓨터에 묶인 작업만 받는다」고 거부, 프로젝트 채팅엔 주소가 없음.
 
