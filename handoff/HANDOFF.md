@@ -39,7 +39,8 @@
 - **PocketCore 앱**(패치 포팅 프로젝트 쪽, 별도 저장소 — native.c·framegen.c·Java): 사무쇼2는 `libretro_ss2.so`, 나머지는 svc 코어.
   그쪽 PR #1(feat/framegen-art → main, 시험판 APK 자동 빌드 `build-test-apk.yml` → 릴리즈 태그 `fgtest`)이 그쪽 창구.
   이쪽 PR #2(계약 문서, 아직 열림)·**PR #3(jniLibs 의 libretro_ss2.so 세 ABI 를 main ce62f19 빌드로 교체) — 10/9 22:56Z 병합됨(42e4b8b)**.
-  병합 푸시로 Actions 가 시험판을 다시 구웠다(run 38001872431 성공) → 릴리즈 `fgtest` 의
+  병합 뒤 그쪽이 9a4288c(설정 화면에 코어 옵션 ngp_framegen 자동/켬/끔·ngp_framegen_mode 예측/보간 노출)를 더 올렸고
+  Actions 가 시험판을 다시 구웠다(run 38002186680 성공, 23:01Z) → 릴리즈 `fgtest` 의
   https://github.com/rmdkdkr-png/PocketCore/releases/download/fgtest/PocketCore-fgtest.apk 가 코어 4e225a0 을 담고 있다
   (패키지 com.dudu.pocketcore.fgtest, 정식판과 나란히 설치, 디버그 서명). 폴드6 실기 확인은 이 APK 로.
   PR #1 의 지적(차단이 영구)으로 코어가 83c909f·a7e6585·4e225a0 으로 바뀌었다.
