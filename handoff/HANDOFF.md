@@ -20,7 +20,7 @@
 
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
-| `ss2-sp-core` | **`framegen`** (main 에서 가지) | ee87648 (소스 a11e3ad·5a8000d·a8499f6, 코어 5종 재빌드 포함) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | ee87648 (소스 a11e3ad·5a8000d·a8499f6, 코어 5종 재빌드 포함) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
 | `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | 6f77174 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
@@ -33,7 +33,13 @@
 - RetroArch 쪽: 안정판엔 「Screen Resolution」120Hz 모드 항목이 없다(2026-09-26 이후 nightly). 안정판이면
   Threaded Video 끄고 Vertical Refresh Rate 120 을 직접. 삼성 게임 부스터가 60Hz 로 묶을 수 있다.
 - 앱 쪽: 「프레임 타이밍 옵션 → 화면 주사율 덮어쓰기 = 120Hz」로 둬야 빈 슬롯이 생긴다(기본은 60Hz 요청).
-- 코어 `framegen` → main 병합은 유저 확인 뒤(svc-core 와의 관계도 함께 정리).
+- 코어 `framegen` → **main 에 병합 완료**(fast-forward, 충돌 0). **svc-core 에는 합치지 않는다** — svc-core 는 main 과 원래
+  갈라져 있어(+124/-49) 시험 병합 시 13개 파일 충돌(svcsp.c·svcsp_moves.h·ss2sp.patch·SVC_MEMO.md 등, framegen 탓 아님).
+  svc-core 에 프레임 생성이 필요하면 main 과 먼저 맞추거나 ss2fg.c + gfx.c·mem.c·system.c·sound.cpp 의 캡처 지점만 직접 이식.
+- **PocketCore 앱**(패치 포팅 프로젝트 쪽, 별도 저장소 — native.c·framegen.c·Java): 사무쇼2는 `libretro_ss2.so`, 나머지는 svc 코어.
+  코어가 120.5 를 선언하면 앱의 픽셀 보간은 저절로 꺼져 이중 보간은 없다. 단 PocketCore 는 GET_TARGET_REFRESH_RATE 에
+  답하지 않아 코어 옵션 「자동」이 안 켜진다 → 코어 옵션을 「켬」으로 두거나 앱이 실측 주사율로 답하게 고친다(그쪽이 몇 줄이면 된다고 함).
+  역할 분담: 사무쇼2 = 코어 방식(레지스터 보간·예측 지연 0), 그 외 게임 = 앱의 픽셀 보간.
 - 이 방의 빌드 환경: NDK r27(코어), 앱은 `emu-ex-plus-alpha/BUILD.md` 그대로(NDK r30-beta1, CMake 4.3.4).
   `makeAll-android-arm64.sh` 만 돌리면 `android.sh config` 가 armv7 SDK 를 못 찾아 죽는다 — **전 ABI
   `makeAll-android.sh`** 를 돌려야 한다.
