@@ -268,20 +268,47 @@ claude
 
 ---
 
-## 9-1. 이 방을 로컬로 — 두 방이 같은 PC 에서 서로 연락하게 (2026-10-09)
+## 9-1. 두 방이 직접 연락하기 — 되는 길과 안 되는 길 (2026-10-09, 문서 확인)
 
-클라우드 방(「커스텀 apk」)은 선생님 PC 에 닿지 못한다. 그래서 같은 계정의 다른 방
-(PocketCore 를 만지는 「패치 포팅」프로젝트의 Cowork 방 — Claude Desktop 윈도우에 묶여 있음)에
-직접 메시지를 못 보낸다. 방끼리 직접 연락하려면 **두 방이 같은 PC 에 묶여 있어야** 한다.
+### 왜 데스크톱 앱에서 열어도 안 되나
+- 「커스텀 apk」방은 **클라우드 VM 에서 돈다.** 데스크톱 앱이나 브라우저는 그 방을 보는 창일 뿐이라,
+  앱에서 열어도 방이 PC 로 옮겨 오지 않는다 (앱을 닫거나 PC 를 꺼도 방은 계속 돈다).
+  기존 클라우드 방을 PC 로 옮기는 기능은 없다 (`claude --teleport` 는 복사본을 터미널에 만드는 것).
+- 방끼리 직접 메시지(ListAgents / SendMessage)는 **같은 기계에서 도는 방끼리**가 기본이다.
+  컨테이너 ↔ 호스트, WSL ↔ 네이티브 윈도우도 서로 못 본다. 그래서 클라우드 방에서는
+  PC 의 방이 「연락 가능한 방 없음」으로 나온다.
+- 다른 기계·클라우드 방과의 메시지는 **Remote Control 에 연결된 방**에서만 목록에 뜬다
+  (문서: cross-session-messaging). 즉 PC 쪽 방이 Remote Control 을 켜면 클라우드 방을 보고 메시지를 보낼 수 있다.
+- 「패치 포팅」방은 Claude Desktop **Cowork 탭** 방이다. Cowork 방은 문서상 peer 목록 대상이 아니다
+  (목록 대상: 서브에이전트·팀메이트·로컬 Code 세션·클라우드 세션·Remote Control 세션).
 
-### 하는 법 (윈도우)
-1. PocketCore 방이 묶인 그 윈도우 PC 에서 **Claude Desktop** 을 연다.
-2. 거기서 **「커스텀 apk」방(Code)** 을 연다 → 이 방이 그 PC 에 연결된다.
-   (대안: 그 PC 터미널에서 작업 폴더로 가 `claude remote-control` 을 치면 그 폴더의 방이 앱에 뜬다.)
-3. 그 상태에서 이 방에 「열었다」고 말하면, 방이 연락 목록(같은 PC 의 방들)을 다시 보고
-   PocketCore 방에 바로 메시지를 보낸다.
+### 되는 길 (문서로 확인된 것)
+**A. PC 에 Code 탭 로컬 방을 하나 만들고 Remote Control 을 켠다 → 이 방(클라우드)에 직접 메시지 가능**
+1. 그 윈도우 PC 의 Claude Desktop → 위 가운데 **Code** 탭 → `+ New session` (Ctrl+N).
+2. 입력창의 환경 드롭다운을 **Local** 로, `Select folder` 로 `CustumApKS` 클론 폴더 선택
+   (없으면 아래 「저장소 넷」으로 받는다).
+3. 툴바의 노트북 아이콘(Remote Control 스위치)을 켜거나 `/remote-control` 입력.
+   (설정 > Claude Code > 「새 세션을 Remote Control 에 연결」을 켜 두면 매번 안 눌러도 된다.)
+4. 첫 메시지로 `HANDOFF.md` 0절의 첫 마디를 붙여넣는다. 그 방에서 `/list-agents` 를 치면
+   클라우드 방 「커스텀 apk」(`custumapks-a4`)가 떠야 하고, 거기로 메시지를 보내면 이 방이 받는다.
+- 요구: 네이티브 윈도우는 Claude Code 2.1.234 이상(데스크톱 앱은 자체 번들 — `/status` 로 확인,
+  Help > Check for Updates 로 갱신). Pro/Max/Team/Enterprise 플랜. Remote Control 은 Trusted Devices 가
+  켜진 계정이면 기기 등록이 먼저 필요할 수 있다.
+- 터미널 대안: PC 터미널에서 `cd CustumApKS && claude remote-control` (서버 모드, 그 창에서는 타이핑 못 함;
+  claude.ai/code 와 폰 앱 목록에 PC 아이콘으로 뜬다). 대화형으로 쓰려면 `claude --remote-control "커스텀 apk 로컬"`.
 
-### 그 전까지의 통로
+**B. 「패치 포팅」방을 Cowork 가 아니라 Code 탭 로컬 방으로 옮기면 A 와 같은 길로 이 방과 직통**
+- Cowork 의 Dispatch 로 Code 탭 세션을 만들거나, Code 탭에서 Local + PocketCore 폴더로 새 방을 열고
+  Remote Control 을 켠다. 그 방이 이 방에 먼저 메시지를 보내면 이 방은 답장할 수 있다.
+
+**C. 한 줄 전달 — PC 터미널에서 클라우드 방으로**
+```sh
+claude auth login                      # 처음 한 번, claude.ai 계정으로
+claude -p "전할 말" --cloud session_01GDwDYMfa1F3dPZy4FHQ2Nc
+```
+- 이 방에 사용자 메시지로 들어온다. 조직 설정 `allow_remote_sessions` 가 켜져 있어야 한다.
+
+### 그 전까지의 통로 (지금 열려 있음)
 - **PocketCore PR #2** (https://github.com/rmdkdkr-png/PocketCore/pull/2) — 코어 쪽 계약 문서를 담은 PR.
   댓글이 달리면 「커스텀 apk」방이 구독으로 즉시 받는다. 그쪽 방에 「PR #2 읽고 댓글로 답해」한 줄이면 된다.
 - 왜 다른 길이 막혔나: 세션 이름/ID 전송은 Cowork 방이 목록에 안 뜸, Routine 주입은

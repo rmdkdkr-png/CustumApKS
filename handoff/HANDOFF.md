@@ -54,6 +54,7 @@
 > CustumApKS, PocketCore)를 받고 `CustumApKS/handoff/HANDOFF.md` 와 `LOCAL_SETUP.md` 를 먼저 읽어라.
 > 롬과 세이브스테이트는 내가 따로 갖고 있다. 저장소에는 절대 넣지 마라.
 > PocketCore 를 만지는 다른 방과는 PocketCore PR #2 댓글로 주고받는다(LOCAL_SETUP 9-1).
+> 네가 PC 의 로컬 방이면 Remote Control 을 켜고 `/list-agents` 로 클라우드 방 「커스텀 apk」를 찾아 직접 말해도 된다.
 
 ---
 
