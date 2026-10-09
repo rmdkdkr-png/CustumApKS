@@ -38,7 +38,10 @@
   svc-core 에 프레임 생성이 필요하면 main 과 먼저 맞추거나 ss2fg.c + gfx.c·mem.c·system.c·sound.cpp 의 캡처 지점만 직접 이식.
 - **PocketCore 앱**(패치 포팅 프로젝트 쪽, 별도 저장소 — native.c·framegen.c·Java): 사무쇼2는 `libretro_ss2.so`, 나머지는 svc 코어.
   그쪽 PR #1(feat/framegen-art → main, 시험판 APK 자동 빌드 `build-test-apk.yml` → 릴리즈 태그 `fgtest`)이 그쪽 창구.
-  이쪽 PR #2(계약 문서)·PR #3(jniLibs 의 libretro_ss2.so 세 ABI 를 main ce62f19 빌드로 교체) — 병합은 그쪽 판단.
+  이쪽 PR #2(계약 문서, 아직 열림)·**PR #3(jniLibs 의 libretro_ss2.so 세 ABI 를 main ce62f19 빌드로 교체) — 10/9 22:56Z 병합됨(42e4b8b)**.
+  병합 푸시로 Actions 가 시험판을 다시 구웠다(run 38001872431 성공) → 릴리즈 `fgtest` 의
+  https://github.com/rmdkdkr-png/PocketCore/releases/download/fgtest/PocketCore-fgtest.apk 가 코어 4e225a0 을 담고 있다
+  (패키지 com.dudu.pocketcore.fgtest, 정식판과 나란히 설치, 디버그 서명). 폴드6 실기 확인은 이 APK 로.
   PR #1 의 지적(차단이 영구)으로 코어가 83c909f·a7e6585·4e225a0 으로 바뀌었다.
   코어가 120.5 를 선언하면 앱의 픽셀 보간은 저절로 꺼져 이중 보간은 없다. 단 PocketCore 는 GET_TARGET_REFRESH_RATE 에
   답하지 않아 코어 옵션 「자동」이 안 켜진다 → 코어 옵션을 「켬」으로 두거나 앱이 실측 주사율로 답하게 고친다(그쪽이 몇 줄이면 된다고 함).
