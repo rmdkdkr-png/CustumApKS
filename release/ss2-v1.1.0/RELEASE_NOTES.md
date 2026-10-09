@@ -22,7 +22,7 @@
 안드로이드 120Hz 설정 절차(Threaded Video 끄기 · Vertical Refresh Rate 120 · 런어헤드 끄기)가 있습니다.
 
 ## 판올림
-- versionName `1.5.85-SS2-1.1.0` · versionCode 16010593 · 앱 소스 가지 `framegen` (0338640)
+- versionName `1.5.85-SS2-1.1.0` · versionCode 16010593 · 앱 소스 가지 `framegen` (6f77174)
 - 전체 이력: `handoff/CHANGELOG.md`
 
 ## 설치
