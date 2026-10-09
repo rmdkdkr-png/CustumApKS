@@ -317,6 +317,10 @@ claude -p "전할 말" --cloud session_01GDwDYMfa1F3dPZy4FHQ2Nc
 - **클라우드 방 → PC 방**: 직접 SendMessage 는 「클라우드 세션은 아직 다른 세션에 메시지를 못 보낸다」로 막힌다.
   대신 PC 방을 향한 **Routine**(trig_01JKUSaxBhNUoC4R265rKz8C, 일정 없음)을 `fire_trigger` 의 text 로 쏘면 그 방에
   사용자 메시지로 들어간다. Routine 의 저장된 프롬프트는 만든 뒤 못 고치니 범용 머리말로 만들어 두었다.
+  **주의**: PC 방이 한 턴을 끝내고 idle 이 된 뒤에 쏘면 그 방에 안 들어가고 **클라우드에 새 세션을 만든다**
+  (16:53 에 한 번 그렇게 됐고, 그 세션은 바로 보관 처리). 그래서 Routine 은 꺼 두었다(enabled=false) —
+  PC 방이 돌고 있을 때만 켜서 쏘고 다시 끈다. idle 인 PC 방을 깨우는 확실한 길은 데스크톱 앱에서 그 방에
+  직접 한 줄 치는 것.
 - **「패치 포팅」방(Cowork)은 PC 방 목록에도 없다.** 세션 id 로 보내도 「No agent named … is reachable」.
   Cowork 방과는 글(PR 댓글)로만 — 그쪽이 먼저 연 **PocketCore PR #1** 이 그 방의 창구, 이쪽이 연 **PR #2** 가 이쪽 창구.
   둘 다 「커스텀 apk」방이 구독 중이다.
