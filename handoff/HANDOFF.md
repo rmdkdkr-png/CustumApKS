@@ -20,8 +20,8 @@
 
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
-| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | ce62f19 (소스 a11e3ad·5a8000d·a8499f6·83c909f·a7e6585·4e225a0, 코어 5종 재빌드 포함; 10/9 저녁 호출 속도 차단을 10·20·40초 재시도로, 복원은 옵션 값 변경 때만) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
-| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | 6f77174 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
+| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | 72f6d23 (소스 …·4e225a0·7611a59, 코어 5종 재빌드 포함; 10/10 포즈 교대 프레임 깨짐 수정 — 타일 그림까지 같아야 이동) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | bcfaaf7 (엔진 사본 갱신, APK 는 1.1.0 그대로 — 재빌드 필요) | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
 - 방식: 픽셀을 섞지 않는다. K2GE 스프라이트표·스크롤 레지스터를 스캔라인별로 캡처해 위치만 반 옮긴
@@ -44,6 +44,9 @@
   https://github.com/rmdkdkr-png/PocketCore/releases/download/fgtest/PocketCore-fgtest.apk 가 코어 4e225a0 을 담고 있다
   (패키지 com.dudu.pocketcore.fgtest, 정식판과 나란히 설치, 디버그 서명). 폴드6 실기 확인은 이 APK 로.
   PR #1 의 지적(차단이 영구)으로 코어가 83c909f·a7e6585·4e225a0 으로 바뀌었다.
+  10/10 실기 보고(뉴트럴 깨짐) → 롬으로 재현, 원인은 포즈 교대 때 같은 타일 번호에 새 그림을 올려 쓰는 것 → 7611a59/72f6d23,
+  **PR #4**(custumapk/core-so-pose, jniLibs 교체) 로 제안. 롬 하네스 `ss2-sp-core/tools/harness/fgrom.c`(대전까지 가는 입력:
+  S@300 → D@650·D@720(VS) 또는 A@700(1P) → A@1100 → A@1500 → A@1900(능력 창 메시지) → 프롬프트에서 R·A(しない)).
   코어가 120.5 를 선언하면 앱의 픽셀 보간은 저절로 꺼져 이중 보간은 없다. 단 PocketCore 는 GET_TARGET_REFRESH_RATE 에
   답하지 않아 코어 옵션 「자동」이 안 켜진다 → 코어 옵션을 「켬」으로 두거나 앱이 실측 주사율로 답하게 고친다(그쪽이 몇 줄이면 된다고 함).
   역할 분담: 사무쇼2 = 코어 방식(레지스터 보간·예측 지연 0), 그 외 게임 = 앱의 픽셀 보간.
