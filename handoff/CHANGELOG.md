@@ -15,7 +15,7 @@
   눈으로 확인. fgtest 1603(시험 11 — 몸 위치 8건), fgsmoke 110. 기준 프레임 대조 지표는 올라가지만(지금 포즈를 궤적대로
   옮기면 기준 프레임엔 없는 자리) 흩어짐은 없다.
 - 앱: ss2fg_set_ram(사무쇼2 롬이면 CPUExRAM) 한 줄 + 엔진 동기화. 1.5.85-SS2-1.1.7 (16010600) →
-  `release/ss2-v1.1.7/NGPcustumSP-v1.1.7.apk` (sha256 APKSHA8…). **1.1.1~1.1.6 대체.**
+  `release/ss2-v1.1.7/NGPcustumSP-v1.1.7.apk` (sha256 1324456f…). **1.1.1~1.1.6 대체.**
 - 코어 ss2-sp-core main 3248c72(소스 ff353cf). PocketCore PR #4 dbe5906, PR #2 문서, PR #1 에 설명.
 
 ## SS2-1.1.6 (2026-10-10) — 4배 게임 박자 맞춤 (앱 APK + 코어 d4061eb)
