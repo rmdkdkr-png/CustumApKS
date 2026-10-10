@@ -317,10 +317,14 @@ claude -p "전할 말" --cloud session_01GDwDYMfa1F3dPZy4FHQ2Nc
 - **클라우드 방 → PC 방**: 직접 SendMessage 는 「클라우드 세션은 아직 다른 세션에 메시지를 못 보낸다」로 막힌다.
   대신 PC 방을 향한 **Routine**(trig_01JKUSaxBhNUoC4R265rKz8C, 일정 없음)을 `fire_trigger` 의 text 로 쏘면 그 방에
   사용자 메시지로 들어간다. Routine 의 저장된 프롬프트는 만든 뒤 못 고치니 범용 머리말로 만들어 두었다.
-  **주의**: PC 방이 한 턴을 끝내고 idle 이 된 뒤에 쏘면 그 방에 안 들어가고 **클라우드에 새 세션을 만든다**
-  (16:53 에 한 번 그렇게 됐고, 그 세션은 바로 보관 처리). 그래서 Routine 은 꺼 두었다(enabled=false) —
-  PC 방이 돌고 있을 때만 켜서 쏘고 다시 끈다. idle 인 PC 방을 깨우는 확실한 길은 데스크톱 앱에서 그 방에
-  직접 한 줄 치는 것.
+  **결론(10/10): 이 Routine 경로는 쓰지 마라.** PC 방이 idle 이든 활성이든 두 번 다 PC 방에 안 들어가고
+  **클라우드에 새 세션을 만들었다**(16:53, 00:53 — 둘 다 바로 보관 처리). 처음 한 번만 우연히 들어갔다.
+  Routine 은 꺼 두었다(enabled=false). 클라우드 → PC 방으로 말을 넣는 확실한 길은 **유저가 데스크톱 앱에서
+  그 방에 직접 한 줄 치는 것**뿐이다.
+- **PC → 다른 클라우드 방 (「패치 포팅」포함) 은 된다**: PC 에서 `claude.exe auth login` 한 번 뒤, 유저 터미널 탭에서
+  `claude -p "<ASCII 메시지>" --cloud session_01Usb1eWNdvYnJsJGY9YGGbb` → 「Sent to cloud session.」(그 방에 사용자
+  메시지로 들어감). PC 방의 Bash 에서는 권한 분류기가 막아 유저 터미널 승인이 필요하고, 그 탭은 ASCII 만 받는다.
+  10/10 00:50 에 PC 방이 이 길로 「패치 포팅」방에 첫 메시지를 넣었다(내용은 당시 상태 ee87648·PR #2 — 최신은 PR #1·#4 참고).
 - **「패치 포팅」방(Cowork)은 PC 방 목록에도 없다.** 세션 id 로 보내도 「No agent named … is reachable」.
   Cowork 방과는 글(PR 댓글)로만 — 그쪽이 먼저 연 **PocketCore PR #1** 이 그 방의 창구, 이쪽이 연 **PR #2** 가 이쪽 창구.
   둘 다 「커스텀 apk」방이 구독 중이다.
