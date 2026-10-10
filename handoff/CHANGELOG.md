@@ -4,6 +4,20 @@
 앱 versionName `1.5.85-SS2-x.y.z`, versionCode 는 16010590부터 릴리즈마다 +1.
 같은 엔진(`ss2comm.c`)이 코어(libretro)·앱(NGP.emu)·브라우저(runner)에 그대로 들어간다.
 
+## SS2-1.1.9 (2026-10-10) — 런어헤드 (앱 APK + 코어 0fcad2b)
+
+- 「패치 포팅」방 50_runahead.patch(3dad0bf): 사무쇼2 입력 반영이 2~3프레임 뒤라, 실제 N 뒤 N+1·N+2 를 숨겨 돌리고 N+2 그림을
+  보여 준다(4배와 같이 돌 때는 시간줄을 앞당김: 예측 4배 N+1~N+4, 반반 N+1~N+3). 코어 옵션 ngp_runahead 2/1/0. 사무쇼2 롬에서만,
+  링크 플레이·2배 중엔 끔. 숨은 프레임 돌리기(fg_snap_save/fg_hidden/fg_snap_load)를 4배·반반·런어헤드 공용으로. main 에 들임.
+  그쪽 패치는 ss2comm_rom_is_ss2 를 선언보다 위에서 써 NDK clang 에서 컴파일이 깨졌고(그쪽 CI core-ss2 실패 → PR #1 에 원인·한 줄
+  수정 안내) main 에서는 선언을 위에 두었다.
+- 검증: 롬 400프레임 뒤 직렬화 상태가 런어헤드 2/0 에서 바이트 동일, off 기준 대조(FGROM_RA=2 로 번호 오프셋) 런어헤드 없을 때와
+  같은 수준. fgsmoke 110(합성 롬은 사무쇼2가 아니라 런어헤드 경로 안 돎).
+- 앱: ss2SnapSave/ss2Hidden/ss2SnapLoad 공용 + ss2Predict4(ra)·ss2RaPlain(ra), 커밋 미루기를 런어헤드에도, 실제 프레임 번호
+  ss2FrameNo 로 빈 슬롯 판정. 설정 「런어헤드」 2/1/0(CFGKEY 284). 1.5.85-SS2-1.1.9 (16010602) →
+  `release/ss2-v1.1.9/NGPcustumSP-v1.1.9.apk` (sha256 4e265c33…). **1.1.1~1.1.8 대체.**
+- 코어 ss2-sp-core main 0fcad2b(소스 d07a3c3). PocketCore PR #4 c3350c2, PR #2 문서, PR #1 에 설명.
+
 ## SS2-1.1.8 (2026-10-10) — RAM 물체 표로 그림자·이펙트 빈칸 (앱 APK + 코어 405cbd7)
 
 - 「패치 포팅」방 40_ss2fg_objects.patch(7a70504): 몸 위치를 물체 표 8칸(0x0E00+0x40·k: +0x36 종류, +0x38 X, +0x3A Y; 0·1 몸,
