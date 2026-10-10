@@ -4,6 +4,19 @@
 앱 versionName `1.5.85-SS2-x.y.z`, versionCode 는 16010590부터 릴리즈마다 +1.
 같은 엔진(`ss2comm.c`)이 코어(libretro)·앱(NGP.emu)·브라우저(runner)에 그대로 들어간다.
 
+## SS2-1.1.6 (2026-10-10) — 4배 게임 박자 맞춤 (앱 APK + 코어 d4061eb)
+
+- 「패치 포팅」방 패치 20_ss2fg_4x.patch(023a638, Legacito 시험판): 사무쇼2는 스프라이트를 짝수 프레임에만, 배경 스크롤을 홀수
+  프레임에만 움직인다(제 롬 덤프 600프레임: 224:0, 23:2 로 확인). 2배는 새 그림 사이 빈칸 셋 중 하나만 채움 → 예측 방식에서
+  N+1·N+2 를 미리 돌려 스프라이트·스크롤 각각 K(다음 바뀜)·L(지난 바뀜)을 찾아 L~K 를 고르게 나눠 τ=N(실제 호출의 그림도
+  옮김)·τ=N+½ 두 장. 코어 옵션 ngp_framegen_mult 4/2. main 에 그대로 들임(ss2fg_hist 링 6장, ss2fg_motion, ss2fg_render2).
+- 검증: fgsmoke 110(결정성 predict×4·×2), fgtest 1593(render2·motion·hist), 롬 off 기준 프레임 대조(FGROM_REF 신설) 4배 합성
+  지표 2배와 같은 수준, 점프 머리 72→70→69→68, 흩어짐 없음. 하네스 fgrom 에 FGROM_MULT·FGROM_REF·FGROM_DUMPALL.
+- 앱: 같은 절차(ss2Predict4). 실제 프레임 커밋을 Emulate 뒤로 미뤄(ss2FgCommitPending) τ=N 을 표면에 덮어 그리고 τ=N+½ 은
+  보관해 빈 슬롯(interFrame)에 올린다. 빈 슬롯이 최근 2프레임 안에 왔을 때만 4배(60Hz 화면이면 날것). 설정 「프레임 생성 배수」
+  (CFGKEY 283). 1.5.85-SS2-1.1.6 (16010599) → `release/ss2-v1.1.6/NGPcustumSP-v1.1.6.apk` (sha256 aa6d6ba8…). **1.1.1~1.1.5 대체.**
+- 코어 ss2-sp-core main d4061eb(소스 0291f1e). PocketCore PR #4 42fdb64, PR #2 문서, PR #1 에 설명 + Legacito 를 main 으로 요청.
+
 ## SS2-1.1.5 (2026-10-10) — 겉모습 짝짓기 (앱 APK + 코어 52df3e7)
 
 - 「패치 포팅」방 패치 3판(b38e05d, Legacito 0.8): 조각을 슬롯 번호 대신 겉모습으로 짝지어 몸 이동을 잰다 → 규칙을 main 에
