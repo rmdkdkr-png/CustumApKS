@@ -19,7 +19,7 @@
 프레임 타이밍 옵션 → 화면 주사율 덮어쓰기 = 120Hz, 시스템 옵션 → 프레임 생성 켬.
 
 ## 같은 수정이 들어간 코어
-libretro 코어(RetroArch·PocketCore·Legacito용): ss2-sp-core main d4061eb (`cores/` 다섯 종, 스탬프 0291f1e, 옵션 `ngp_framegen_mult`). PocketCore PR #4 (42fdb64).
+libretro 코어(RetroArch·PocketCore·Legacito용): ss2-sp-core main b7c4827 (`cores/` 다섯 종, 스탬프 1d00100, 옵션 `ngp_framegen_mult`; 보간 방식 4배 「반반」 포함). PocketCore PR #4 (183c807).
 
 ## 저작권
 롬·세이브·SNK 그림은 들어 있지 않습니다. 롬은 본인 소유 카트리지에서 덤프한 것을 쓰십시오.
