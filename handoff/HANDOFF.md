@@ -21,7 +21,7 @@
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
 | `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | 72f6d23 (소스 …·4e225a0·7611a59, 코어 5종 재빌드 포함; 10/10 포즈 교대 프레임 깨짐 수정 — 타일 그림까지 같아야 이동) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
-| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | bcfaaf7 (엔진 사본 갱신, APK 는 1.1.0 그대로 — 재빌드 필요) | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
+| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | 8e12fe7 (엔진 사본 갱신 + 1.5.85-SS2-1.1.1 → `release/ss2-v1.1.1/`) | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
 - 방식: 픽셀을 섞지 않는다. K2GE 스프라이트표·스크롤 레지스터를 스캔라인별로 캡처해 위치만 반 옮긴
