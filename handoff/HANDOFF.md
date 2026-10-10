@@ -20,8 +20,8 @@
 
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
-| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | eb33a4c (소스 …·9ebc4fa·3bd38c4, 코어 5종 재빌드 포함; 10/10 포즈 교대 수정 — 타일 그림 동일성 + 무리 강체 + 자리 겹침 검증) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
-| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | (framegen HEAD) 1.5.85-SS2-1.1.4 → `release/ss2-v1.1.4/`; 1.1.1~1.1.3 대체됨 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
+| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | 52df3e7 (소스 …·3bd38c4·1671785, 코어 5종 재빌드 포함; 10/10 포즈 교대 수정 — 타일 그림 동일성 + 무리 강체 + 자리 겹침 검증 + 겉모습 짝짓기) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | (framegen HEAD) 1.5.85-SS2-1.1.5 → `release/ss2-v1.1.5/`; 1.1.1~1.1.4 대체됨 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
 - 방식: 픽셀을 섞지 않는다. K2GE 스프라이트표·스크롤 레지스터를 스캔라인별로 캡처해 위치만 반 옮긴
@@ -45,7 +45,7 @@
   (패키지 com.dudu.pocketcore.fgtest, 정식판과 나란히 설치, 디버그 서명). 폴드6 실기 확인은 이 APK 로.
   PR #1 의 지적(차단이 영구)으로 코어가 83c909f·a7e6585·4e225a0 으로 바뀌었다.
   10/10 실기 보고(뉴트럴 깨짐) → 롬으로 재현, 원인은 포즈 교대 때 같은 타일 번호에 새 그림을 올려 쓰는 것 → 7611a59/72f6d23,
-  **PR #4**(custumapk/core-so-pose, jniLibs 교체; 217d897 = base 병합 + eb33a4c 코어) 로 제안.
+  **PR #4**(custumapk/core-so-pose, jniLibs 교체; a8b4d74 = 52df3e7 코어, 겉모습 짝짓기) 로 제안.
   그쪽은 옛 서명 키를 잃어 후속 앱 **Legacito**(com.dudu.legacito, 6b7c9da~)로 갈아타는 중이며, 0.6(6142e15)은 자기 패치
   코어(1cb33c9+ss2fg_consensus.patch)를 동봉 — PR #1 에 main 코어로 바꾸라고 요청해 둠(묶음 규칙은 main 에 흡수). 롬 하네스 `ss2-sp-core/tools/harness/fgrom.c`(대전까지 가는 입력:
   S@300 → D@650·D@720(VS) 또는 A@700(1P) → A@1100 → A@1500 → A@1900(능력 창 메시지) → 프롬프트에서 R·A(しない)).
