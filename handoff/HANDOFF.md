@@ -45,7 +45,7 @@
   (패키지 com.dudu.pocketcore.fgtest, 정식판과 나란히 설치, 디버그 서명). 폴드6 실기 확인은 이 APK 로.
   PR #1 의 지적(차단이 영구)으로 코어가 83c909f·a7e6585·4e225a0 으로 바뀌었다.
   10/10 실기 보고(뉴트럴 깨짐) → 롬으로 재현, 원인은 포즈 교대 때 같은 타일 번호에 새 그림을 올려 쓰는 것 → 7611a59/72f6d23,
-  **PR #4**(custumapk/core-so-pose, jniLibs 교체; a8b4d74 = 52df3e7 코어, 겉모습 짝짓기) 로 제안.
+  **PR #4**(custumapk/core-so-pose, jniLibs 교체; a8b4d74+6c10c0e = 52df3e7 코어, 겉모습 짝짓기) 로 제안.
   그쪽은 옛 서명 키를 잃어 후속 앱 **Legacito**(com.dudu.legacito, 6b7c9da~)로 갈아타는 중이며, 0.6(6142e15)은 자기 패치
   코어(1cb33c9+ss2fg_consensus.patch)를 동봉 — PR #1 에 main 코어로 바꾸라고 요청해 둠(묶음 규칙은 main 에 흡수). 롬 하네스 `ss2-sp-core/tools/harness/fgrom.c`(대전까지 가는 입력:
   S@300 → D@650·D@720(VS) 또는 A@700(1P) → A@1100 → A@1500 → A@1900(능력 창 메시지) → 프롬프트에서 R·A(しない)).
