@@ -4,6 +4,26 @@
 앱 versionName `1.5.85-SS2-x.y.z`, versionCode 는 16010590부터 릴리즈마다 +1.
 같은 엔진(`ss2comm.c`)이 코어(libretro)·앱(NGP.emu)·브라우저(runner)에 그대로 들어간다.
 
+## SS2-1.1.17 (2026-10-11) — 동작 사이 그림: 모션 캐시 ss2_motion.bin (앱 APK + 코어 ef6569e)
+
+- 「패치 포팅」방 97_ss2fg_motion_cache.patch(d819453)·98_ss2fg_motion_moving.patch(09c005a), 유저 「전 모션 … 바로바로 어려우면 캐시
+  만들어서」: 미리 돌린 D+1·D+2 에서 몸 포즈가 바뀌면 <시스템 폴더>/ss2_motion.bin 의 (A→B)로 바뀌기 전 마지막 2프레임(출력 4장)에
+  ¼·½·¾. 캐시엔 그림 없이 1배 칸마다 «A/B 어느 쪽 + 이동»(zlib) — 색은 지금 프레임. 서기(배운 되풀이)가 먼저. 98: 움직이는 몸도
+  (조각 자리 = D 의 몸 자리 + 조각 옮김). 옵션 ngp_framegen_motion(코어 기본 off / cache). main 에 들임(942d9c4·08a9888) — 97 은
+  id_req_t·헤더 덩이 수동, 98 그대로. **그쪽 버그 고침**: ss2fg_motion_open 미초기화 free(n 터무니없음 → malloc 전 빠져나오며 free(ib)).
+- -lz 링크: NDK libz / 리눅스 x86_64 libz.so.1 / aarch64·윈도우는 정적 zlib 1.3.1(이 컨테이너 /usr/<triple> 에 설치, 소스 scratchpad/zlib-src).
+- 검증(대전 1200, 런어헤드 2): 끔·캐시(파일 없음)·빈 캐시 출력 해시(새 요약 `hash`) 직전 코어와 동일(2c2e0e6560b15646), 서기 끔 동일.
+  가짜 캐시(tools/harness/motion_fake.py — FGROM_MOTION_LOG 로 적은 바뀜·포즈 틀에서 identity/cut/empty): identity 169 바뀜·찾음 226·
+  조각 683·틀 안 맞음 0, 캐시 없을 때와 2399장 중 19장 다름(12장 = 몸 위를 지나던 상대 무기가 몸에 덮임 — 몸 단위 first 근사, 그쪽에
+  화소마다 슬롯 제안; 7장 = B 조기 기억으로 서기 길 4곳 추가). cut: B 가 1프레임 먼저 통째로, 대시·점프도 흩어짐 없음. fgsmoke 137
+  (검사 12 추가), fgtest 1635. 계기 retro_ngp_motion_stats / motion_miss / idle_pose_info.
+- 진짜 캐시(RIFE)와 생성기 tools/motion_cache.py 는 그쪽 브랜치에 아직 없음 — 파일이 오면 하네스로 확인. 그쪽 앱은 legacito-cores.json
+  packs_ext 로 받음(정식 0.9 는 모름).
+- 앱: ss2fg.c 동기화, 「프레임 생성 — 동작 사이 그림」(CFGKEY 288, 기본 캐시), 저장 폴더 → 롬 옆 ss2_motion.bin(ss2fg_motion_open/close),
+  버전 정보에 바뀜 수. 1.5.85-SS2-1.1.17 (16010610) → `release/ss2-v1.1.17/NGPcustumSP-v1.1.17.apk` (sha256 bb0b0af5…). **1.1.1~1.1.16 대체.**
+- 코어 ss2-sp-core main ef6569e(소스 08a9888). PocketCore PR #4 9f9e110(그쪽 7bf926a 동봉 .so 충돌은 main 코어 유지), PR #2 문서
+  a3d682c·0db127b(18·19번), PR #1 댓글(버그·겹침 관찰·캐시 URL 질문).
+
 ## SS2-1.1.16 (2026-10-11) — 서기 자세: 고르기 화면 미리보기 + 사이 그림 버그 3개 (앱 APK + 코어 86599e7)
 
 - 「패치 포팅」방 96_ss2fg_idle_sel.patch(3b3d46f), 유저 「여기서는 안 되는 거?」·「대전이랑 같은 애니메이션 나옴」: capture_body 가
