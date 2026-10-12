@@ -6,6 +6,7 @@ ss2-sp-core 코어(.so)를 ctypes 로 직접 돌린다. 프레임 생성은 끈�
   p.run(n) · p.press('A', 8) · p.hold('R') · p.release() · p.peek(0x5A46) · p.poke(0x5C46, 0)
   p.save('x.st') · p.load('x.st') · p.ram() (16KB, 0x4000~0x7FFF) · p.shot('a.png')
   p.log_ram(n) → [bytes, ...] (프레임마다 16KB)
+  lk = Link(core, rom, workdir) — 링크 케이블로 이은 두 대(lk.a = 1P 기기, lk.b = 2P 기기), lk.run(n) 은 번갈아 한 프레임씩
 주소는 CPU 주소(0x4000~0x7FFF)로 받는다 — 코어 SYSTEM_RAM 오프셋 = 주소 − 0x4000.
 버튼: U D L R A B O(Option) — A·B 는 NGPC 버튼 이름 그대로(코어 libretro 매핑 B↔A 를 여기서 바꿈).
 """
@@ -36,10 +37,16 @@ INST_T = C.CFUNCTYPE(C.c_int16, C.c_uint, C.c_uint, C.c_uint, C.c_uint)
 OPTIONS = {b'ngp_framegen': b'off', b'ngp_runahead': b'0', b'ngp_framegen_idle': b'off', b'ngp_framegen_motion': b'off'}
 
 class Probe:
-    def __init__(self, core, rom, workdir):
+    def __init__(self, core, rom, workdir, link=None):
+        """link=(읽을 파이프, 쓸 파이프) 를 주면 코어를 workdir 에 복사해 따로 올린다
+        (같은 경로를 두 번 열면 같은 인스턴스가 와서 램·링크 상태를 나눠 쓴다)."""
         os.makedirs(workdir, exist_ok=True)
         self.workdir = os.path.abspath(workdir).encode()
         self._wd = C.c_char_p(self.workdir)
+        if link:
+            import shutil
+            cp = os.path.join(os.path.abspath(workdir), '_linkcore.so')
+            shutil.copyfile(core, cp); core = cp
         self.lib = C.CDLL(os.path.abspath(core))
         self.mask = 0
         self.frame = 0
@@ -53,7 +60,11 @@ class Probe:
         L.retro_set_environment(self._env); L.retro_set_video_refresh(self._vid)
         L.retro_set_audio_sample(self._aud); L.retro_set_audio_sample_batch(self._audb)
         L.retro_set_input_poll(self._poll); L.retro_set_input_state(self._inst)
+        if link:   # 코어는 retro_init 순간의 환경변수로 파이프를 잡는다
+            os.environ['NGP_LINK_IN'], os.environ['NGP_LINK_OUT'] = link
         L.retro_init()
+        if link:
+            del os.environ['NGP_LINK_IN'], os.environ['NGP_LINK_OUT']
         data = open(rom, 'rb').read()
         self._rom = C.create_string_buffer(data, len(data))
         gi = _GameInfo(os.path.abspath(rom).encode(), C.cast(self._rom, C.c_void_p), len(data), None)
@@ -158,6 +169,29 @@ class Probe:
         def ch(t, d): return struct.pack('>I', len(d)) + t + d + struct.pack('>I', zlib.crc32(t + d) & 0xffffffff)
         open(path, 'wb').write(b'\x89PNG\r\n\x1a\n' + ch(b'IHDR', struct.pack('>IIBBBBB', W * scale, H * scale, 8, 2, 0, 0, 0))
                                + ch(b'IDAT', zlib.compress(b''.join(rows), 6)) + ch(b'IEND', b''))
+
+
+class Link:
+    """링크 케이블로 이은 두 대. 실제 기기처럼 같은 박자로 돌아야 악수가 되므로 한 프레임씩 번갈아 돌린다
+    (ss2-sp-core tools/svc/linkrun.c 와 같은 방식)."""
+    def __init__(self, core, rom, workdir):
+        wd = os.path.abspath(workdir); os.makedirs(wd, exist_ok=True)
+        a2b, b2a = os.path.join(wd, 'a2b.fifo'), os.path.join(wd, 'b2a.fifo')
+        for f in (a2b, b2a):
+            if os.path.exists(f): os.unlink(f)
+            os.mkfifo(f, 0o600)
+        self.a = Probe(core, rom, os.path.join(wd, 'a'), link=(b2a, a2b))
+        self.b = Probe(core, rom, os.path.join(wd, 'b'), link=(a2b, b2a))
+    def run(self, n=1):
+        for _ in range(n):
+            self.a.run(1); self.b.run(1)
+    def press(self, who, btns, frames=6, after=0):
+        """who: 'a' / 'b' / 'ab'(둘 다 같이)"""
+        ps = [getattr(self, w) for w in who]
+        for p in ps: p.hold(*btns)
+        self.run(frames)
+        for p in ps: p.release(*btns)
+        self.run(after)
 
 
 # ── 명령줄: 감시(watch) — ngp_state 의 watch 와 같은 용도 ──
