@@ -26,7 +26,7 @@ class Hub(T.Harness):
             lg.league_vram(self.p.lib.retro_ngp_charram(), self.p.lib.retro_ngp_scrollram())
             lg.league_tick_hub(self.p._ramp, self.p._rams, self.user)
 def hub():
-    v = (C.c_int * 8)(); lg.league_hub_status(v); return list(v)
+    v = (C.c_int * 9)(); lg.league_hub_status(v); return list(v)
 ST = ['꺼짐', '타이틀', '상대 고르기', '내 캐릭터', '경기', '타이틀로']
 fails = 0
 def ok(c, what):
@@ -80,9 +80,12 @@ p.lib.retro_reset(); lg.league_hub_return(-1)
 f = 0
 while f < 1500 and hub()[0] != 1: h.run(1); f += 1
 h.run(20); p.shot(T.work('hub_%s_5_back.png' % tag))
-s = hub(); ok(s[0] == 1 and p.peek(0x624B) == 2 and T.status()[0] == 0, '리셋 뒤 타이틀 메뉴 «리그 대전» 칸으로 돌아옴(%d프레임) · 무장 풀림' % f)
+s = hub(); ok(s[0] == 1 and p.peek(0x624B) == 2 and T.status()[0] == 0 and s[8] == 1, '리셋 뒤 타이틀 메뉴 «리그 대전» 칸으로 돌아옴(%d프레임) · 무장 풀림 · 돌려보낸 횟수 %d' % (f, s[8]))
 # 리그 상대가 없는 캐릭터는 안 골라짐 — 가운데 아수라(8)에서 오른쪽 모로즈미(10)
-h.press('A', 4, 240); s = hub(); ok(s[0] == 2 and p.peek(0x41C0) == 2, '다시 리그 대전 → 상대 고르기')
+h.press('A', 4, 0); f = 0
+while f < 400 and not (p.peek(0x40A7) == 240 and p.peek(0x41C0) == 2): h.run(1); f += 1
+h.press('A', 4, 30); s = hub()                            # 캐릭터 고르기가 뜨자마자 한 번 더(두 번 누름) — 머리말이 바뀌기 전이라 안 골라짐
+ok(s[0] == 2 and p.peek(0x41C0) == 2 and T.status()[0] == 0, '다시 리그 대전 → 상대 고르기 · 뜨자마자 누른 A(머리말 바뀌기 전)는 안 골라짐')
 h.run(30); h.press('R', 4, 30); h.run(10); hv = hub()[1]
 h.press('A', 4, 60); s = hub(); ok(hv == 10 and s[0] == 2 and T.status()[0] == 0 and p.peek(0x41C0) == 2, '리그 상대가 없는 모로즈미(10)에서 A → 안 골라짐(상대 고르기 그대로, 게임도 그대로) [커서 %d · 상태 %d · 무장 %d · SCR %d]' % (hv, s[0], T.status()[0], p.peek(0x41C0)))
 h.press('D', 4, 30); h.press('L', 4, 30); h.run(10); hv = hub()[1]
