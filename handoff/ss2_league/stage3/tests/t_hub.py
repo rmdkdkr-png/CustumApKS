@@ -7,26 +7,33 @@ import os, sys, ctypes as C, hosttest as T
 ROM = sys.argv[1]; tag = os.path.splitext(os.path.basename(ROM))[0]
 lg = T.lg
 lg.league_tick_hub.argtypes = [C.c_void_p, C.c_size_t, C.c_int]
-lg.league_vram.argtypes = [C.c_void_p, C.c_void_p]
+lg.league_vram.argtypes = [C.c_void_p, C.c_void_p, C.c_void_p]
+lg.league_hub_look.argtypes = [C.c_void_p, C.c_int, C.c_int]
 ROSTER = {11: (0, 1), 3: (1, 1), 4: (0, 0), 2: (0, 1), 9: (1, 1), 5: (0, 0), 6: (0, 0), 7: (0, 0), 0: (1, 2), 8: (1, 2), 13: (0, 2), 14: (1, 2)}
 sty = (C.c_byte * 15)(*[ROSTER[c][0] if c in ROSTER else -1 for c in range(15)])
 dif = (C.c_byte * 15)(*[ROSTER[c][1] if c in ROSTER else 1 for c in range(15)])
+HOME = {11: 2, 3: 3, 4: 1, 2: 0, 9: 4, 5: 1, 6: 5, 7: 0, 0: 5, 8: 6, 13: 6, 14: 7}   # League.HOME_STAGE 와 같게(캐릭터 → 기본 배경)
+home = (C.c_byte * 15)(*[HOME.get(c, -1) for c in range(15)])
+STAGE_ID = {0: 0, 1: 6, 2: 2, 3: 5, 4: 4, 5: 10, 6: 12, 7: 13}   # 배경 번호(R_BOUT) → 게임이 고른 배경 id(0x5778, 실측)
+UKYO_SURA = ((0xBDF, 0xE60, 0x500), (0xBBF, 0x40A, 0x005))      # 우쿄 수라 기본 · 2P색(팔레트 0 의 색 1~3)
 
 class Hub(T.Harness):
     def __init__(self, rom, wd):
         super().__init__(rom, wd)
         L = self.p.lib
-        for f in ('retro_ngp_charram', 'retro_ngp_scrollram'): getattr(L, f).restype = C.c_void_p
+        for f in ('retro_ngp_charram', 'retro_ngp_scrollram', 'retro_ngp_palram'): getattr(L, f).restype = C.c_void_p
     def run(self, n=1):
         for _ in range(n):
             on = C.c_int.in_dll(lg, 'league_ovr_on').value
             blk = C.c_int.in_dll(lg, 'league_in_block').value
             self.p.mask = C.c_int.in_dll(lg, 'league_ovr_mask').value if on else (self.user & ~blk)
             self.p.run(1)
-            lg.league_vram(self.p.lib.retro_ngp_charram(), self.p.lib.retro_ngp_scrollram())
+            lg.league_vram(self.p.lib.retro_ngp_charram(), self.p.lib.retro_ngp_scrollram(), self.p.lib.retro_ngp_palram())
             lg.league_tick_hub(self.p._ramp, self.p._rams, self.user)
 def hub():
-    v = (C.c_int * 9)(); lg.league_hub_status(v); return list(v)
+    v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
+def pal0():
+    b = C.string_at(p.lib.retro_ngp_palram(), 8); return tuple(b[2 + j * 2] | (b[3 + j * 2] << 8) for j in range(3))
 ST = ['꺼짐', '타이틀', '상대 고르기', '내 캐릭터', '경기', '타이틀로']
 fails = 0
 def ok(c, what):
@@ -34,7 +41,7 @@ def ok(c, what):
     print(('PASS ' if c else 'FAIL ') + what, flush=True); fails += (not c)
 
 h = Hub(ROM, T.work('hub_' + tag)); p = h.p
-lg.league_hub(1, sty, dif)
+lg.league_hub(1, sty, dif); lg.league_hub_look(home, -1, 0)
 h.run(420); h.press('A', 4, 150)                       # 타이틀 → 메뉴(사람이 누른 A)
 h.press('D', 4, 30); h.press('D', 4, 30)                # 셋째 칸(원래 2인 대전)
 h.run(10); p.shot(T.work('hub_%s_1_menu.png' % tag))
@@ -47,6 +54,9 @@ def hdr_tiles(): return [C.string_at(p.lib.retro_ngp_charram() + t * 16, 16) for
 kind = 1 if '_ko' in tag else 2                         # 한글판 «캐릭터 선택» · 순정판 «十五士選択»
 s = hub(); mid = hdr_tiles()
 ok(s[5] == kind, '상대 고르기 머리말을 «상대 선택» 으로 바꿈 (판 %d, 기대 %d)' % (s[5], kind))
+s = hub(); st0 = s[9]
+for i in range(3): h.press('B', 4, 20)                 # B: 배경 — 상대 기본 → 무작위 → 0 → 1(숲속 호숫가)
+s = hub(); ok(st0 == -1 and s[9] == 1 and s[0] == 2 and p.peek(0x41C0) == 2, '상대 고르기에서 B 세 번 → 배경 «상대 기본» → 무작위 → 0 → 1(숲속 호숫가), 게임 화면 그대로 [%d → %d]' % (st0, s[9]))
 h.press('A', 4, 60)                                     # 가운데 아수라(8) — 리그 상대(검은달)
 s = hub(); ok(s[0] == 3 and s[2] == 8 and p.peek(0x41C0) == 2, '상대 고르기에서 A → 아수라(8) 상대 고름, 화면은 캐릭터 고르기 그대로(내 캐릭터 차례)')
 aft = hdr_tiles(); chg = [i for i in range(20) if mid[i] != aft[i]]
@@ -54,7 +64,10 @@ want = list(range(6)) + list(range(10, 16)) if kind == 1 else list(range(20))   
 ok(chg == want, '상대를 고른 뒤 머리말 타일 원래대로 (되돌린 칸 %d개, 기대 %d개)' % (len(chg), len(want)))
 st = T.status(); ok(st[0] == 1, '고른 상대로 대진 무장')
 p.shot(T.work('hub_%s_3_pickme.png' % tag))
+s = hub(); ok(s[11] == 1, '고른 상대로 무장할 때 배경 1 을 함께 (%d)' % s[11])
 h.press('D', 4, 30); h.press('D', 4, 30); h.press('R', 4, 30); h.press('R', 4, 30)   # 내 캐릭터: 우쿄(11)
+h.press('O', 4, 20); s = hub()                           # 옵션: 컬러 1(2P색)
+ok(s[10] == 1 and p.peek(0x41C0) == 2, '내 캐릭터 고르기에서 옵션 → 컬러 1(2P색), 게임 화면 그대로 [컬러 %d · SCR %d]' % (s[10], p.peek(0x41C0)))
 h.press('A', 4, 200); h.press('A', 4, 200)             # 캐릭터·유파
 h.run(240); h.press('A', 4, 240); h.press('R', 4, 30); h.press('A', 4, 200)   # 카드 안 받음
 f = 0
@@ -63,6 +76,8 @@ while f < 6000 and not T.status()[3]:
     else: h.run(1)
     f += 1
 h.run(60); p.shot(T.work('hub_%s_4_fight.png' % tag))
+ok(p.peek(0x5827) == 1 and p.peek(0x5778) == STAGE_ID[1], '경기 배경 = 고른 배경 1(숲속 호숫가): 판 번호 %d · 배경 id %d' % (p.peek(0x5827), p.peek(0x5778)))
+ok(pal0() == UKYO_SURA[1], '내 컬러 = 우쿄 수라 2P색 (팔레트 0 = %s)' % ' '.join('%03x' % c for c in pal0()))
 s = hub(); st = T.status()
 ok(s[0] == 4 and st[3] == 1 and (st[12] & 0xF8) == (8 << 4 | 1 << 3) and p.peek(0x57D5) == 11, '경기 시작 · P2 = 아수라 나찰 · 내 캐릭터 우쿄 · 허브 경기 상태')
 f = 0; wait = None
