@@ -67,6 +67,14 @@ def scenario(script, n):
         post_hp = pk(0x5C46)
     h.user = 0
     return r
+def finish_select(limit=5000):
+    """내 캐릭터 A · 유파 A → (카드 화면이 뜨면 → 로 «안 받음» + A — 카드는 사용자가 고르는 화면이라 허브는 안 누른다) → 연습 시작까지. 돌려줌: (프레임, 카드 화면 손댄 수)"""
+    h.press('A', 4, 160); h.press('A', 4, 0)
+    f = 0; cards = 0
+    while f < limit and not pst()[0]:
+        if pk(0x40A7) == 240 and pk(0x41C0) == 6 and f % 60 == 30: h.press('R', 4, 0); h.press('A', 4, 0); f += 8; cards += 1; continue
+        h.run(1); f += 1
+    return (f if pst()[0] else None), cards
 def open_menu():
     h.press('O', 3, 0)
     return wait_until(lambda: pst()[1] == 2, 40)
@@ -85,6 +93,29 @@ def win_shown():
         n += (r <= 3 and g <= 6 and 6 <= b <= 12)
     return n == 3
 def vdiff(a, b): return {VR[i]: [k for k in range(len(a[i])) if a[i][k] != b[i][k]] for i in range(4)}
+OVERLAP = []; OPENS = [0]
+def refs_of(v):
+    """화면 램 사본 v 에서 두 판 칸·스프라이트가 가리키는 타일 · 첫째 판 칸이 쓰는 팔레트"""
+    scr, spr = v[1], v[2]; t = set(); pals = set()
+    for pl in (0, 1):
+        for i in range(1024):
+            e = scr[pl * 0x800 + i * 2] | scr[pl * 0x800 + i * 2 + 1] << 8
+            t.add(e & 0x1FF)
+            if pl == 0: pals.add((e >> 9) & 15)
+    for k in range(64): t.add(spr[k * 4] | ((spr[k * 4 + 1] & 1) << 8))
+    return t, pals
+def check_open(pre_v):
+    """메뉴가 막 열린 프레임: 창이 빌린 타일·팔레트가 열기 직전 화면에서 어디서도 안 쓰이던 것인가"""
+    OPENS[0] += 1
+    t0, p0 = refs_of(pre_v); scr = h.scr_(); mine = set(); mp = set()
+    for band in (4, 19):
+        for r in range(band, band + 13):
+            for c in range(3, 17):
+                e = scr[(r * 32 + c) * 2] | scr[(r * 32 + c) * 2 + 1] << 8
+                if e & 0x1FF != 0x001: mine.add(e & 0x1FF)
+                mp.add((e >> 9) & 15)
+    bad_t = mine & t0; bad_p = mp & p0
+    if bad_t or bad_p: OVERLAP.append((sorted(bad_t)[:6], sorted(bad_p)))
 
 # ════ P-1 타이틀 글자 · P-14 새지 않기 ══════════════════════════════════
 to_title(h)                                              # 허브 꺼진 채로 메뉴(커서 셋째 줄)
@@ -109,23 +140,35 @@ else:
        '연습 세션 타이틀 셋째 줄 = «PRACTICE»(5~12칸 메뉴 글자 P·R·A·C·T·I·C·E): 바뀐 것은 둘째 판 14줄 5~12칸뿐 (%d칸)' % len(cells))
 ok(hub()[0] == 1 and hub()[4] == KIND, '허브 = 연습 타이틀 상태, 메뉴 판 %d' % hub()[4])
 # P-14: 연습을 안 고른 1인 대전 = 원래 게임과 작업 램이 같음
-SCRIPT = [('U', 4, 30), ('U', 4, 30), ('A', 4, 240), ('R', 4, 30), ('A', 4, 200), ('A', 4, 100)] + [('A', 4, 26)] * 30 + [('', 0, 300), ('R', 30, 0), ('A', 4, 30), ('DA', 6, 60), ('', 0, 300)]
+SCRIPT = [('U', 4, 30), ('U', 4, 30), ('A', 4, 240), ('R', 4, 30), ('A', 4, 200), ('A', 4, 100)]
+SCRIPT2 = [('', 0, 300), ('R', 30, 0), ('A', 4, 30), ('DA', 6, 60), ('', 0, 300)]
 def play_script():
+    """메뉴 1번째 줄 → 캐릭터·유파 → (카드 화면·이야기는 → A 를 라운드가 시작될 때까지 — 게임 상태로 정하니 두 번 돌려도 입력이 같다.
+    롬 판·내장 시계에 따라 카드 화면·이야기 길이가 다르다) → 경기 동작. 단계마다 작업 램 16KB"""
     cps = []
     for b, n, a in SCRIPT:
+        h.press(b, n, a); cps.append(p.ram())
+    for k in range(150):
+        if pk(0x40A7) == 241 and pk(0x411A) == 1: break
+        h.press('R', 4, 10); h.press('A', 4, 16); cps.append(p.ram())
+    for b, n, a in SCRIPT2:
         if b: h.press(b, n, a)
         else: h.run(a)
         cps.append(p.ram())
     return cps
 h.unserialize(s_menu); lg.league_hub(0, None, None); lg.practice_forget()
 base = play_script(); base_com = h.tile(0x049) + h.tile(0x04A); base_mul = (pk16(0x57E2), pk16(0x57E4)); base_57d4 = pk(0x57D4)
+def r16(r, a): return r[a - 0x4000] | r[a - 0x4000 + 1] << 8
+base_t = (r16(base[-2], 0x582F), r16(base[-1], 0x582F))   # 원래 게임 경기의 타이머(300프레임 사이) — 순정 ss2_h1 판은 기본 옵션이 시간 ∞(0x636C=0x80)
+base_runs = base_t[1] < base_t[0]
+info('원래 게임 1인 대전: 타이머 %d → %d (%s) · 옵션 0x636A~E %s' % (base_t[0], base_t[1], '흐름' if base_runs else '∞', ' '.join('%02X' % base[-1][a - 0x4000] for a in range(0x636A, 0x636F))))
 base_fight = pk(0x40A7) == 241
 h.unserialize(s_menu); lg.league_practice_hub(1, 0); h.run(0)
 test = play_script()
-same = [i for i in range(len(base)) if base[i] == test[i]]
-ok(base_fight and len(same) == len(base) and pst()[0] == 0,
+same = [i for i in range(min(len(base), len(test))) if base[i] == test[i]]
+ok(base_fight and len(test) == len(base) and len(same) == len(base) and pst()[0] == 0,
    '연습을 안 고른 일반 세션의 1인 대전(메뉴 1번째 줄 → 캐릭터·유파 → 경기 300프레임) = 허브 꺼진 원래 게임과 작업 램 16KB 같음 (점검 %d/%d곳, 경기 %d)' % (len(same), len(base), base_fight))
-diff_at = [i for i in range(len(base)) if base[i] != test[i]]
+diff_at = [i for i in range(min(len(base), len(test))) if base[i] != test[i]]
 if diff_at:
     i = diff_at[0]; dd = [(0x4000 + k, base[i][k], test[i][k]) for k in range(16384) if base[i][k] != test[i][k]]
     info('첫 차이 점검 %d: %s' % (i, ' '.join('%04X:%02X/%02X' % x for x in dd[:20])))
@@ -156,10 +199,8 @@ s = hub(); ok(s[0] == 3 and s[2] == 9 and T.status()[0] == 1 and s[11] == 3, 'A 
 ok(h.tile(0x150) != hd0, '더미를 고른 뒤 머리말 타일 원래대로(«캐릭터 선택»)')
 shot('3_pickme')
 for m in move_seq(pk(0x4E3C) >> 2, 8): h.press(m, 4, 30)
-h.run(10); h.press('A', 4, 160); h.press('A', 4, 0)
-f0 = h.frames
-nf = wait_until(lambda: pst()[0] == 1, 5000)
-ok(nf is not None and nf < 1500, '검질 고르기 A → 이야기·대사 넘기고 연습 시작까지 %s프레임 (A 대신 누르기 없으면 2600 안팎)' % nf)
+h.run(10); nf, ncard = finish_select()
+ok(nf is not None and nf < 1500, '검질 고르기 A → 이야기·대사 넘기고 연습 시작까지 %s프레임 (A 대신 누르기 없으면 2600 안팎%s)' % (nf, ' · 카드 화면은 사용자가 넘김(→ A %d번)' % ncard if ncard else ''))
 h.run(30)
 ok(pk(0x5D51) == (9 << 4) and pk(0x5B51) >> 4 == 8 and pk(0x5827) == 3, '경기: 더미 = 샬럿 수라(0x5D51 %02X) · 나 = 아수라 · 스테이지 3' % pk(0x5D51))
 ok(pk(0x57E6) == 0xFF and pk(0x57E7) == 0xFF and pk16(0x57E2) == 0x100 and pk16(0x57E4) == 0x100 and pk16(0x582F) == 0xFFFF and pk(0x5812) == 0x80,
@@ -180,10 +221,20 @@ while f < 40:
     st_before = pst()[1]; h.run(1); f += 1
     if st_before != 2 and pst()[1] == 2: opened = last_pre['v']; break
 ok(opened is not None and pk(0x61D4) == 1, 'Option 탭(누르는 동안 다른 버튼 없음) → 뗄 때 일시정지(0x61D4=1) + 메뉴 창 (%s프레임)' % f)
+if opened is not None: check_open(opened)
 vis = []
 for k in range(12): h.run(1); vis.append((win_shown(), pk(0x41F5)))
 ok(all(v[0] for v in vis[1:]) and {v[1] for v in vis} == {0, 0x78}, '창이 매 프레임 보임(게임이 틱마다 첫째 판 가운데를 줄 4~16 ↔ 19~31 로 번갈아 보여도 — 0x41F5 %s) %s' % (sorted({v[1] for v in vis}), ''.join('O' if v[0] else '.' for v in vis)))
 shot('6_menu')
+# 상태 저장 직전(native.c nativeSaveState 와 같은 순서): 우리 그림을 모두 되돌리고 → 다음 프레임에 다시 그린다
+lg.practice_before_save(); lg.league_hub_before_save(); sv = h.vram()
+dd = vdiff(opened, sv)
+com_ok = sv[0][0x049 * 16:0x04B * 16] == base_com
+dig_ok = plane_tiles(sv[1], 0, 3, 8, 3) == [0x001, 0x001, 0x001]
+other = [k for k in dd['chr'] if not (0x049 * 16 <= k < 0x04B * 16)] + [k for k in dd['scr'] if not (3 * 64 + 16 <= k < 3 * 64 + 22)]
+h.run(2)
+ok(com_ok and dig_ok and not other and not dd['pal'] and not dd['spr'] and win_shown() and pst()[1] == 2,
+   '상태 저장 직전 되돌림: 창·대미지 숫자·«2P» 를 원래대로(저장되는 화면 램 = 메뉴 열기 전 + «COM»·빈 띠) → 다음 프레임에 창 다시 그림')
 sc = h.scr_()
 win_t = [plane_tiles(sc, 0, r, 3, 14) for r in range(4, 17)]
 ok(all(t != 0 for row in win_t for t in row), '첫째 판 줄 4~16 × 칸 3~16 이 창 칸으로 채워짐 (빌린 타일 %d · 빈 후보 중 쓰이던 것 %d)' % (pst()[16], pst()[17]))
@@ -281,7 +332,7 @@ lg.practice_set(1, 2)
 h.run(80); approach(36); c_combo = scenario(COMBO, 200)
 h.run(80); approach(36); c_late = scenario(LATE, 200)
 info('첫 타 뒤: 가드 안 함 늦게 %s · 이어진 콤보 %s · 늦게 넣은 콤보 %s' % ((c_none['hit'], c_none['block']), (c_combo['hit'], c_combo['block'], c_combo['cmax']), (c_late['hit'], c_late['block'])))
-ok(c_none['hit'] >= 2, '(대조) 가드 «안 함»: 늦게 넣은 236A 도 맞음 (맞음 %d)' % c_none['hit'])
+ok(c_none['hit'] >= 1 and c_none['block'] == 0, '(대조) 가드 «안 함»: 같은 늦은 콤보에서 가드 0 (맞음 %d · 가드 %d — 둘째 타는 거리에 따라 맞거나 헛침)' % (c_none['hit'], c_none['block']))
 ok(c_combo['hit'] >= 2 and c_combo['cmax'] >= 2 and c_combo['block'] == 0, '«첫 타 뒤»: 이어지는 콤보(앉아 A > 236A)는 둘 다 맞음 (맞음 %d · 콤보 %d)' % (c_combo['hit'], c_combo['cmax']))
 ok(c_late['hit'] == 1 and c_late['block'] >= 1, '«첫 타 뒤»: 늦게 넣은 콤보는 첫 타만 맞고 둘째는 가드 (맞음 %d · 가드 %d)' % (c_late['hit'], c_late['block']))
 
@@ -353,6 +404,12 @@ for f in range(400):
     elif spent and rearm is None: rearm = f
 ok(spent and rearm is not None, 'MAX 기술(←→↓+A) 쓴 뒤 MAX 비트가 꺼졌다가 움직일 수 있게 되면 다시 켬(%s프레임) · ACT %s' % (rearm, ' '.join('%X' % a for a in sorted(acts) if a >= 0x1C0)))
 if 0x1CC in acts: info('아수라 MAX 비오의 ACT 0x1CC 확인')
+# 효과를 쓴 뒤엔 게임이 첫째 판 효과 층(줄 19~31)의 가로 스크롤(0x41F8)을 옮겨 둔다 — 창은 그래도 매 프레임 제자리에
+h.run(60); fx = pk(0x41F8)
+open_menu(); vis = []
+for k in range(10): h.run(1); vis.append(win_shown())
+close_menu(); h.run(4)
+ok(all(vis[1:]) and pk(0x41F8) == fx, 'MAX 비오의 뒤(효과 층 가로 스크롤 0x41F8 = %02X)에도 창이 매 프레임 제자리 %s · 닫은 뒤 0x41F8 원래 값 %02X' % (fx, ''.join('O' if v else '.' for v in vis), pk(0x41F8)))
 lg.practice_set(2, 0); lg.practice_set(3, 0); h.run(40)
 ok(not pk(0x59CA) & 4 and not pk(0x5BCA) & 4, 'MAX 유지 끄면 움직일 수 있을 때 MAX 를 거둠')
 
@@ -379,7 +436,9 @@ while f < NF:
         pos = random.choice((0, 1, 2)); sw = random.random() < 0.3
         lg.practice_set(5, 1 if sw else 0)
         n0 = pst()[11]; lg.practice_set(7, pos); w = 0; h.user = 0    # 기다리는 동안 P1 은 손을 뗀다(걷던 관성이 리셋 뒤 2px 로 남지 않게)
+        trace = []
         while pst()[11] == n0 and w < 240:
+            trace.append((pk16(0x59D6), pk16(0x5BD6), pk(0x59CE), pk(0x5BCE)))
             h.run(1); w += 1; f += 1
         if pst()[11] > n0:
             st['resets'] += 1
@@ -389,7 +448,7 @@ while f < NF:
             if got != (x1, x2, cam << 8, cam << 8, cam << 8, 128, 128, 128, 128): st['reset_bad'].append((pos, sw, got))
             xs = []
             for k in range(10): h.run(1); f += 1; xs.append(pk16(0x59D6))
-            if any(x != x1 for x in xs): st['push'].append((pos, sw, xs))
+            if any(x != x1 for x in xs): st['push'].append((pos, sw, xs, 'wait %d' % w, trace[-6:]))
             key = (pos, sw)
             if key not in shots_done and len(shots_done) < 6: shots_done.add(key); shot('10_reset_%d%s' % (pos, '_swap' if sw else ''))
         lg.practice_set(5, 0)
@@ -402,12 +461,19 @@ while f < NF:
         sb = pst()[1]; h.run(1); w += 1; f += 1
         if sb != 2 and pst()[1] == 2: opened = last_pre['v']; break
     if opened is None: continue
+    check_open(opened)
     st['menus'] += 1
     for nm, c in (('air', y_air), ('hitstop', hs), ('object', obj), ('max', mx)):
         if c: st['states'][nm] += 1
     for k in range(random.randint(2, 8)):
         h.run(1); f += 1
-        if k >= 1 and not win_shown(): st['hidden'] += 1
+        if k >= 1 and not win_shown():
+            st['hidden'] += 1
+            if st['hidden'] <= 3:
+                spr = h.spr_(); fr = [(i, spr[i * 4 + 2], spr[i * 4 + 3]) for i in range(64) if (spr[i * 4 + 1] >> 3) & 3 == 3]
+                shot('dbg_hidden_%d' % st['hidden'])
+                info('창 안 보임: 메뉴 %d · k %d · 0x41F5 %d · 일시정지 %d · 메뉴 상태 %d · 앞 우선순위 스프라이트 %s · 칸(8,10)=%04X (23,10)=%04X · 팔레트 %s' % (
+                    st['menus'], k, pk(0x41F5), pk(0x61D4), pst()[1], fr[:4], h.ent(0, 8, 10), h.ent(0, 23, 10), C.string_at(h.pal + 0x80 + 13 * 8, 24).hex()))
     h.post_hook = post_close; closed = None
     h.press('B', 2, 0); h.post_hook = None
     wait_until(lambda: pst()[1] == 0, 60)
@@ -425,9 +491,12 @@ info('버린 리셋 요청 %d' % pst()[21])
 # ════ P-10 결정성 — 메뉴 열고 닫기 = 그냥 일시정지·풀기 ═══════════════
 lg.practice_set(0, 1); lg.practice_set(1, 0)
 det = []
-for trial, prep in enumerate(('', 'UF', 'A')):
+for trial, prep in enumerate(('', 'UF', 'A', 'MAX')):
     h.run(40)
-    if prep: h.hold(rel(h, prep)); h.run(6 if prep == 'UF' else 3); h.user = 0
+    if prep == 'MAX':                                     # 아수라 MAX 비오의 뒤 — 효과 층 가로 스크롤이 0 이 아닌 채로
+        lg.practice_set(0, 0); lg.practice_set(2, 1); h.run(20); motion(h, ['B', 'F', 'D'], 'A'); h.run(240); lg.practice_set(2, 0)
+        info('결정성 넷째(MAX 비오의 뒤): 0x41F8 = %02X' % pk(0x41F8))
+    elif prep: h.hold(rel(h, prep)); h.run(6 if prep == 'UF' else 3); h.user = 0
     s0 = h.serialize(); ps0 = h.pstate()
     h.rec = []
     h.press('O', 3, 0); wait_until(lambda: pst()[1] == 2, 40); h.run(8)
@@ -439,7 +508,8 @@ for trial, prep in enumerate(('', 'UF', 'A')):
     h.run(len(rec)); h.replay = None; h.passive = False
     rb, vb = p.ram(), h.vram()
     det.append((ra == rb, not any(vdiff(va, vb).values()), sum(1 for k in range(16384) if ra[k] != rb[k])))
-ok(all(d[0] and d[1] for d in det), '같은 입력으로 «메뉴 열고 닫기» = «그냥 일시정지·풀기»: 240프레임 뒤 작업 램·화면 램 같음 (3번: 서서·공중·공격 중) %s' % det)
+ok(all(d[0] and d[1] for d in det), '같은 입력으로 «메뉴 열고 닫기» = «그냥 일시정지·풀기»: 240프레임 뒤 작업 램·화면 램 같음 (4번: 서서·공중·공격 중·MAX 비오의 뒤) %s' % det)
+lg.practice_set(0, 1)
 
 # ════ P-13 나가기 — 다시 고르기 ════════════════════════════════════════
 open_menu(); menu_go(8); h.press('A', 2, 0)
@@ -452,10 +522,10 @@ h.run(10); hv = hub()[1]
 h.press('B', 4, 60)
 s = hub(); ok(hv == 14 and s[0] == 3 and s[2] == 14, '가운데 무작위 칸 = 유가(14) · B = 나찰 더미 · 스테이지 7')
 for m in move_seq(pk(0x4E3C) >> 2, 4): h.press(m, 4, 30)
-h.run(10); h.press('A', 4, 160); h.press('A', 4, 0)
-nf = wait_until(lambda: pst()[0] == 1, 5000); h.run(30)
+h.run(10); nf, ncard = finish_select(); h.run(30)
 ok(nf is not None and pk(0x5D51) == (14 << 4 | 1 << 3) and pk(0x5B51) >> 4 == 4 and pk(0x5827) == 7 and live(), '유가 나찰 더미 vs 나코루루 · 스테이지 7 경기 시작 (%s프레임 · 0x5D51 %02X)' % (nf, pk(0x5D51)))
 shot('11_stage7_yuga')
+lg.practice_set(0, 0); lg.practice_set(1, 0); h.run(10)
 # 나코루루 매 — 리셋하면 바로 옆
 hk = []
 for pos in (1, 2, 0):
@@ -476,9 +546,10 @@ while f < 4000 and not live():
     if f % 60 == 0 and pk(0x40A7) != 241: h.press('A', 2); f += 2
     else: h.run(1); f += 1
 h.run(60); t0 = pk16(0x582F); h.run(120)
-ok(live() and pk(0x57D4) == base_57d4 and pk(0x5BCB) & 1 == 1 and pk16(0x582F) < t0 and pk16(0x582F) != 0xFFFF and h.tile(0x049) + h.tile(0x04A) == base_com
+timer_ok = (pk16(0x582F) < t0 and pk16(0x582F) != 0xFFFF) if base_runs else (t0 == pk16(0x582F) == 0xFFFF)
+ok(live() and pk(0x57D4) == base_57d4 and pk(0x5BCB) & 1 == 1 and timer_ok and h.tile(0x049) + h.tile(0x04A) == base_com
    and (pk16(0x57E2), pk16(0x57E4)) == base_mul and pst()[0] == 0,
-   '그 뒤 고른 1인 대전은 원래 게임과 같음: 0x57D4=%d · P2 CPU(bit0) · 타이머 흐름(%d → %d) · 배율 %s · «COM» 그림' % (pk(0x57D4), t0, pk16(0x582F), (hex(pk16(0x57E2)), hex(pk16(0x57E4)))))
+   '그 뒤 고른 1인 대전은 원래 게임과 같음: 0x57D4=%d · P2 CPU(bit0) · 타이머 %d → %d(원래 게임 %s) · 배율 %s · «COM» 그림' % (pk(0x57D4), t0, pk16(0x582F), '흐름' if base_runs else '∞', (hex(pk16(0x57E2)), hex(pk16(0x57E4)))))
 
 # ════ P-15 빈 타일 + 더미 15명(싸우지 않는 조합은 CPU 못 고름) · 자동 진입 ═══════════
 p.lib.retro_reset(); lg.practice_forget(); lg.league_practice_hub(1, 1)   # 링크로 연 판처럼 — 로고·메뉴를 넘겨 상대 선택까지
@@ -510,8 +581,7 @@ for k in range(ndum):
     for m in move_seq(pk(0x4E3C) >> 2, target): h.press(m, 4, 24)
     h.run(8); h.press('B' if sty_ else 'A', 4, 50)
     for m in move_seq(pk(0x4E3C) >> 2, me): h.press(m, 4, 24)
-    h.run(8); h.press('A', 4, 160); h.press('A', 4, 0)
-    nf = wait_until(lambda: pst()[0] == 1, 5000)
+    h.run(8); nf, ncard = finish_select()
     if nf is None: info('더미 %d 경기 못 들어감' % dmy); break
     entries += 1; cur_dummy[0] = (dmy, sty_, me)
     lg.practice_set(0, 1); lg.practice_set(2, 1); h.run(4)
@@ -529,9 +599,20 @@ for k in range(ndum):
         h.run(1)
     h.post_hook = None; h.user = 0
     lg.practice_set(2, 0)
-    open_menu(); menu_go(8); h.press('A', 2, 0)            # 다시 고르기
+    h.pre_hook = pre2; h.press('O', 3, 0); w = 0; op = None
+    while w < 40:
+        sb = pst()[1]; h.run(1); w += 1
+        if sb != 2 and pst()[1] == 2: op = last_pre['v']; break
+    h.pre_hook = pre_hook
+    if op is not None: check_open(op)
+    menu_go(8); h.press('A', 2, 0)                         # 다시 고르기
     if wait_until(lambda: hub()[0] == 2 and pk(0x41C0) == 2 and hub()[7] == 0, 2500) is None: info('다시 고르기 실패 %d' % k); break
 ok(entries == ndum, '더미 %d명(15명 = 유가 포함, 수라·나찰 번갈아) 모두 경기 들어가고 «다시 고르기»로 돌아옴 (%d)' % (ndum, entries))
 ok(not cpu_block, '싸우지 않는 6조합(소게츠 수라·나코루루/리무루루/한조/모로즈미/주베이 나찰)은 CPU 를 못 고르고(메뉴에서도), 나머지는 CPU 됨 %s' % cpu_block)
-ok(not refs, '빈 타일 후보 0x0D8~0x105 를 가리킨 스프라이트·칸 없음(더미 %d명 × 필살 무작위 + MAX, 메뉴 닫힌 동안) %s' % (entries, {hex(t): sorted(v)[:3] for t, v in refs.items()}))
+used_by = {}
+for t, v in refs.items():
+    for where, who in v: used_by.setdefault(who[2], set()).add(t)
+info('P-15 측정: 0x0D8~0x105 중 게임이 쓴 타일 %d개 — 내 캐릭터별(첫째 판 효과 층) %s' % (len(refs), {k: '%03X~%03X(%d)' % (min(v), max(v), len(v)) for k, v in sorted(used_by.items())}))
+ok(not any(w_[0] != 'plane0' for v in refs.values() for w_ in v), '0x0D8~0x105 를 쓴 것은 첫째 판(효과 층)뿐 — 스프라이트·둘째 판은 안 씀')
+ok(OPENS[0] >= (20 if QUICK else 110) and not OVERLAP, '메뉴를 연 %d번 모두: 창이 빌린 타일·팔레트는 열기 직전 두 판·스프라이트 어디서도 안 쓰이던 것 (겹침 %s)' % (OPENS[0], OVERLAP[:3]))
 print('%s: %s' % (tag, 'ALL PASS' if not fails else '%d FAIL' % fails))
