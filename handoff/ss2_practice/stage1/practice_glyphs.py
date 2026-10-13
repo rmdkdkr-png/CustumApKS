@@ -159,8 +159,10 @@ h = ['/* practice_glyphs.py 로 만든 연습 대전 글자 타일 — 손으로
      '   한글·라틴 글자 그림은 갈무리7(Galmuri7 2.40.3, Copyright 2019–2025 Lee Minseo, SIL Open Font License 1.1 — 앱 assets/fonts/OFL-Galmuri.md)을\n'
      '   8px 로 그린 것이다. 타일은 NGPC 2bpp(행마다 16비트 LE, 왼쪽 픽셀이 높은 비트). */\n',
      '#pragma once\n#include <stdint.h>\n\n']
+h.append('#ifdef PG_WANT_MENU      /* league.c — 타이틀 메뉴 글자만 */\n')
 h.append('/* 타이틀 메뉴 셋째 줄 «2 인 대전» 의 «2 인» 두 타일(0x1BB·0x1BC) 자리 — «연습»(잉크 1 · 바탕 3) */\n')
 h.append(carr('PG_MENU_YEONSEUP', menu_tiles[0] + menu_tiles[1]))
+h.append('#endif\n\n#ifdef PG_WANT_WINDOW    /* practice.c — 연습 메뉴 창·HUD */\n')
 h.append('\n/* 연습 메뉴 창 글자 %d개(번호 1~%d, 0 = 빈칸): %s */\n' % (len(glyph_names), len(glyph_names),
          ' '.join('%d=%s' % (i + 1, n.replace('#0', '(왼)').replace('#1', '(오른)')) for i, n in enumerate(glyph_names))))
 h.append('#define PG_N %d\n' % len(glyph_names))
@@ -180,7 +182,7 @@ s = 'static const uint8_t PG_VALUE[%d][%d][%d] = {\n' % (len(ROWS), NV, VALUE_W)
 for vs in value_c:
     vv = vs + [[0] * VALUE_W] * (NV - len(vs))
     s += '   { ' + ', '.join('{ ' + ', '.join(map(str, r)) + ' }' for r in vv) + ' },\n'
-h.append(s + '};\n')
+h.append(s + '};\n#endif\n')
 open(OUT, 'w').write(''.join(h))
 
 # 가장 많이 쓰는 경우(제목 + 이름 + 값 조합 중 가장 많은 서로 다른 글자) — 빌린 타일 수 어림
