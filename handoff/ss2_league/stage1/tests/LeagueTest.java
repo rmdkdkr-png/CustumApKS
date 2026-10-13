@@ -80,7 +80,15 @@ public class LeagueTest {
         try (FileOutputStream o = new FileOutputStream(new File(dir, "league.json"))) { o.write("{깨짐".getBytes("UTF-8")); }
         restart();
         ok(League.me() != null && League.me().optInt("w") == wNow, "league.json 이 깨져도 .bak 에서 최신 기록 그대로 복구");
-        // 12) 점수 구간 표
+        // 12) 앱이 경기 중에 내려간 경기 → 리그 화면에서 복귀 대기, 지난 사유는 지우기
+        String idA = League.newMatch("o01").optString("id");
+        League.setStatus(idA, "resume", "체크포인트 없음"); League.note(idA, "fix", "x");
+        League.setStatus(idA, "playing", "");
+        ok(!League.matchById(idA).has("why") && !League.matchById(idA).has("fix"), "진행 중으로 바꿀 때 지난 사유·복구 안내를 지움");
+        League.markInterrupted();
+        ok("resume".equals(League.matchById(idA).optString("status")) && League.matchById(idA).optString("why").contains("내려감"), "리그 화면을 열 때 진행 중 경기는 복귀 대기(앱이 경기 중에 내려감)");
+        League.forfeit(idA);
+        // 13) 점수 구간 표
         ok(League.delta(1000, 1101, "W") == 18 && League.delta(1000, 1101, "L") == -6 && League.delta(1000, 1100, "W") == 12
            && League.delta(1000, 899, "W") == 6 && League.delta(1000, 899, "L") == -18 && League.delta(1000, 900, "L") == -12, "점수 구간 표(±100 경계 포함)");
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAIL");

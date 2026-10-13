@@ -246,7 +246,7 @@ index 0000000..f14e3cf
 +void league_disarm(void);
 +void league_status(int v[LEAGUE_NSTAT]);
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index 3ef345e..371dce5 100644
+index 3ef345e..e2837b0 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
 @@ -15,6 +15,7 @@
@@ -292,6 +292,20 @@ index 3ef345e..371dce5 100644
        }
        CORE_UNLOCK();
        g_next_t += dt; steps++;
+@@ -995,8 +1001,11 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
+    char p[600]; jstr(env, jpath, p, sizeof(p));
+    FILE *f = fopen(p, "wb");
+    if (!f) { free(buf); return -1; }
+-   fwrite(buf, 1, sz, f); fclose(f); free(buf);
+-   return 0;
++   /* 쓰기·닫기 실패도 실패로 알린다 — 저장 공간이 모자라 잘린 파일을 «저장됨»으로 믿지 않게(가상 리그 체크포인트가 이 값을 본다) */
++   size_t wr = fwrite(buf, 1, sz, f);
++   int cl = fclose(f);
++   free(buf);
++   return (wr == sz && cl == 0) ? 0 : -1;
+ }
+ 
+ JNI(jint, nativeLoadState)(JNIEnv *env, jclass cls, jstring jpath)
 diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
 index 30d813f..829fc9c 100644
 --- a/app/src/main/java/com/dudu/pocketcore/Emu.java
@@ -312,7 +326,7 @@ index 30d813f..829fc9c 100644
 +    public static native int[] nativeLeagueStatus();
  }
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 272786d..075c8c2 100644
+index 272786d..750b7ac 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -12,6 +12,7 @@ import android.view.KeyEvent;
@@ -365,16 +379,17 @@ index 272786d..075c8c2 100644
          try {   /* 판독 오버레이 — 코어가 뜰 때 getenv 로 한 번 읽으므로 **로드 전에** 심는다.
                     화면 왼쪽 위에 「내 동작번호|상대반응」을 상시 표시 — 영상만 찍어도
                     무슨 기술이 실제로 나갔는지(약/강 포함) 게임이 직접 말해 준다. */
-@@ -147,7 +160,7 @@ public class EmuActivity extends Activity {
+@@ -147,7 +160,8 @@ public class EmuActivity extends Activity {
              @Override public void onMenu(boolean open) {
                  if (open) { releasePhysical(); refreshSlotInfo(); }
                  if (!loaded) return;
 -                Emu.nativeSetPaused(open || (sheet != null && sheet.isShowing()));
-+                Emu.nativeSetPaused(open || (sheet != null && sheet.isShowing()) || (leagueDlg != null && leagueDlg.isShowing()));
++                Emu.nativeSetPaused(open || (sheet != null && sheet.isShowing()) || (leagueDlg != null && leagueDlg.isShowing())
++                        || (leagueId != null && leagueArmed && nativeDone()));   /* 결판이 잡혀 정산을 기다리는 동안은 멈춘 채로 */
              }
          });
  
-@@ -163,9 +176,11 @@ public class EmuActivity extends Activity {
+@@ -163,9 +177,11 @@ public class EmuActivity extends Activity {
          });
          setContentView(root);
          applyScreenLayout();
@@ -387,7 +402,18 @@ index 272786d..075c8c2 100644
      }
  
      /** 게임 그림의 크기와 자리를 설정대로 잡는다.
-@@ -358,9 +373,10 @@ public class EmuActivity extends Activity {
+@@ -324,6 +340,10 @@ public class EmuActivity extends Activity {
+         for (int i = 0; i < Games.LANGS.length; i++)
+             if (Games.LANGS[i].equals(lang)) suffix += " · " + Games.LANGS_KO[i];
+         if (patched) suffix += " 패치";
++        if (leagueId != null && game != null) {          /* 랭크전은 롬처럼 코어도 고정 — 판정 주소를 실측한 앱 동봉 코어만 */
++            coreLabel = game.ko + " · 동봉 코어(랭크전)" + suffix;
++            return getApplicationInfo().nativeLibraryDir + "/" + game.core;
++        }
+         File[] f = new File(MainActivity.root(), "cores").listFiles();
+         if (f != null) for (File x : f) {
+             String n = x.getName().toLowerCase();
+@@ -358,9 +378,10 @@ public class EmuActivity extends Activity {
          Emu.nativeSetPaused(false);   /* 멈춤 표시는 프로세스 전역이다 — 창이 떠 있던 채로 넘어왔어도 새 판은 돈다 */
          /* 코어가 로드 중에 주사율을 물을 수 있다 — 실측 전이라 시스템 값을 먼저 넣어 둔다 */
          try { Emu.nativeSetPanelHz(getWindowManager().getDefaultDisplay().getRefreshRate()); } catch (Exception ignored) { }
@@ -400,7 +426,7 @@ index 272786d..075c8c2 100644
                  MainActivity.optsFile().getAbsolutePath());
          loaded = rc == 0;
          snapCoreOpts();
-@@ -369,7 +385,9 @@ public class EmuActivity extends Activity {
+@@ -369,7 +390,9 @@ public class EmuActivity extends Activity {
          /* 이어하기 — 옵션 바꾸고 다시 연 경우는 그 직전 상태(resume), 아니면 나갈 때 자동 저장해 둔 자리. 로드와 같은 스레드라 안전하다. */
          String resume = getIntent().getStringExtra("resume");
          boolean resumed = false;
@@ -411,7 +437,7 @@ index 272786d..075c8c2 100644
              if (Emu.nativeLoadState(resume) == 0) { toast("옵션 적용 — 그 자리에서 이어하기"); resumed = true; }
              new File(resume).delete();
          } else if (loaded && autoSave && autoStatePath().exists()
-@@ -446,6 +464,16 @@ public class EmuActivity extends Activity {
+@@ -446,6 +469,16 @@ public class EmuActivity extends Activity {
      }
  
      private void handleAction(int action) {
@@ -428,7 +454,7 @@ index 272786d..075c8c2 100644
          switch (action) {
          case PadView.ACT_SAVE:
          case PadView.ACT_QSAVE: {
-@@ -721,6 +749,7 @@ public class EmuActivity extends Activity {
+@@ -721,6 +754,7 @@ public class EmuActivity extends Activity {
      /** 뒤로가기 = 목록으로 — 예전엔 앱이 그냥 닫혀서 「게임을 닫으면 테마가 다시
       *  나와야 한다」는 흐름 자체가 없었다(제보). */
      @Override public void onBackPressed() {
@@ -436,7 +462,7 @@ index 272786d..075c8c2 100644
          goList();
      }
  
-@@ -907,6 +936,7 @@ public class EmuActivity extends Activity {
+@@ -907,6 +941,7 @@ public class EmuActivity extends Activity {
  
      @Override protected void onPause() {
          super.onPause();
@@ -444,18 +470,25 @@ index 272786d..075c8c2 100644
          releasePhysical();
          try { ((android.hardware.input.InputManager) getSystemService(INPUT_SERVICE))
                  .unregisterInputDeviceListener(devListener); } catch (Exception ignored) { }
-@@ -915,6 +945,10 @@ public class EmuActivity extends Activity {
+@@ -915,6 +950,17 @@ public class EmuActivity extends Activity {
              /* 오토세이브 — SRAM 저장과 같은 자리·같은 방식(UI 스레드 직접 호출 전례).
                 gl.onPause() 전이어야 한다. */
              if (loaded && autoSave) Emu.nativeSaveState(autoStatePath().getAbsolutePath());   /* 다시 굽으려 내린 뒤엔 안 쓴다 */
 +            /* 랭크전: 앱이 내려가는 «그 순간»만 체크포인트로 — 다시 올라오면 지운다(되감기로 쓰지 못하게).
 +               이미 결판이 잡혀 있으면 체크포인트 대신 바로 정산한다(정산 직전 종료). */
-+            if (loaded && leagueId != null && leagueArmed && !leagueDone && !leagueSettleNow())
-+                leagueSaveCkpt();
++            if (loaded && leagueId != null && leagueArmed && !leagueDone) {
++                leagueSyncStarted();
++                leagueSettleNow();
++                /* 정산 저장이 실패해도 체크포인트는 쓴다 — 게임은 결판 프레임에 멈춰 있어 bit7 이 선 채로 담기고,
++                   재개하면 FROM_CKPT 가 같은 결과를 다시 잡는다(재시도가 성공하면 settle 이 체크포인트를 지운다).
++                   아직 경기 시작 전(준비)이면 체크포인트가 필요 없다 — 다시 열면 새 판으로 시작한다. */
++                org.json.JSONObject m = lm();
++                if (!leagueDone && m != null && !"ready".equals(m.optString("status"))) leagueSaveCkpt();
++            }
          }
          /* 오디오 장치를 놓는다 — 백그라운드에서 물고 있으면 다른 앱 재생 뒤
             스트림이 죽은 채 돌아오는 무음 사고가 난다. 복귀 때 새로 연다. */
-@@ -924,6 +958,9 @@ public class EmuActivity extends Activity {
+@@ -924,6 +970,9 @@ public class EmuActivity extends Activity {
  
      @Override protected void onResume() {
          super.onResume(); Orient.apply(this); immersive(); gl.onResume();
@@ -465,7 +498,7 @@ index 272786d..075c8c2 100644
          if (loaded) Emu.nativeAudioResume();
          keymap = KeyMap.load();   /* 매핑 화면에서 돌아온 경우 */
          pushCoreOpts();           /* 설정에서 코어 옵션(프레임 생성·런어헤드·띠)을 바꾸고 돌아온 경우 — 게임 중에 바로 */
-@@ -939,4 +976,230 @@ public class EmuActivity extends Activity {
+@@ -939,4 +988,283 @@ public class EmuActivity extends Activity {
          h.removeCallbacksAndMessages(null);
          if (loaded) Emu.nativeUnload();
      }
@@ -532,7 +565,11 @@ index 272786d..075c8c2 100644
 +        if (why != null) {
 +            if (fresh) leagueHoldExit("자동 정산 중지 — " + why,
 +                    "앱 동봉 코어와 지원 롬(순정 ss2.ngc·ss2_h1.ngc + 한글패치 v1.01/동봉판, 또는 순정)으로 되돌린 뒤 새로 도전하세요.");
-+            else leagueBlocked(why + "\n\n경기는 그대로 남겨 둡니다. 원래 판으로 되돌리면 이어할 수 있고, 아니면 기권만 할 수 있습니다.");
++            else {
++                League.setStatus(leagueId, "resume", why);
++                League.note(leagueId, "fix", "경기를 시작한 판(롬 " + m.optString("rom", "?") + " · 앱 동봉 코어)으로 되돌리면 재개할 수 있습니다. 아니면 기권만 할 수 있습니다.");
++                leagueBlocked(why + "\n\n경기는 그대로 남겨 둡니다. 원래 판으로 되돌리면 이어할 수 있고, 아니면 기권만 할 수 있습니다.");
++            }
 +            return;
 +        }
 +        File ck = League.ckpt(leagueId);
@@ -554,9 +591,24 @@ index 272786d..075c8c2 100644
 +                rule.optInt("points"), rule.optInt("time"),
 +                Emu.LEAGUE_ALLCARDS | (fromCk ? Emu.LEAGUE_FROM_CKPT : Emu.LEAGUE_AUTONAV));
 +        leagueArmed = true;
-+        League.setStatus(leagueId, "playing", null);
++        /* 새 판은 첫 라운드가 실제로 시작될 때까지 «준비» 그대로 — 그 전에 멈추면 무효로 닫을 수 있다(대진 준비 실패는 점수에 안 넣는다).
++           재개는 이미 시작한 경기라 바로 «진행 중»(지난 사유는 지운다). */
++        leagueStarted = fromCk;
++        if (fromCk) League.setStatus(leagueId, "playing", "");
 +        toast(fromCk ? "랭크전 — 내려간 자리에서 이어합니다" : "랭크전 — 캐릭터 고르기로 들어갑니다. 캐릭터·검질·카드를 고르세요");
 +        h.postDelayed(leaguePoll, 250);
++    }
++
++    private boolean leagueStarted = false;      /* 첫 라운드가 실제로 시작됐나(league.c 경기 시작 규칙) */
++
++    /** 경기 시작을 봤으면 «준비» → «진행 중». poll·onPause·나가기에서 부른다. */
++    private void leagueSyncStarted() {
++        if (leagueStarted || !leagueArmed || leagueDone) return;
++        int[] st = Emu.nativeLeagueStatus();
++        if (st != null && st.length >= 21 && st[3] == 1) {
++            leagueStarted = true;
++            League.setStatus(leagueId, "playing", "");
++        }
 +    }
 +
 +    private boolean nativeDone() {
@@ -590,6 +642,7 @@ index 272786d..075c8c2 100644
 +        if (leagueId == null) return;
 +        if (leagueDone) { if (resumedNow && !leaving) leagueExit(leagueId); return; }
 +        if (!loaded) return;
++        leagueSyncStarted();
 +        if (nativeDone()) {
 +            if (leagueDlg != null && leagueDlg.isShowing()) leagueDlg.dismiss();
 +            if (!leagueSettleNow() || !leagueDone) {           /* 저장 실패 — 결과는 코어 쪽에 그대로 있으니 다시 */
@@ -635,6 +688,8 @@ index 272786d..075c8c2 100644
 +        if (leagueDone || !leagueArmed) { leagueExit(null); return; }
 +        if (leagueSettleNow()) { if (leagueDone && resumedNow) leagueExit(leagueId); return; }
 +        if (leagueDlg != null && leagueDlg.isShowing()) return;
++        leagueSyncStarted();
++        if (!leagueStarted) { leagueLeaveBeforeStart(); return; }
 +        leagueChoosing = false;
 +        Emu.nativeSetPaused(true);
 +        leagueDlg = new android.app.AlertDialog.Builder(this).setTitle("랭크전 중")
@@ -664,6 +719,37 @@ index 272786d..075c8c2 100644
 +                        leagueChoosing = true;
 +                        if (leagueSettleNow()) { leagueChoosing = false; return; }
 +                        if (League.forfeit(leagueId) == null) {
++                            leagueChoosing = false;
++                            toast("저장 실패 — 다시 시도하세요");
++                            Emu.nativeSetPaused(pad.isBarOpen());
++                            return;
++                        }
++                        leagueDone = true; Emu.nativeLeagueDisarm(); leagueExit(leagueId);
++                    } })
++                .setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
++                    @Override public void onDismiss(android.content.DialogInterface d) {
++                        if (!leagueDone && !leagueChoosing && !nativeDone()) Emu.nativeSetPaused(pad.isBarOpen());
++                    } })
++                .show();
++    }
++
++    /** 첫 라운드 전(메뉴·캐릭터 고르기·이야기)에 나가기 — 아직 승부가 아무것도 정해지지 않았으니 무효로 닫는다(점수 없음). */
++    private void leagueLeaveBeforeStart() {
++        leagueChoosing = false;
++        Emu.nativeSetPaused(true);
++        leagueDlg = new android.app.AlertDialog.Builder(this).setTitle("랭크전 — 경기 시작 전")
++                .setMessage("아직 첫 라운드가 시작되지 않았습니다. 그만두면 이 경기는 무효로 닫히고 점수는 그대로입니다.")
++                .setPositiveButton("계속하기", null)
++                .setNegativeButton("그만두기(무효)", new android.content.DialogInterface.OnClickListener() {
++                    @Override public void onClick(android.content.DialogInterface d, int w) {
++                        leagueChoosing = true;
++                        leagueSyncStarted();
++                        if (leagueStarted) {                   /* 창이 뜨는 사이 첫 라운드가 시작됐다 — 보통 나가기로 */
++                            leagueChoosing = false;
++                            h.post(new Runnable() { @Override public void run() { leagueLeave(); } });
++                            return;
++                        }
++                        if (!League.cancel(leagueId, "경기 시작 전에 사용자가 그만둠")) {
 +                            leagueChoosing = false;
 +                            toast("저장 실패 — 다시 시도하세요");
 +                            Emu.nativeSetPaused(pad.isBarOpen());
@@ -718,10 +804,10 @@ index dc644e1..7d513f8 100755
              hint.setText("패드: 위아래 이동 · 펀치 버튼 바꾸기/시작 · 킥 버튼 닫기");
 diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
 new file mode 100644
-index 0000000..ce4bda7
+index 0000000..21a673b
 --- /dev/null
 +++ b/app/src/main/java/com/dudu/pocketcore/League.java
-@@ -0,0 +1,460 @@
+@@ -0,0 +1,470 @@
 +package com.dudu.pocketcore;
 +
 +import org.json.JSONArray;
@@ -943,10 +1029,20 @@ index 0000000..ce4bda7
 +        if (m == null || terminal(m.optString("status"))) return false;
 +        try {
 +            m.put("status", status);
-+            if (why != null) m.put("why", why);
++            if (why != null) {
++                if (why.isEmpty()) { m.remove("why"); m.remove("fix"); }   /* 빈 사유 = 지난 사유를 지운다 */
++                else m.put("why", why);
++            }
 +            m.put("updated", System.currentTimeMillis());
 +            return save();
 +        } catch (Exception e) { return false; }
++    }
++
++    /** 리그 화면을 여는 때 «진행 중»인 경기는 게임 창이 이미 없다(앱이 경기 중에 내려갔다) — 복귀 대기로 바꾼다. */
++    static synchronized void markInterrupted() {
++        JSONObject m = openMatch();
++        if (m != null && "playing".equals(m.optString("status")))
++            setStatus(m.optString("id"), "resume", "앱이 경기 중에 내려감");
 +    }
 +
 +    static synchronized boolean note(String id, String key, Object val) {
@@ -1184,10 +1280,10 @@ index 0000000..ce4bda7
 +}
 diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
 new file mode 100644
-index 0000000..1afa532
+index 0000000..7428c0e
 --- /dev/null
 +++ b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
-@@ -0,0 +1,335 @@
+@@ -0,0 +1,337 @@
 +package com.dudu.pocketcore;
 +
 +import android.app.Activity;
@@ -1228,6 +1324,7 @@ index 0000000..1afa532
 +    @Override protected void onCreate(Bundle b) {
 +        super.onCreate(b);
 +        rom = getIntent().getStringExtra(EXTRA_ROM);
++        League.markInterrupted();
 +        ScrollView sv = new ScrollView(this);
 +        sv.setBackgroundColor(BG);
 +        col = new LinearLayout(this);
@@ -1415,10 +1512,11 @@ index 0000000..1afa532
 +        final boolean hasCk = League.ckpt(m.optString("id")).exists();
 +        final boolean ready = "ready".equals(st);
 +        c.addView(text("진행 중 경기 · " + League.statusKo(st), 13, GOLD, true));
-+        String note = ready ? "대진 전에 멈춘 경기입니다 — 무효로 닫으면 점수는 그대로입니다."
++        String note = ready ? "첫 라운드 전에 멈춘 경기입니다 — 다시 시작하거나, 무효로 닫으면 점수는 그대로입니다."
 +                : hasCk ? "앱이 내려간 그 자리에서 한 번 이어할 수 있습니다."
 +                : "이어할 자리가 없습니다(체크포인트 없음) — 기권만 할 수 있습니다.";
 +        if (!ready && m.has("why") && !m.optString("why").isEmpty()) note += "\n(" + m.optString("why") + ")";
++        if (!ready && m.has("fix")) note += "\n복구: " + m.optString("fix");
 +        c.addView(text((o != null ? o.optString("nick") + " · " + League.oppLine(o) : "?") + "\n" + note, 13, TXT, false));
 +        LinearLayout btns = new LinearLayout(this);
 +        btns.setOrientation(LinearLayout.HORIZONTAL);
@@ -1438,9 +1536,9 @@ index 0000000..1afa532
 +                .setNegativeButton("취소", null).show();
 +        });
 +        btns.addView(ff, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
-+        if (!ready && hasCk && rom != null) {
-+            TextView go = pill("재개", GOLD, INK);
-+            go.setOnClickListener(v -> launch(m.optString("id"), true));
++        if ((ready || hasCk) && rom != null) {               /* 준비면 새 판으로 다시 시작, 진행 중이면 체크포인트로 재개 */
++            TextView go = pill(ready ? "다시 시작" : "재개", GOLD, INK);
++            go.setOnClickListener(v -> launch(m.optString("id"), !ready));
 +            LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 2f);
 +            lp.leftMargin = dp(10);
 +            btns.addView(go, lp);
