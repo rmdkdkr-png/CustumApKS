@@ -161,6 +161,77 @@ public class LeagueTest {
         ok(League.blockedWhy(o1) != null && League.newMatch("o01") == null, "미지원 대진(주베이 나찰)은 도전 불가·경기 안 만듦");
         o1.put("char", 11); o1.put("style", 0);
         ok(League.delta(1000, 1101, "W") == 18 && League.delta(1000, 1100, "L") == -12 && League.delta(1000, 899, "L") == -18, "점수 구간 표(±100 경계)");
+        // ── 10b) 결판 판정 교차 확인 · 규칙/난도 불일치 보류
+        int sc0 = League.me().optInt("score"), w0 = League.me().optInt("w");
+        String[] whys = new String[5]; int[][] res = {
+            st(0x80, 0, 0, blk("o03"), 2, 60, lv("o03")),      // 승자 비트도 무승부 비트도 없음
+            st(0xC0, 1, 0, blk("o03"), 2, 60, lv("o03")),      // P1 비트인데 필요 승수 미달
+            st(0xC0, 1, 2, blk("o03"), 2, 60, lv("o03")),      // P1 비트인데 승수는 P2 가 많음
+            st(0xC0, 2, 0, blk("o03"), 1, 128, lv("o03")),     // 무한 대전식 1라운드(규칙 불일치)
+            st(0xC0, 2, 0, blk("o03"), 2, 60, 4) };            // 쉬움 상대인데 CPU 단계 4(난도 불일치)
+        boolean allHold = true;
+        for (int i = 0; i < res.length; i++) {
+            JSONObject mm = League.newMatch("o03"); League.setStatus(mm.optString("id"), "playing", "");
+            JSONObject hh = League.settle(mm.optString("id"), res[i]);
+            allHold &= hh != null && "hold".equals(hh.optString("status")) && hh.has("why") && hh.has("fix");
+            whys[i] = hh != null ? hh.optString("why") : "null";
+        }
+        ok(allHold && League.me().optInt("score") == sc0 && League.me().optInt("w") == w0, "판정 불가·승수 불일치·규칙 불일치·난도 불일치 결판은 모두 보류(점수·전적 그대로)");
+        ok(whys[0].contains("결판 판정 불일치") && whys[3].contains("규칙 불일치") && whys[4].contains("난도 불일치"), "보류 사유가 원인별로 남음");
+        JSONObject dW = play("o03", st(0xD0, 3, 1, blk("o03"), 2, 60, lv("o03")));
+        ok(dW != null && "W".equals(dW.optString("outcome")), "결판 라운드가 무승부 라운드여도(0xD0 3:1) 승리로 정산");
+        // 시작 점수로 구간 고정 · 상대 점수가 시작 뒤 바뀌어도
+        JSONObject mf = League.newMatch("o11"); int myS = League.me().optInt("score"), opS = League.oppById("o11").optInt("score");
+        League.oppById("o11").put("score", myS);                 // 시작 뒤 상대 점수가 바뀌었다고 가정
+        JSONObject fx = League.settle(mf.optString("id"), win("o11"));
+        ok(fx != null && fx.optInt("delta") == League.delta(myS, opS, "W"), "점수 구간은 시작 때 두 점수로 고정");
+        League.oppById("o11").put("score", League.oppById("o11").optInt("score") + (opS - myS)); League.save();
+        // 결과 창용 그 경기 직후 값
+        JSONObject af = fx.optJSONObject("after");
+        ok(af != null && af.optInt("streak") == League.me().optInt("streak") && af.optInt("h2h_w") == League.oppById("o11").optInt("l"), "정산 때 그 경기 직후 연승·상대전적을 경기에 남김");
+        ok("ss2".equals(fx.optString("game")), "경기에 게임 id(ss2)");
+        // 정산 저장 실패 → 되돌림 → id 로 다시 찾아 한 번만
+        JSONObject ms = League.newMatch("o04"); String msid = ms.optString("id"); League.setStatus(msid, "playing", "");
+        int sBefore = League.me().optInt("score");
+        File blk2 = new File(dir, "league.json.tmp"); blk2.mkdir(); new File(blk2, "x").createNewFile();
+        JSONObject sf = League.settle(msid, win("o04"));
+        boolean rolled = sf == null && League.me().optInt("score") == sBefore && "playing".equals(League.matchById(msid).optString("status"));
+        new File(blk2, "x").delete(); blk2.delete();
+        ok(rolled, "정산 저장 실패 → 메모리 되돌림(점수·상태 그대로)");
+        JSONObject sg = League.settle(msid, win("o04"));
+        ok(sg != null && "settled".equals(sg.optString("status")) && League.settle(msid, win("o04")) == League.matchById(msid) && League.me().optInt("score") == sBefore + sg.optInt("delta"),
+           "재시도에서 정확히 한 번 정산(되돌린 뒤에도 id 로 찾음)");
+        ok(!League.setStatus(msid, "resume", "x") && !League.cancel(msid, "x"), "끝난 경기는 상태를 못 바꾸고 무효로도 못 닫음");
+        // 새 경기 저장 실패 → 경기를 만들지 않음
+        int nm = League.matches().length();
+        blk2.mkdir(); new File(blk2, "x").createNewFile();
+        JSONObject nf = League.newMatch("o05");
+        new File(blk2, "x").delete(); blk2.delete();
+        ok(nf == null && League.matches().length() == nm && League.openMatch() == null, "새 경기 저장 실패 → 경기를 만들지 않음");
+        // 진행 중 → 앱이 내려감 → 복귀 대기 · 사유 지우기
+        JSONObject mi = League.newMatch("o06"); String miid = mi.optString("id");
+        League.setStatus(miid, "resume", "체크포인트 없음"); League.note(miid, "fix", "x"); League.setStatus(miid, "playing", "");
+        ok(!League.matchById(miid).has("why") && !League.matchById(miid).has("fix"), "진행 중으로 바꿀 때 지난 사유·복구 안내를 지움");
+        ok(!League.cancel(miid, "x"), "시작한 경기는 무효로 못 닫음");
+        League.markInterrupted();
+        ok("resume".equals(League.matchById(miid).optString("status")) && League.matchById(miid).optString("why").contains("내려감"), "리그 화면을 열 때 진행 중 경기는 복귀 대기");
+        League.forfeit(miid);
+        // 순위 기록에 없는 id·빠진 id
+        League.db().put("order", new JSONArray().put("zz").put("o12").put("me"));
+        List<String> od = League.order();
+        ok(od.size() == 13 && !od.contains("zz") && od.containsAll(Arrays.asList("me", "o01", "o07")), "순위 기록에 없는 id 는 빼고 빠진 사람은 더해서 13명");
+        // 다음 상대: 1위·꼴찌
+        int keepS = League.me().optInt("score");
+        League.me().put("score", 9999); String n1 = League.nextOpp(League.order().get(1));
+        ok(n1 != null && League.order().indexOf(n1) == 2, "1위면 다음 상대는 바로 아래(방금 상대 빼고)");
+        League.me().put("score", -9999); List<String> o2 = League.order(); String n2 = League.nextOpp(o2.get(11));
+        ok(n2 != null && o2.indexOf(n2) == 10 && League.neighbors(2).equals(o2.subList(8, 12)), "꼴찌면 다음 상대는 바로 위, 가까운 순위는 위 4명");
+        League.me().put("score", keepS); League.db().remove("order"); League.save();
+        // league.json 이 없고 .bak 만 있을 때
+        String snap2 = League.db().toString();
+        new File(dir, "league.json").delete(); restart();
+        ok(League.db().toString().equals(snap2), "league.json 이 없어도 .bak 에서 같은 기록");
+
         // ── 11) 둘 다 못 읽는 기록은 덮지 않고 옆으로 치움
         String other = "{\"v\":2,\"me\":{\"score\":1234}}";
         for (String n : new String[]{"league.json", "league.json.bak"}) try (FileOutputStream o = new FileOutputStream(new File(dir, n))) { o.write(other.getBytes("UTF-8")); }
@@ -208,6 +279,32 @@ public class LeagueTest {
         JSONObject r = League.settle("m4", win("o01"));
         ok(r != null && r.optInt("rank_before") == 7 && r.optInt("rank_after") == 6 && r.optInt("delta") == 12, "그 경기를 이기면 순위 변화는 지금 명단 기준(7위 → 6위)");
         ok(!League.oppById("o01").has("broke_streak"), "칼끝노인을 이겨 «연승을 끊은 상대» 표시가 지워짐");
+        // 1단계 기록에 기권·무승부·준비 경기도 섞여 있을 때
+        restart();
+        String s2 = "{\"v\":1,\"me\":{\"score\":988,\"w\":1,\"l\":2,\"d\":1,\"streak\":0,\"best\":1},"
+            + "\"opps\":[{\"id\":\"o01\",\"nick\":\"칼끝노인\",\"char\":11,\"style\":0,\"diff\":1,\"score\":1012,\"w\":2,\"l\":1,\"d\":1}],"
+            + "\"matches\":[{\"id\":\"a\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"D\",\"delta\":0},"
+            + "{\"id\":\"b\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"W\",\"delta\":12},"
+            + "{\"id\":\"c\",\"opp\":\"o01\",\"status\":\"forfeit\",\"outcome\":\"L\",\"forfeit\":true,\"delta\":-12,\"broke_streak\":1},"
+            + "{\"id\":\"d\",\"opp\":\"o01\",\"status\":\"hold\",\"why\":\"x\"},"
+            + "{\"id\":\"e\",\"opp\":\"o01\",\"status\":\"ready\",\"rank_before\":2,\"rule\":{\"char\":11,\"style\":0,\"diff\":1,\"points\":2,\"time\":60},\"start_score\":{\"me\":988,\"opp\":1012}}]}";
+        try (FileOutputStream o = new FileOutputStream(new File(dir, "league.json"))) { o.write(s2.getBytes("UTF-8")); }
+        new File(dir, "league.json.bak").delete();
+        ok(League.opps().length() == 12 && League.matchById("b").optBoolean("first_win") && !League.oppById("o01").has("broke_streak")
+           && !League.matchById("e").has("rank_before") && League.matchById("d").has("why") && League.history("o01", 9).size() == 3,
+           "무승부·기권·보류·준비가 섞인 1단계 기록: 첫 승 표시, 1연승 끊김은 표시 안 함, 준비 경기 시작 순위 지움, 보류 그대로");
+        ok(League.cancel("e", "대진 전") && League.openMatch() == null, "이어받은 준비 경기는 무효로 닫을 수 있음");
+        // 이어받기 저장이 실패해도 메모리 판으로 쓰고, 다음 실행에서 같은 결과
+        restart();
+        try (FileOutputStream o = new FileOutputStream(new File(dir, "league.json"))) { o.write(s2.getBytes("UTF-8")); }
+        File blk = new File(dir, "league.json.tmp"); blk.mkdir(); new File(blk, "x").createNewFile();
+        boolean memOk = League.opps().length() == 12;
+        boolean fileOld = new JSONObject(raw(new File(dir, "league.json"))).optJSONArray("opps").length() == 1;
+        String memSnap = League.db().toString();
+        new File(blk, "x").delete(); blk.delete();
+        restart();
+        ok(memOk && fileOld && League.db().toString().equals(memSnap) && new JSONObject(raw(new File(dir, "league.json"))).optJSONArray("opps").length() == 12,
+           "이어받기 저장 실패 → 메모리 판으로 쓰고 파일은 옛 판 그대로, 다음 실행에서 같은 결과로 저장");
         System.out.println(fails == 0 ? "ALL PASS (migrate)" : fails + " FAIL (migrate)");
         System.exit(fails == 0 ? 0 : 1);
     }

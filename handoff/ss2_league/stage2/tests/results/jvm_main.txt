@@ -26,7 +26,6 @@ PASS 1위일 때 가까운 순위는 아래 4명
 PASS 무승부 — 점수 유지, 무승부 전적만
 PASS 대진 불일치(얼음요정 대신 그늘닌자 블록) → 보류, 점수 그대로
 PASS 대진 전 경기 무효
-PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/legacito/jtest/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/legacito/jtest/r_main/league/league.json.tmp (Is a directory)
 PASS 기권 저장 실패 → 되돌림·체크포인트 남김
 PASS 기권 재시도에서 한 번 — 시작 때 두 점수 차이 구간대로(검은달)
 PASS 재시작 후 기록·순위·상대전적·표시가 그대로
@@ -38,5 +37,22 @@ PASS 그 상대를 이기면 «연승을 끊은 상대» 표시를 지움
 PASS 받침 따라 과/와
 PASS 미지원 대진(주베이 나찰)은 도전 불가·경기 안 만듦
 PASS 점수 구간 표(±100 경계)
+PASS 판정 불가·승수 불일치·규칙 불일치·난도 불일치 결판은 모두 보류(점수·전적 그대로)
+PASS 보류 사유가 원인별로 남음
+PASS 결판 라운드가 무승부 라운드여도(0xD0 3:1) 승리로 정산
+PASS 점수 구간은 시작 때 두 점수로 고정
+PASS 정산 때 그 경기 직후 연승·상대전적을 경기에 남김
+PASS 경기에 게임 id(ss2)
+PASS 정산 저장 실패 → 메모리 되돌림(점수·상태 그대로)
+PASS 재시도에서 정확히 한 번 정산(되돌린 뒤에도 id 로 찾음)
+PASS 끝난 경기는 상태를 못 바꾸고 무효로도 못 닫음
+PASS 새 경기 저장 실패 → 경기를 만들지 않음
+PASS 진행 중으로 바꿀 때 지난 사유·복구 안내를 지움
+PASS 시작한 경기는 무효로 못 닫음
+PASS 리그 화면을 열 때 진행 중 경기는 복귀 대기
+PASS 순위 기록에 없는 id 는 빼고 빠진 사람은 더해서 13명
+PASS 1위면 다음 상대는 바로 아래(방금 상대 빼고)
+PASS 꼴찌면 다음 상대는 바로 위, 가까운 순위는 위 4명
+PASS league.json 이 없어도 .bak 에서 같은 기록
 PASS 못 읽는 league.json·.bak(다른 판 형식)은 새 기록으로 덮지 않고 이름을 바꿔 남김
 ALL PASS
