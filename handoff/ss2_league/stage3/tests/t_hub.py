@@ -9,6 +9,7 @@ lg = T.lg
 lg.league_tick_hub.argtypes = [C.c_void_p, C.c_size_t, C.c_int]
 lg.league_vram.argtypes = [C.c_void_p, C.c_void_p, C.c_void_p]
 lg.league_hub_look.argtypes = [C.c_void_p, C.c_int, C.c_int]
+lg.league_palremap_fn.argtypes = [C.c_void_p]
 ROSTER = {11: (0, 1), 3: (1, 1), 4: (0, 0), 2: (0, 1), 9: (1, 1), 5: (0, 0), 6: (0, 0), 7: (0, 0), 0: (1, 2), 8: (1, 2), 13: (0, 2), 14: (1, 2)}
 sty = (C.c_byte * 15)(*[ROSTER[c][0] if c in ROSTER else -1 for c in range(15)])
 dif = (C.c_byte * 15)(*[ROSTER[c][1] if c in ROSTER else 1 for c in range(15)])
@@ -22,13 +23,18 @@ class Hub(T.Harness):
         super().__init__(rom, wd)
         L = self.p.lib
         for f in ('retro_ngp_charram', 'retro_ngp_scrollram', 'retro_ngp_palram'): getattr(L, f).restype = C.c_void_p
+        # 코어 팔레트 바꿔 쓰기(retro_ngp_palremap) — 앱 native.c 처럼 있으면 넘기고, 옛 코어면 NULL(프레임 뒤 고쳐 쓰기만)
+        self.prf = C.cast(L.retro_ngp_palremap, C.c_void_p).value if hasattr(L, 'retro_ngp_palremap') else None
+        self.reverts = None                               # 세면: 프레임 뒤(허브가 고치기 전) 팔레트 0 이 기본 색이었던 프레임 수
     def run(self, n=1):
         for _ in range(n):
             on = C.c_int.in_dll(lg, 'league_ovr_on').value
             blk = C.c_int.in_dll(lg, 'league_in_block').value
             self.p.mask = C.c_int.in_dll(lg, 'league_ovr_mask').value if on else (self.user & ~blk)
             self.p.run(1)
+            if self.reverts is not None and self.p.peek(0x40A7) == 241 and pal0() == self.base: self.reverts += 1
             lg.league_vram(self.p.lib.retro_ngp_charram(), self.p.lib.retro_ngp_scrollram(), self.p.lib.retro_ngp_palram())
+            lg.league_palremap_fn(self.prf)
             lg.league_tick_hub(self.p._ramp, self.p._rams, self.user)
 def hub():
     v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
@@ -74,6 +80,8 @@ ok(len(set(gl[k] for k in range(-2, 8) if k != -1)) == 9 and gl[6] == g_home and
    'B 한 바퀴: 배경 8개·무작위 글자가 모두 다르고, «상대 기본» = 아수라 기본 배경(마계 제단) 글자 · 다시 상대 기본으로 돌아옴')
 for i in range(3): h.press('B', 4, 20)                 # B: 배경 — 상대 기본 → 무작위 → 0 → 1(숲속 호숫가)
 s = hub(); ok(st0 == -1 and s[9] == 1 and s[0] == 2 and p.peek(0x41C0) == 2 and vp_glyph() == gl[1], '상대 고르기에서 B 세 번 → 배경 «상대 기본» → 무작위 → 0 → 1(숲속 호숫가), 오른쪽 칸 글자도 1, 게임 화면 그대로 [%d → %d]' % (st0, s[9]))
+h.user = 1 << 1; h.run(20); h.user = 0; h.run(40); s = hub()   # 패드 «A+B»(libretro Y — 코어가 A+B 로 접음): 게임이 A 로 받아 허브를 건너뛰면 안 됨
+ok(s[0] == 2 and p.peek(0x41C0) == 2 and T.status()[0] == 0, '상대 고르기에서 패드 «A+B» 버튼 → 게임이 안 받음(상대 고르기 그대로, 무장 없음) [상태 %d · SCR %d]' % (s[0], p.peek(0x41C0)))
 h.press('A', 4, 60)                                     # 가운데 아수라(8) — 리그 상대(검은달)
 s = hub(); ok(s[0] == 3 and s[2] == 8 and p.peek(0x41C0) == 2, '상대 고르기에서 A → 아수라(8) 상대 고름, 화면은 캐릭터 고르기 그대로(내 캐릭터 차례)')
 aft = hdr_tiles(); chg = [i for i in range(20) if mid[i] != aft[i]]
@@ -104,9 +112,12 @@ while f < 6000 and not T.status()[3]:
     else: h.run(1)
     f += 1
 h.run(60); p.shot(T.work('hub_%s_4_fight.png' % tag))
+h.base = UKYO_SURA[0]; h.reverts = 0                    # 여기부터 결판까지: 게임이 몸 팔레트를 다시 써도 원래 색이 안 새는가
 ok(p.peek(0x5827) == 1 and p.peek(0x5778) == STAGE_ID[1], '경기 배경 = 고른 배경 1(숲속 호숫가): 판 번호 %d · 배경 id %d' % (p.peek(0x5827), p.peek(0x5778)))
 n2p = px(T.work('hub_%s_4_fight.png' % tag), UKYO_SURA[1][1])
-ok(pal0() == UKYO_SURA[1] and n2p >= 20, '내 컬러 = 우쿄 수라 2P색 (팔레트 0 = %s · 찍힌 경기 화면에 2P색 점 %d)' % (' '.join('%03x' % c for c in pal0()), n2p))
+w2p = 0                                                 # 맞을 때 번쩍임처럼 게임이 잠깐 다른 색을 쓰는 중일 수 있어 몇 프레임 안에 보면 된다
+while w2p < 120 and pal0() != UKYO_SURA[1]: h.run(1); w2p += 1
+ok(pal0() == UKYO_SURA[1] and n2p >= 20, '내 컬러 = 우쿄 수라 2P색 (팔레트 0 = %s, %d프레임 뒤 · 찍힌 경기 화면에 2P색 점 %d)' % (' '.join('%03x' % c for c in pal0()), w2p, n2p))
 s = hub(); st = T.status()
 ok(s[0] == 4 and st[3] == 1 and (st[12] & 0xF8) == (8 << 4 | 1 << 3) and p.peek(0x57D5) == 11, '경기 시작 · P2 = 아수라 나찰 · 내 캐릭터 우쿄 · 허브 경기 상태')
 f = 0; wait = None
@@ -117,6 +128,9 @@ while f < 30000 and not T.status()[4]:
     if f % 60 == 0 and p.peek(0x40A7) != 241: h.press('A', 2)
     else: h.run(1)
     f += 1
+nrev = h.reverts; h.reverts = None
+if h.prf: ok(nrev == 0, '경기 내내 내 컬러가 원래 색으로 안 샘 — 코어 팔레트 바꿔 쓰기(retro_ngp_palremap): 원래 색 프레임 %d' % nrev)
+else: print('INFO 옛 코어(retro_ngp_palremap 없음) — 프레임 뒤 고쳐 쓰기만: 원래 색이 보인 프레임 %d' % nrev)
 st = T.status()
 ok(st[4] == 1 and st[5] & 0x40 and (st[6], st[7]) == (2, 0) and st[9] == 2 and st[17] == 60 and st[18] == 7, '결판 P1 승 2:0 · 2선승 · 60초 · CPU 단계 7(어려움)')
 # 결과 카드를 닫은 뒤: 리셋 + 타이틀로(native.c nativeLeagueHubReturn 과 같은 순서)
