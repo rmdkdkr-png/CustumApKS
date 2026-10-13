@@ -1,0 +1,37 @@
+PASS 새 기록: 가상 상대 12명
+PASS 12명 모두 지원 대진·고정 id o01~o12 순·닉네임/조합 겹침 없음·난도 구간 안의 초기 점수
+PASS 난도 쉬움·보통·어려움 4명씩
+PASS o01 = 1단계와 같은 칼끝노인(우쿄 수라 보통 1000)
+PASS 처음 순위: 13명, 나 7위, 동점 1000 은 고정 id 순(나 먼저, 칼끝노인 8위)
+PASS 새 명단이 바로 파일에 저장됨
+PASS 재시작해도 같은 명단·같은 순위
+PASS 열린 경기가 있으면 다른 상대에게도 새 경기 안 됨 + 도전 불가 이유
+PASS 경기 id·설정·시작 점수가 시작 전에 파일에 저장됨(재시작 뒤 ready)
+PASS 칼끝노인에게 패배 0:2 정산 −12, 순위 7위 → 8위
+PASS 같은 경기 반복 정산·기권 — 한 번만
+PASS 한 번 지고 못 이긴 상대 표시
+PASS 동점 1000:1000 — 직전 순위 유지(칼끝노인 7위, 나 8위) · 이 상대에게 첫 승
+PASS 처음 이긴 상대 표시, 못 이긴 상대 표시는 사라짐
+PASS 두 번째 승리는 첫 승 아님
+PASS 101점 이상 높은 상대(끝판왕 1120)를 이기면 +18, 상대 −18
+PASS 101점 이상 낮은 상대에게 지면 −18 · 내 3연승을 끊음(경기·상대 둘 다 기록)
+PASS 연승을 끊은 상대 표시
+PASS 상대전적은 상대마다 따로(다른 상대 기록은 그대로)
+PASS 1승 3패 상대 → 자주 지는 상대
+PASS 최근 결과(새것부터)와 상대별 경기 목록
+PASS 상대끼리 동점 → 직전 순서 유지
+PASS 가까운 순위 4명(내 위·아래, 끝이면 반대쪽에서 채움)
+PASS 다음 상대 추천 — 방금 상대가 아닌 바로 위(없으면 아래)
+PASS 1위일 때 가까운 순위는 아래 4명
+PASS 무승부 — 점수 유지, 무승부 전적만
+PASS 대진 불일치(얼음요정 대신 그늘닌자 블록) → 보류, 점수 그대로
+PASS 대진 전 경기 무효
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/legacito/jtest/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/legacito/jtest/r_main/league/league.json.tmp (Is a directory)
+PASS 기권 저장 실패 → 되돌림·체크포인트 남김
+PASS 기권 재시도에서 한 번 — 시작 때 두 점수 차이 구간대로(검은달)
+PASS 재시작 후 기록·순위·상대전적·표시가 그대로
+PASS league.json 이 깨져도 .bak 에서 같은 기록
+PASS 한 번 더 재시작해도 같음(.bak 복구 뒤 명단을 다시 더하지 않음)
+PASS 미지원 대진(주베이 나찰)은 도전 불가·경기 안 만듦
+PASS 점수 구간 표(±100 경계)
+ALL PASS
