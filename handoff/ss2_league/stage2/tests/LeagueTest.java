@@ -145,11 +145,31 @@ public class LeagueTest {
         restart();
         ok(League.db().toString().equals(snap), "한 번 더 재시작해도 같음(.bak 복구 뒤 명단을 다시 더하지 않음)");
 
+        // ── 9b) 연승을 끊은 상대: 2연승 이상만 · 이기면 지움
+        while (League.me().optInt("streak") != 0) play("o04", lose("o04"));
+        play("o06", win("o06")); JSONObject l1 = play("o07", lose("o07"));
+        ok(!l1.has("broke_streak") && !League.oppById("o07").has("broke_streak") && League.tags(League.oppById("o07")).stream().noneMatch(t -> t.contains("연승을 끊은")),
+           "1연승 뒤 패배는 «연승을 끊은 상대»로 남기지 않음");
+        ok(League.tags(League.oppById("o08")).contains("내 3연승을 끊은 상대"), "(앞서 3연승을 끊은 독수리산책은 그대로)");
+        play("o08", win("o08"));
+        ok(!League.oppById("o08").has("broke_streak") && League.tags(League.oppById("o08")).stream().noneMatch(t -> t.contains("연승을 끊은")), "그 상대를 이기면 «연승을 끊은 상대» 표시를 지움");
+        ok(League.gwa("칼끝노인").equals("칼끝노인과") && League.gwa("달빛나코").equals("달빛나코와") && League.gwa("끝판왕").equals("끝판왕과") && League.gwa("장미기사").equals("장미기사와") && League.gwa("abc").equals("abc와"),
+           "받침 따라 과/와");
+
         // ── 10) 미지원 대진은 도전 불가
         JSONObject o1 = League.oppById("o01"); o1.put("char", 12); o1.put("style", 1);
         ok(League.blockedWhy(o1) != null && League.newMatch("o01") == null, "미지원 대진(주베이 나찰)은 도전 불가·경기 안 만듦");
         o1.put("char", 11); o1.put("style", 0);
         ok(League.delta(1000, 1101, "W") == 18 && League.delta(1000, 1100, "L") == -12 && League.delta(1000, 899, "L") == -18, "점수 구간 표(±100 경계)");
+        // ── 11) 둘 다 못 읽는 기록은 덮지 않고 옆으로 치움
+        String other = "{\"v\":2,\"me\":{\"score\":1234}}";
+        for (String n : new String[]{"league.json", "league.json.bak"}) try (FileOutputStream o = new FileOutputStream(new File(dir, n))) { o.write(other.getBytes("UTF-8")); }
+        restart();
+        int scoreNow = League.me().optInt("score");                    // 여기서 기록을 연다(못 읽으면 옆으로 치움)
+        File[] aside = dir.listFiles((x, n) -> n.contains(".unreadable-"));
+        boolean keptBoth = aside != null && aside.length == 2;
+        if (keptBoth) for (File f : aside) keptBoth &= raw(f).equals(other);
+        ok(scoreNow == 1000 && League.opps().length() == 12 && keptBoth, "못 읽는 league.json·.bak(다른 판 형식)은 새 기록으로 덮지 않고 이름을 바꿔 남김");
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAIL");
         System.exit(fails == 0 ? 0 : 1);
     }
@@ -157,28 +177,37 @@ public class LeagueTest {
     /** 1단계 기록(상대 1명, 경기 3개, 순위 굳힘)을 깔아 두고 이어받기. */
     static void migrate(File dir) throws Exception {
         dir.mkdirs();
-        String s1 = "{\"v\":1,\"me\":{\"name\":\"나\",\"score\":1012,\"w\":2,\"l\":1,\"d\":0,\"streak\":2,\"best\":2},"
+        String s1 = "{\"v\":1,\"me\":{\"name\":\"나\",\"score\":1012,\"w\":2,\"l\":1,\"d\":0,\"streak\":0,\"best\":2},"
             + "\"opps\":[{\"id\":\"o01\",\"nick\":\"칼끝노인\",\"char\":11,\"style\":0,\"diff\":1,\"score\":988,\"w\":1,\"l\":2,\"d\":0}],"
             + "\"order\":[\"me\",\"o01\"],"
-            + "\"matches\":[{\"id\":\"m1\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"L\",\"delta\":-12},"
-            + "{\"id\":\"m2\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"W\",\"delta\":12,\"first_win\":true},"
-            + "{\"id\":\"m3\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"W\",\"delta\":12}]}";
+            + "\"matches\":[{\"id\":\"m1\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"W\",\"delta\":12,\"settled\":1},"
+            + "{\"id\":\"m2\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"W\",\"delta\":12,\"settled\":2},"
+            + "{\"id\":\"m3\",\"opp\":\"o01\",\"status\":\"settled\",\"outcome\":\"L\",\"delta\":-12,\"broke_streak\":2,\"settled\":3},"
+            + "{\"id\":\"m4\",\"opp\":\"o01\",\"status\":\"resume\",\"rank_before\":1,\"side\":\"P1\","
+            + "\"rule\":{\"char\":11,\"style\":0,\"diff\":1,\"points\":2,\"time\":60,\"cards\":\"all\"},\"start_score\":{\"me\":1012,\"opp\":988}}]}";
         try (FileOutputStream o = new FileOutputStream(new File(dir, "league.json"))) { o.write(s1.getBytes("UTF-8")); }
         JSONObject o1 = League.oppById("o01");
         ok(League.opps().length() == 12 && o1.optInt("score") == 988 && o1.optInt("w") == 1 && o1.optInt("l") == 2 && "칼끝노인".equals(o1.optString("nick")),
            "1단계 기록 이어받기: 12명으로 늘고 칼끝노인 점수·전적 그대로");
-        ok(League.me().optInt("score") == 1012 && League.me().optInt("streak") == 2 && League.matches().length() == 3 && League.history("o01", 9).size() == 3,
-           "내 점수·연승·경기 기록 그대로");
+        ok(League.me().optInt("score") == 1012 && League.me().optInt("best") == 2 && League.matches().length() == 4 && League.history("o01", 9).size() == 3,
+           "내 점수·최장 연승·경기 기록 그대로");
         ok(League.opps().optJSONObject(1).optString("id").equals("o02") && League.oppById("o02").optInt("score") == 1020 && League.oppById("o12").optInt("w") == 0,
            "새 상대는 고정 id 순으로 뒤에, 초기 점수·빈 전적");
+        ok(League.matchById("m1").optBoolean("first_win") && !League.matchById("m2").optBoolean("first_win") && o1.optInt("broke_streak") == 2
+           && League.tags(o1).contains("내 2연승을 끊은 상대"), "1단계 기록에서 재대결 표시를 되살림(첫 승 경기·2연승을 끊은 상대)");
+        ok(!League.matchById("m4").has("rank_before"), "옛 명단에서 시작한 열린 경기의 시작 순위(2명 기준)는 지움");
         String f1 = raw(new File(dir, "league.json"));
         ok(new JSONObject(f1).optJSONArray("opps").length() == 12 && new JSONObject(f1).optInt("roster") == 2, "이어받은 명단이 바로 파일에 저장됨(roster 2)");
         restart();
         String again = League.db().toString();
         restart();
-        ok(League.db().toString().equals(again) && raw(new File(dir, "league.json")).equals(f1), "다시 열어도 그대로(명단을 두 번 더하지 않음)");
+        ok(League.db().toString().equals(again) && raw(new File(dir, "league.json")).equals(f1), "다시 열어도 그대로(명단·표시를 두 번 더하지 않음)");
         List<String> ord = League.order();
         ok(ord.indexOf("me") < ord.indexOf("o01") && League.rankOf("me") == 7, "이어받은 뒤 순위: 나 1012 는 새 상대들 사이 7위, 칼끝노인 988 아래");
+        League.setStatus("m4", "playing", "");
+        JSONObject r = League.settle("m4", win("o01"));
+        ok(r != null && r.optInt("rank_before") == 7 && r.optInt("rank_after") == 6 && r.optInt("delta") == 12, "그 경기를 이기면 순위 변화는 지금 명단 기준(7위 → 6위)");
+        ok(!League.oppById("o01").has("broke_streak"), "칼끝노인을 이겨 «연승을 끊은 상대» 표시가 지워짐");
         System.out.println(fails == 0 ? "ALL PASS (migrate)" : fails + " FAIL (migrate)");
         System.exit(fails == 0 ? 0 : 1);
     }
