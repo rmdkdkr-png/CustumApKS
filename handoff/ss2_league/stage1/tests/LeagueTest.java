@@ -88,7 +88,13 @@ public class LeagueTest {
         League.markInterrupted();
         ok("resume".equals(League.matchById(idA).optString("status")) && League.matchById(idA).optString("why").contains("내려감"), "리그 화면을 열 때 진행 중 경기는 복귀 대기(앱이 경기 중에 내려감)");
         League.forfeit(idA);
-        // 13) 점수 구간 표
+        // 13) 싸우지 않는 CPU 대진은 지원하지 않음
+        ok(!League.oppSupported(1, 0) && !League.oppSupported(12, 1) && !League.oppSupported(4, 1) && League.oppSupported(11, 0) && League.oppSupported(4, 0) && !League.oppSupported(15, 0),
+           "미지원 상대(소게츠 수라·주베이 나찰·나코루루 나찰·id 15) 거르고 우쿄 수라·나코루루 수라는 허용");
+        League.oppById("o01").put("char", 1); League.oppById("o01").put("style", 0);
+        ok(League.newMatch("o01") == null, "미지원 상대로는 경기를 만들지 않음");
+        League.oppById("o01").put("char", 11); League.oppById("o01").put("style", 0);
+        // 14) 점수 구간 표
         ok(League.delta(1000, 1101, "W") == 18 && League.delta(1000, 1101, "L") == -6 && League.delta(1000, 1100, "W") == 12
            && League.delta(1000, 899, "W") == 6 && League.delta(1000, 899, "L") == -18 && League.delta(1000, 900, "L") == -12, "점수 구간 표(±100 경계 포함)");
         System.out.println(fails == 0 ? "ALL PASS" : fails + " FAIL");

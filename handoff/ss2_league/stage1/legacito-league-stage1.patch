@@ -804,10 +804,10 @@ index dc644e1..7d513f8 100755
              hint.setText("패드: 위아래 이동 · 펀치 버튼 바꾸기/시작 · 킥 버튼 닫기");
 diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
 new file mode 100644
-index 0000000..21a673b
+index 0000000..391ba05
 --- /dev/null
 +++ b/app/src/main/java/com/dudu/pocketcore/League.java
-@@ -0,0 +1,470 @@
+@@ -0,0 +1,479 @@
 +package com.dudu.pocketcore;
 +
 +import org.json.JSONArray;
@@ -853,6 +853,15 @@ index 0000000..21a673b
 +        { "8d6a36acd3b171970d87d2fca6796a4a", "순정 ss2.ngc (일본어·영어)" },
 +        { "3e46575450756953d755c23db12c4dd0", "순정 ss2_h1.ngc (일본어·영어)" },
 +    };
++    /** CPU 상대로 쓰면 안 되는 캐릭터·검질(id<<1|검질). 덮어쓰면 CPU 가 싸우지 않는다 — 14캐릭 × 2검질 P1 28조합 모두에서
++     *  가만히 있는 사람에게도, 다가가 공격하는 사람에게도 거의 안 때림(0단계 «가만히 있는 CPU», 28×30 표). 스토리가 내지 않는 검질들이다. */
++    static final int[] BAD_OPP = { (1 << 1) | 0, (4 << 1) | 1, (5 << 1) | 1, (6 << 1) | 1, (10 << 1) | 1, (12 << 1) | 1 };
++    static boolean oppSupported(int ch, int style) {
++        if (ch < 0 || ch > 14 || style < 0 || style > 1) return false;
++        for (int b : BAD_OPP) if (b == ((ch << 1) | style)) return false;
++        return true;
++    }
++
 +    static final int POINTS = 2;      /* 2선승(3판 2승) — 롬 세이브의 기본값(1 일 수도 있다)에 기대지 않고 정한다 */
 +    static final int TIME   = 60;     /* 라운드 60초 */
 +
@@ -1003,7 +1012,7 @@ index 0000000..21a673b
 +        try {
 +            if (openMatch() != null) return null;
 +            JSONObject o = oppById(oppId);
-+            if (o == null) return null;
++            if (o == null || !oppSupported(o.optInt("char"), o.optInt("style"))) return null;   /* 미지원 대진은 시작하지 않는다 */
 +            JSONObject m = new JSONObject();
 +            m.put("id", java.util.UUID.randomUUID().toString());
 +            m.put("opp", oppId);
