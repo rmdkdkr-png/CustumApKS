@@ -1,0 +1,1037 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index d9b30e8..8b79d1b 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -4,6 +4,9 @@
+ 
+     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE"
+         android:maxSdkVersion="32" />
++    <!-- 안드로이드 8~10: /sdcard/PocketCore 에 쓰려면(세이브·리그 기록) 쓰기 권한이 따로 있어야 한다. 11+ 는 MANAGE_EXTERNAL_STORAGE -->
++    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE"
++        android:maxSdkVersion="29" />
+     <uses-permission android:name="android.permission.MANAGE_EXTERNAL_STORAGE"
+         tools:ignore="ScopedStorage" />
+     <!-- 앱 내 업데이트: PC 릴리즈 서버(같은 와이파이, http)에서 받아 설치창 호출 -->
+@@ -21,6 +24,7 @@
+         android:icon="@mipmap/ic_launcher"
+         android:hardwareAccelerated="true"
+         android:extractNativeLibs="true"
++        android:requestLegacyExternalStorage="true"
+         android:usesCleartextTraffic="true"
+         android:theme="@android:style/Theme.NoTitleBar.Fullscreen">
+ 
+diff --git a/app/src/main/cpp/hub_glyphs.h b/app/src/main/cpp/hub_glyphs.h
+new file mode 100644
+index 0000000..6866891
+--- /dev/null
++++ b/app/src/main/cpp/hub_glyphs.h
+@@ -0,0 +1,29 @@
++/* hub_glyphs.py 로 만든 글자 타일 — 「리그」(타이틀 메뉴 2번째 줄 앞 두 타일) · 「상대」(캐릭터 고르기 머리말 앞 6칸 × 2줄) · 「선택」(순정판 머리말 뒤 4칸 × 2줄) */
++static const uint8_t HUB_MENU_RIGEU[32] = {
++   0xF7, 0x55, 0xF7, 0xFD, 0xF7, 0x55, 0xF7, 0x7F, 0xF7, 0x55, 0xF7, 0xFF, 0xF7, 0xFF, 0xFF, 0xFF,
++   0x57, 0xD5, 0xF7, 0xFF, 0xF7, 0xFF, 0xFF, 0xFF, 0x57, 0x55, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
++};
++static const uint8_t HUB_HDR_SANGDAE[192] = {
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x03, 0x00, 0x03, 0x00, 0x03, 0x00, 0x00, 0x00,
++   0x00, 0x00, 0xC0, 0x0F, 0xF0, 0x3D, 0x7C, 0xF7, 0xDF, 0xDF, 0xF7, 0x7C, 0x3F, 0xF0, 0xFF, 0x0F,
++   0x00, 0x00, 0x0F, 0xFC, 0x0D, 0xDC, 0x0D, 0xDF, 0x0D, 0xD7, 0x0D, 0xDF, 0x0D, 0xDC, 0x0D, 0xFC,
++   0x00, 0x00, 0xFC, 0xFF, 0xDC, 0x5D, 0xDC, 0xFD, 0xDC, 0xCD, 0x5C, 0xCD, 0xDC, 0xFD, 0xDC, 0x5D,
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x55, 0x3D, 0xFF, 0x37, 0x03, 0x37, 0xFF, 0x37, 0x55, 0x3D, 0xFF, 0x0F, 0x00, 0x00, 0x00, 0x00,
++   0x0F, 0xF0, 0x00, 0x70, 0x00, 0x70, 0x00, 0x70, 0x00, 0xF0, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00,
++   0xDC, 0xFD, 0xDC, 0x0D, 0xDC, 0x0D, 0xDC, 0x0D, 0xFC, 0x0F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
++static const uint8_t HUB_HDR_SEONTAEK[128] = {
++   0x00, 0x00, 0x0F, 0x00, 0x3D, 0x00, 0xF7, 0x00, 0xDF, 0x03, 0x7C, 0x03, 0xF0, 0x03, 0x3F, 0x00,
++   0x00, 0x00, 0xF3, 0xC3, 0x73, 0xF3, 0x7F, 0x7F, 0x5F, 0xDD, 0x7F, 0xF7, 0x73, 0x3F, 0xF3, 0x03,
++   0x00, 0x00, 0xFF, 0xFF, 0x5D, 0x55, 0xFD, 0x7F, 0x5D, 0x55, 0xFD, 0x7F, 0x5D, 0x55, 0xFD, 0xFF,
++   0x00, 0x00, 0x00, 0xFC, 0x00, 0xDC, 0x00, 0xDC, 0x00, 0x5C, 0x00, 0xDC, 0x00, 0xDC, 0x00, 0xDC,
++   0x37, 0x00, 0x37, 0x00, 0x37, 0x00, 0x37, 0x00, 0x35, 0x00, 0x3F, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x03, 0x00, 0x03, 0x00, 0x00, 0x00, 0xFC, 0xFF, 0x5C, 0x55, 0xFC, 0xFF, 0x00, 0x00, 0x00, 0x00,
++   0x55, 0x55, 0xDF, 0xFF, 0xDC, 0x00, 0xDC, 0x00, 0xDC, 0x00, 0xFC, 0x00, 0x00, 0x00, 0x00, 0x00,
++   0x00, 0xFC, 0x00, 0xC0, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
++};
+diff --git a/app/src/main/cpp/league.c b/app/src/main/cpp/league.c
+index 32a7bf6..2080a57 100644
+--- a/app/src/main/cpp/league.c
++++ b/app/src/main/cpp/league.c
+@@ -28,6 +28,7 @@
+ #include <stdint.h>
+ #include <string.h>
+ #include "league.h"
++#include "hub_glyphs.h"
+ 
+ #define RAM_BASE 0x4000
+ #define A(x) ((x) - RAM_BASE)
+@@ -56,6 +57,10 @@
+ #define R_CPULV  A(0x5814)   /* CPU 단계 — 1인 대전 첫 경기에서 1 + 3×난도(이어하기마다 줄어듦) */
+ #define R_CCARD1 A(0x57E6)   /* CPU(P2) 카드 1 · 2 — 0xFF 없음 */
+ #define R_CCARD2 A(0x57E7)
++#define R_MCUR   A(0x624B)   /* 타이틀 메뉴 커서: 0 1인 대전 · 1 무한 대전 · 2 2인 대전(VS) · 3 카드 모음집 · 4 게임 설정 */
++#define R_HOVER  A(0x4E3C)   /* 캐릭터 고르기 커서 = 캐릭터 id × 4 (가운데 무작위 칸 = 15 × 4) */
++#define IN_A     1           /* NGPC A = libretro JOYPAD_B(0) */
++#define IN_DOWN  (1 << 5)
+ 
+ /* 메뉴 자동 진입 — native.c 의 입력 콜백이 이 둘을 본다(다음 프레임 입력). NGPC A = libretro JOYPAD_B(0). */
+ volatile int league_ovr_on = 0, league_ovr_mask = 0;
+@@ -77,10 +82,224 @@ static struct {
+    unsigned frames, fight_frame, done_frame;
+ } L;
+ 
+-void league_tick(uint8_t *ram, size_t n)
++/* ── 게임 속 리그(허브) — 타이틀 메뉴 «2인 대전»(통신 대전) 자리를 «리그 대전»으로 쓴다 ─────────────────────
++   H_TITLE    타이틀 메뉴 셋째 줄 글자를 «리그 대전»으로 바꿔 그리고(한글판 배치일 때만), 그 칸에서 누른 A 는 게임 대신 받는다
++              → 커서를 0(1인 대전)으로 바꾸고 A 를 대신 눌러 1인 대전 캐릭터 고르기로.
++   H_PICK_OPP 캐릭터 고르기 = 상대 고르기. 머리말 «캐릭터 선택» → «상대 선택». A 는 게임 대신 받아, 커서 캐릭터에
++              리그 상대가 있으면 그 상대로 대진을 무장하고(카드 없음·올카드·난도·2선승·60초) H_PICK_ME 로.
++   H_PICK_ME  같은 화면에서 내 캐릭터·검질·카드를 고른다(원래 게임 그대로). 경기가 시작되면 H_MATCH.
++              그 전에 타이틀로 나가면 무장을 풀고 H_TITLE(경기는 Java 가 무효로 닫는다).
++   H_MATCH    결판까지 1단계 그대로(league_tick 본문). 결판 뒤 Java 가 정산·결과 카드를 띄우고 league_hub_return.
++   H_RETURN   리셋 뒤 타이틀 메뉴까지 A 를 대신 누르고, 메뉴가 뜨면 커서를 «리그 대전»으로 내린다 → H_TITLE.
++              rematch 가 있으면 메뉴에서 바로 리그 대전 → 같은 상대로 H_PICK_ME.
++   화면 글자는 코어의 문자/스크롤 램을 직접 고친다(롬·세이브는 안 건드림). 배치가 다르면(순정 롬 등) 글자는 그대로 두고 흐름만 같다. */
++enum { H_OFF = 0, H_TITLE, H_PICK_OPP, H_PICK_ME, H_MATCH, H_RETURN };
++static struct {
++   int st;
++   signed char sty[15], dif[15];     /* 캐릭터 id → 리그 상대의 검질(없으면 −1)·난도 */
++   int prev_in;                      /* 지난 프레임 사용자 입력(A 누름의 시작을 본다) */
++   int hover, picked, rematch;       /* 커서 캐릭터 · 고른 상대 캐릭터 · 결과 뒤 바로 다시 붙을 상대(−1 없음) */
++   unsigned f, nav_f;                /* 허브 프레임 · 대신 누르기 시작한 프레임 */
++   int nav;                          /* 0 없음 · 1 메뉴에서 A(1인 대전으로) · 2 리셋 뒤 타이틀까지 · 3 메뉴 커서 내리기 */
++   int downs;                        /* nav 3: 남은 아래 누르기 */
++   int hdr_saved;                    /* 머리말 원래 타일을 몇 개 보관했나(0 = 안 바꿈) */
++   uint8_t hdr_orig[20 * 16];
++   int label_menu, label_hdr;        /* 이번 판에서 글자를 바꿔 그렸나(Java 표시용) */
++   int seen_csel;                    /* 리그 대전으로 들어온 뒤 캐릭터 고르기를 봤나(그 뒤에 메뉴가 보이면 «뒤로 나감») */
++   unsigned csel_f;                  /* 캐릭터 고르기가 이어진 프레임 수(머리말은 화면이 자리 잡은 뒤에 바꾼다) */
++   int hold_a;                       /* 허브가 받은 A 를 사용자가 뗄 때까지 게임에도 안 준다(누른 채로 넘어가 게임이 받지 않게) */
++} H = { .st = H_OFF };
++volatile int league_in_block = 0;     /* 입력 콜백이 사용자 입력에서 지울 비트(허브가 대신 받는 A) */
++static unsigned hub_gen;              /* 타이틀로 돌려보낸 횟수 — Java 가 «돌려보냄이 코어에 닿았나»를 본다(닿기 전의 옛 상태로 경기 기록을 만들지 않게) */
++
++static uint8_t *g_chr, *g_scr;        /* 코어 문자 램(타일 512 × 16바이트) · 스크롤 램(두 판 × 32 × 32 × 2바이트) */
++void league_vram(void *chr, void *scr) { g_chr = (uint8_t *)chr; g_scr = (uint8_t *)scr; }
++
++static int scr_tile(int plane, int row, int col)
++{
++   const uint8_t *e = g_scr + plane * 0x800 + (row * 32 + col) * 2;
++   return (e[0] | (e[1] << 8)) & 0x1FF;
++}
++/* 타이틀 메뉴가 떠 있나 — 메뉴 글자 타일이 제자리에 있는지로 본다(램 표시는 리셋 뒤에 안 서는 게 있어서). 둘째 판 12~16줄.
++   1 = 한글판(7칸부터 «1 인 대전» 0x1B1… · «2 인 대전» 0x1BB~0x1BF 전용 타일) · 2 = 순정판(5칸부터 «1P PLAY» 0x1B1… · 글자마다 타일) */
++static int menu_kind(void)
++{
++   if (!g_scr) return 0;
++   if (scr_tile(1, 12, 7) == 0x1B1 && scr_tile(1, 13, 7) == 0x1B6 && scr_tile(1, 16, 7) == 0x1C6) return 1;
++   if (scr_tile(1, 12, 5) == 0x1B1 && scr_tile(1, 13, 5) == 0x1B7 && scr_tile(1, 15, 5) == 0x1C5) return 2;
++   return 0;
++}
++/* 셋째 줄을 «리그 대전» / «LEAGUE» 로. 한글판은 «2 인» 두 타일의 그림을 바꾸고, 순정판은 14줄 5~11칸이 가리키는 타일을
++   메뉴의 다른 낱말 글자로 바꾼다(L·A=PLAY, E=COLLECTION·GAME, G=GAME, U=SURVIVAL, 끝은 빈칸 0x1B0) */
++static void menu_relabel(int kind)
++{
++   if (kind == 1 && g_chr) memcpy(g_chr + 0x1BB * 16, HUB_MENU_RIGEU, 32);
++   else if (kind == 2) {
++      static const uint16_t LEAGUE[7] = { 0x1C2, 0x1C9, 0x1C3, 0x1CF, 0x1B8, 0x1D2, 0x1B0 };
++      for (int c = 0; c < 7; c++) {
++         uint8_t *e = g_scr + 0x800 + (14 * 32 + 5 + c) * 2;
++         uint16_t v = (uint16_t)((e[0] | (e[1] << 8)) & ~0x1FF) | LEAGUE[c];
++         e[0] = (uint8_t)v; e[1] = (uint8_t)(v >> 8);
++      }
++   }
++}
++/* 캐릭터 고르기 머리말: 둘째 판 0줄 5~14칸 0x150~0x159, 1줄 5~13칸 0x15A~0x162 (두 판 같은 자리).
++   1 = 한글판(«캐릭터 선택» — 앞 6칸 «캐릭터» 만 «상대» 로) · 2 = 순정판(«十五士選択», 1줄 14칸 0x163 — 뒤 4칸 «選択» 도 «선택» 으로) */
++static int hdr_layout(void)
++{
++   if (!g_chr || !g_scr) return 0;
++   for (int c = 0; c < 10; c++) if (scr_tile(1, 0, 5 + c) != 0x150 + c) return 0;
++   for (int c = 0; c < 9; c++) if (scr_tile(1, 1, 5 + c) != 0x15A + c) return 0;
++   return scr_tile(1, 1, 14) == 0x163 ? 2 : 1;
++}
++static void hdr_put(int kind, int sangdae)
++{
++   int n = sangdae ? (kind == 2 ? 20 : 12) : H.hdr_saved;
++   for (int i = 0; i < n; i++) {
++      int t = i < 6 ? 0x150 + i : i < 12 ? 0x15A + (i - 6) : i < 16 ? 0x156 + (i - 12) : 0x160 + (i - 16);
++      uint8_t *dst = g_chr + t * 16;
++      if (sangdae) {
++         if (!H.hdr_saved) memcpy(H.hdr_orig + i * 16, dst, 16);
++         memcpy(dst, i < 12 ? HUB_HDR_SANGDAE + i * 16 : HUB_HDR_SEONTAEK + (i - 12) * 16, 16);
++      } else memcpy(dst, H.hdr_orig + i * 16, 16);
++   }
++   H.hdr_saved = sangdae ? n : 0;
++}
++
++static void arm_locked(int opp, int sty, int diff, int points, int timev, int flags);
++
++static void hub_tick(uint8_t *ram, int input)
++{
++   H.f++;
++   int a_edge = (input & IN_A) && !(H.prev_in & IN_A);
++   H.prev_in = input;
++   int mk = (ram[R_MODE] == 240 && ram[R_SCR] == 0) ? menu_kind() : 0;
++   int menu = mk != 0;
++   int csel = ram[R_MODE] == 240 && ram[R_SCR] == 2;
++   int block = 0;
++   if (H.hold_a && !(input & IN_A)) H.hold_a = 0;
++
++   /* 대신 누르기(다음 프레임 입력) */
++   if (H.nav == 1) {                                  /* 메뉴에서 1인 대전 A — 2프레임 뒤부터 4프레임 */
++      unsigned d = H.f + 1 - H.nav_f;
++      league_ovr_on = 1; league_ovr_mask = (d >= 2 && d < 6) ? IN_A : 0;
++      if (d >= 8) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; }
++   } else if (H.nav == 2) {                           /* 리셋 뒤: A 로 로고·인트로를 넘겨 메뉴까지(메뉴가 뜬 뒤엔 A 를 안 준다) */
++      unsigned d = H.f + 1 - H.nav_f;
++      league_ovr_on = 1;
++      league_ovr_mask = (!menu && ((d >= 20 && d < 24) || (d >= 200 && d < 204) || (d >= 380 && d < 384))) ? IN_A : 0;
++      if (menu) { H.nav = 3; H.nav_f = H.f; H.downs = 2; league_ovr_mask = 0; }
++      else if (d > 900) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.st = H_TITLE; }
++   } else if (H.nav == 3) {                           /* 메뉴 커서를 «리그 대전»(2)까지 아래로 */
++      unsigned d = H.f + 1 - H.nav_f;
++      league_ovr_on = 1; league_ovr_mask = ((d % 12) >= 4 && (d % 12) < 8 && H.downs > 0) ? IN_DOWN : 0;
++      if ((d % 12) == 8 && H.downs > 0) H.downs--;
++      if (H.downs == 0 && (d % 12) >= 10) {
++         H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.st = H_TITLE;
++         if (H.rematch >= 0 && menu && ram[R_MCUR] == 2) {   /* 재대결: 바로 리그 대전 → 같은 상대 */
++            ram[R_MCUR] = 0; H.nav = 1; H.nav_f = H.f; H.st = H_PICK_ME; H.picked = H.rematch; H.seen_csel = 0;
++            arm_locked(H.picked, H.sty[H.picked], H.dif[H.picked], 2, 60, LEAGUE_ALLCARDS);
++            H.rematch = -1;
++         }
++      }
++   }
++
++   switch (H.st) {
++   case H_TITLE:
++      if (menu) {
++         menu_relabel(mk); H.label_menu = mk;
++         if (ram[R_MCUR] == 2 && !H.nav) {
++            block = IN_A;
++            if (a_edge) {                             /* «리그 대전» 선택 → 1인 대전 캐릭터 고르기로 */
++               ram[R_MCUR] = 0; H.nav = 1; H.nav_f = H.f; H.st = H_PICK_OPP; H.picked = -1; H.seen_csel = 0; H.csel_f = 0;
++            }
++         }
++      }
++      break;
++   case H_PICK_OPP:
++      if (csel) { H.seen_csel = 1; H.csel_f++; } else H.csel_f = 0;
++      if (csel && !H.nav) {
++         block = IN_A;
++         int h = ram[R_HOVER] >> 2;                 /* 0~13 캐릭터 · 15 가운데 무작위 칸 — 고르기 판에 없는 유가(14)를 그 칸에 숨은 상대로 */
++         H.hover = (h >= 0 && h < 14) ? h : (h == 15 && H.sty[14] >= 0) ? 14 : -1;
++         int hk = H.csel_f >= 20 ? hdr_layout() : 0;
++         if (hk) { hdr_put(hk, 1); H.label_hdr = hk; }
++         if (a_edge && H.csel_f >= 20 && H.hover >= 0 && H.sty[H.hover] >= 0) {   /* 머리말이 «상대 선택» 으로 바뀐 뒤에만(두 번 눌러 안 보고 골라지지 않게) */
++            H.picked = H.hover;
++            if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
++            arm_locked(H.picked, H.sty[H.picked], H.dif[H.picked], 2, 60, LEAGUE_ALLCARDS);
++            H.st = H_PICK_ME;
++            H.hold_a = 1;
++         }
++      } else if (menu && !H.nav && H.seen_csel) { H.st = H_TITLE; H.hdr_saved = 0; H.seen_csel = 0; }   /* 캐릭터 고르기에서 뒤로 나감 */
++      else if (menu && !H.nav && !H.seen_csel && H.f - H.nav_f > 90) {   /* 대신 누른 A 를 게임이 안 받았다(메뉴 그대로) — 다시 «리그 대전» 칸에서 */
++         H.st = H_TITLE; ram[R_MCUR] = 2;
++      }
++      break;
++   case H_PICK_ME:
++      if (csel) H.seen_csel = 1;
++      if (L.fight_seen) H.st = H_MATCH;
++      else if (menu && !H.nav && H.seen_csel) { L.armed = 0; H.st = H_TITLE; H.picked = -1; H.seen_csel = 0; }   /* 대진 전에 타이틀로 — 무효 */
++      break;
++   default: break;
++   }
++   if (H.hold_a) block |= IN_A;
++   league_in_block = block;
++}
++
++void league_hub(int on, const signed char *sty, const signed char *dif)
++{
++   pthread_mutex_lock(&L_mu);
++   memset(&H, 0, sizeof H);
++   hub_gen = 0;                                      /* 새 화면(Java)의 셈과 같이 0 부터 */
++   H.st = on ? H_TITLE : H_OFF; H.picked = -1; H.hover = -1; H.rematch = -1;
++   for (int i = 0; i < 15; i++) { H.sty[i] = sty ? sty[i] : -1; H.dif[i] = dif ? dif[i] : 1; }
++   league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0;
++   pthread_mutex_unlock(&L_mu);
++}
++
++/* 결판 뒤(Java 가 정산·결과 카드를 닫은 뒤): 무장을 풀고 리셋 뒤 타이틀 «리그 대전»까지. rematch = 다시 붙을 상대 캐릭터(−1 없음).
++   리셋 자체는 native.c 가 코어 잠금 안에서 한다(nativeLeagueHubReturn). */
++void league_hub_return(int rematch)
++{
++   pthread_mutex_lock(&L_mu);
++   L.armed = 0;
++   if (H.st != H_OFF) {
++      H.st = H_RETURN; H.nav = 2; H.nav_f = H.f; H.picked = -1; H.hdr_saved = 0;
++      hub_gen++;
++      H.rematch = (rematch >= 0 && rematch < 15 && H.sty[rematch] >= 0) ? rematch : -1;
++   }
++   league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0;
++   pthread_mutex_unlock(&L_mu);
++}
++
++/* 고른 상대를 취소하고 타이틀 상태로(Java 가 경기 기록을 못 만들었을 때) */
++void league_hub_cancel(void)
++{
++   pthread_mutex_lock(&L_mu);
++   L.armed = 0;
++   if (H.st != H_OFF) { H.st = H_TITLE; H.picked = -1; }
++   league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0;
++   pthread_mutex_unlock(&L_mu);
++}
++
++/* [허브 상태(0 꺼짐·1 타이틀·2 상대 고르기·3 내 캐릭터·4 경기·5 타이틀로 돌아가는 중), 커서 캐릭터, 고른 상대 캐릭터, 허브 프레임,
++    메뉴 글자 바꿈, 머리말 글자 바꿈, 재대결 상대, 대신 누르기 단계, 타이틀로 돌려보낸 횟수] */
++void league_hub_status(int v[LEAGUE_NHUB])
++{
++   pthread_mutex_lock(&L_mu);
++   v[0] = H.st; v[1] = H.hover; v[2] = H.picked; v[3] = (int)H.f;
++   v[4] = H.label_menu; v[5] = H.label_hdr; v[6] = H.rematch; v[7] = H.nav; v[8] = (int)hub_gen;
++   pthread_mutex_unlock(&L_mu);
++}
++
++void league_tick(uint8_t *ram, size_t n) { league_tick_hub(ram, n, 0); }
++
++void league_tick_hub(uint8_t *ram, size_t n, int input)
+ {
+    if (!ram || n < 0x4000) return;
+    pthread_mutex_lock(&L_mu);
++   if (H.st != H_OFF) hub_tick(ram, input);
+    if (!L.armed || L.done) { pthread_mutex_unlock(&L_mu); return; }
+    L.frames++;
+ 
+@@ -126,9 +345,8 @@ void league_tick(uint8_t *ram, size_t n)
+ }
+ 
+ /* JNI 없이도 부를 수 있게(호스트 시험 하네스가 ctypes 로 같은 코드를 돌린다) 몸통은 평범한 C 함수로 둔다. */
+-void league_arm(int opp, int sty, int diff, int points, int timev, int flags)
++static void arm_locked(int opp, int sty, int diff, int points, int timev, int flags)
+ {
+-   pthread_mutex_lock(&L_mu);
+    memset(&L, 0, sizeof L);
+    L.opp = opp & 0x0F; L.sty = sty & 1;
+    L.diff = diff; L.points = points; L.timev = timev;
+@@ -139,8 +357,14 @@ void league_arm(int opp, int sty, int diff, int points, int timev, int flags)
+    /* 체크포인트에서 재개: 랭크전 판은 램이 0 인 새 부팅에서 시작하므로, 체크포인트 안에서 bit7 이 이미 서 있다면
+       그건 이 경기의 결판뿐이다(Java 가 정산하기 전에 앱이 내려간 경우). 첫 틱에 그대로 결과로 잡는다. */
+    L.seen_open = (flags & LEAGUE_FROM_CKPT) ? 1 : 0;
+-   league_ovr_on = 0; league_ovr_mask = 0;
++   if (H.nav == 0) { league_ovr_on = 0; league_ovr_mask = 0; }   /* 허브가 대신 누르는 중이면 그대로 */
+    L.armed = 1;
++}
++
++void league_arm(int opp, int sty, int diff, int points, int timev, int flags)
++{
++   pthread_mutex_lock(&L_mu);
++   arm_locked(opp, sty, diff, points, timev, flags);
+    pthread_mutex_unlock(&L_mu);
+ }
+ 
+@@ -174,6 +398,31 @@ JNI(void, nativeLeagueArm)(JNIEnv *env, jclass cls, jint opp, jint sty, jint dif
+ JNI(void, nativeLeagueDisarm)(JNIEnv *env, jclass cls)
+ { (void)env; (void)cls; league_disarm(); }
+ 
++JNI(void, nativeLeagueHub)(JNIEnv *env, jclass cls, jboolean on, jbyteArray sty, jbyteArray dif)
++{
++   (void)cls;
++   signed char s[15], d[15];
++   for (int i = 0; i < 15; i++) { s[i] = -1; d[i] = 1; }
++   if (sty && (*env)->GetArrayLength(env, sty) >= 15) (*env)->GetByteArrayRegion(env, sty, 0, 15, (jbyte *)s);
++   if (dif && (*env)->GetArrayLength(env, dif) >= 15) (*env)->GetByteArrayRegion(env, dif, 0, 15, (jbyte *)d);
++   league_hub(on ? 1 : 0, s, d);
++}
++
++JNI(void, nativeLeagueHubCancel)(JNIEnv *env, jclass cls)
++{ (void)env; (void)cls; league_hub_cancel(); }
++
++JNI(jintArray, nativeLeagueHubStatus)(JNIEnv *env, jclass cls)
++{
++   (void)cls;
++   int v[LEAGUE_NHUB];
++   jint jv[LEAGUE_NHUB];
++   league_hub_status(v);
++   for (int i = 0; i < LEAGUE_NHUB; i++) jv[i] = v[i];
++   jintArray a = (*env)->NewIntArray(env, LEAGUE_NHUB);
++   if (a) (*env)->SetIntArrayRegion(env, a, 0, LEAGUE_NHUB, jv);
++   return a;
++}
++
+ JNI(jintArray, nativeLeagueStatus)(JNIEnv *env, jclass cls)
+ {
+    (void)cls;
+diff --git a/app/src/main/cpp/league.h b/app/src/main/cpp/league.h
+index f14e3cf..6065d16 100644
+--- a/app/src/main/cpp/league.h
++++ b/app/src/main/cpp/league.h
+@@ -5,6 +5,16 @@
+ 
+ /* 진짜 프레임 한 번(retro_run) 뒤, 코어 잠금 안에서 부른다. ram = SYSTEM_RAM(16KB, CPU 0x4000~). */
+ void league_tick(uint8_t *ram, size_t n);
++/* 게임 속 리그(허브)까지 — input = 이번 프레임 사용자 입력(RETRO_DEVICE_ID 비트), 화면 글자를 바꾸려면 먼저 league_vram */
++void league_tick_hub(uint8_t *ram, size_t n, int input);
++void league_vram(void *chr, void *scr);
++#define LEAGUE_NHUB 9
++void league_hub(int on, const signed char *sty, const signed char *dif);
++void league_hub_return(int rematch);
++void league_hub_cancel(void);
++void league_hub_status(int v[LEAGUE_NHUB]);
++/* 허브가 게임 대신 받는 입력 비트 — 입력 콜백은 사용자 입력에서 이 비트를 지운다 */
++extern volatile int league_in_block;
+ 
+ #define LEAGUE_NSTAT 21
+ #define LEAGUE_CARDS_OFF 1   /* 사용자 카드 없음(0xFF) */
+diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
+index e2837b0..1f86d95 100644
+--- a/app/src/main/cpp/native.c
++++ b/app/src/main/cpp/native.c
+@@ -44,6 +44,7 @@ static void   (*c_get_system_info)(struct retro_system_info *);
+ static void   (*c_get_system_av_info)(struct retro_system_av_info *);
+ static void   (*c_set_controller_port_device)(unsigned, unsigned);
+ static void  *(*c_get_memory_data)(unsigned);
++static void  *(*c_charram)(void), *(*c_scrollram)(void);   /* 사무쇼2 코어의 K1GE 문자·스크롤 램(가상 리그가 화면 글자를 바꿀 때) */
+ static size_t (*c_get_memory_size)(unsigned);
+ static size_t (*c_serialize_size)(void);
+ static bool   (*c_serialize)(void *, size_t);
+@@ -366,7 +367,8 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
+ {
+    (void)index;
+    if (port != 0 || device != RETRO_DEVICE_JOYPAD || id > 15) return 0;
+-   return ((league_ovr_on ? league_ovr_mask : g_input) >> id) & 1;   /* 가상 리그 메뉴 자동 진입 중엔 그 입력 */
++   /* 가상 리그: 메뉴 자동 진입 중엔 그 입력, 게임 속 리그가 대신 받는 버튼(리그 대전 칸·상대 고르기의 A)은 게임에 안 준다 */
++   return ((league_ovr_on ? league_ovr_mask : (g_input & ~league_in_block)) >> id) & 1;
+ }
+ 
+ /* ------------------------------------------------------------------ */
+@@ -717,6 +719,8 @@ static int bind_core(void)
+    *(void **)&c_serialize_size  = dlsym(g_lib, "retro_serialize_size");
+    *(void **)&c_serialize       = dlsym(g_lib, "retro_serialize");
+    *(void **)&c_unserialize     = dlsym(g_lib, "retro_unserialize");
++   *(void **)&c_charram         = dlsym(g_lib, "retro_ngp_charram");
++   *(void **)&c_scrollram       = dlsym(g_lib, "retro_ngp_scrollram");
+    return 1;
+ }
+ 
+@@ -754,6 +758,7 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
+                         jstring jsys, jstring jsave, jstring jopts)
+ {
+    league_disarm();                      /* 새 게임은 무장 없이 시작 — 랭크전이면 Java 가 로드 뒤에 다시 무장한다 */
++   league_hub(0, NULL, NULL);            /* 게임 속 리그도 끈 채로 — 허브로 켠 화면만 로드 뒤에 다시 켠다(앞 세션의 허브가 자유 플레이로 새지 않게) */
+    char core[512], opts[600];
+    jstr(env, jcore, core, sizeof(core));
+    jstr(env, jrom,  g_rom_path, sizeof(g_rom_path));
+@@ -822,6 +827,7 @@ JNI(jint, nativeLoad)(JNIEnv *env, jclass cls, jstring jcore, jstring jrom,
+ static void unload_locked(void)
+ {
+    league_disarm();                      /* 코어가 내려가면 랭크전 무장은 무조건 끝 — 다음 게임으로 새지 않게 */
++   league_hub(0, NULL, NULL);
+    if (!g_loaded) return;
+    sram_save();
+    audio_stop();
+@@ -900,8 +906,10 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+          }
+          c_run();
+          /* 가상 리그 랭크전 — 진짜 프레임마다 대진 덮어쓰기·결판 감지(무장 안 했으면 바로 돌아온다) */
+-         if (c_get_memory_data && c_get_memory_size)
+-            league_tick((uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM), c_get_memory_size(RETRO_MEMORY_SYSTEM_RAM));
++         if (c_get_memory_data && c_get_memory_size) {
++            league_vram(c_charram ? c_charram() : NULL, c_scrollram ? c_scrollram() : NULL);
++            league_tick_hub((uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM), c_get_memory_size(RETRO_MEMORY_SYSTEM_RAM), g_input);
++         }
+       }
+       CORE_UNLOCK();
+       g_next_t += dt; steps++;
+@@ -963,6 +971,10 @@ JNI(void, nativeAudioPause)(JNIEnv *env, jclass cls)
+ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
+ { (void)env; (void)cls; if (g_loaded && !g_stream) audio_start(g_audio_rate); }
+ 
++/* 게임 속 리그: 결판 뒤 리셋하고 타이틀 «리그 대전»까지(rematch = 바로 다시 붙을 상대 캐릭터, −1 없음) */
++JNI(void, nativeLeagueHubReturn)(JNIEnv *env, jclass cls, jint rematch)
++{ (void)env; (void)cls; CORE_LOCK(); if (g_loaded) c_reset(); league_hub_return(rematch); CORE_UNLOCK(); }
++
+ JNI(void, nativeReset)(JNIEnv *env, jclass cls)
+ { (void)env; (void)cls; CORE_LOCK(); if (g_loaded) c_reset(); CORE_UNLOCK(); }
+ 
+diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
+index 829fc9c..b3e1bca 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Emu.java
++++ b/app/src/main/java/com/dudu/pocketcore/Emu.java
+@@ -55,4 +55,11 @@ public final class Emu {
+      *   P1 블록, P2 블록(결판), P2 블록(경기 시작), 경기 시작 프레임, 결판 프레임, 사용자 카드 1, 2, 실효 시간,
+      *   CPU 단계(0x5814), CPU 공격 배율, CPU 받는 피해 배율] */
+     public static native int[] nativeLeagueStatus();
++    /* 게임 속 리그(허브): 타이틀 «2인 대전» 자리 = «리그 대전». sty/dif = 캐릭터 id(0~14)별 리그 상대의 검질(없으면 −1)·난도 */
++    public static native void  nativeLeagueHub(boolean on, byte[] sty, byte[] dif);
++    public static native void  nativeLeagueHubCancel();
++    /** [상태 0 꺼짐·1 타이틀·2 상대 고르기·3 내 캐릭터·4 경기·5 타이틀로, 커서 캐릭터(−1 무작위), 고른 상대 캐릭터, 프레임, 메뉴 글자, 머리말 글자, 재대결, 대신 누르기] */
++    public static native int[] nativeLeagueHubStatus();
++    /** 결판 뒤: 리셋하고 타이틀 «리그 대전»까지(rematch = 바로 다시 붙을 상대 캐릭터, −1 없음) */
++    public static native void  nativeLeagueHubReturn(int rematch);
+ }
+diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+index 0aae9ae..0dfd29c 100644
+--- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+@@ -50,6 +50,11 @@ public class EmuActivity extends Activity {
+     /* 가상 리그 랭크전 — LeagueActivity 가 경기 id 를 주면 이 창은 랭크전 모드다(League.java · league.c).
+        원작 세이브·오토세이브와 따로 돈다: 세이브 폴더는 League.saveDir(), 이어하기는 경기 체크포인트만. */
+     static final String EXTRA_LEAGUE = "league_match", EXTRA_LEAGUE_RESUME = "league_resume";
++    /* 게임 속 리그(허브) — 게임을 랭크전 판으로 켜고, 타이틀 «2인 대전» 자리(«리그 대전»)에서 상대를 고르게 한다(league.c 허브) */
++    static final String EXTRA_LEAGUE_HUB = "league_hub";
++    private boolean leagueHub = false;
++    /** 랭크전 판으로 돌고 있나 — 한 경기(leagueId) 또는 게임 속 리그 세션 전체. 롬 사본·동봉 코어·리그 세이브 폴더·저장/불러오기 막기 */
++    private boolean ranked() { return leagueId != null || leagueHub; }
+     private String leagueId = null;            /* 랭크전이면 경기 id — 기록은 늘 이 id 로 League 에서 다시 찾는다 */
+     private boolean leagueArmed = false, leagueDone = false;
+     private android.app.AlertDialog leagueDlg;  /* 나가기 창 — 떠 있는 동안 게임은 멈춘다 */
+@@ -63,6 +68,7 @@ public class EmuActivity extends Activity {
+         romPath = getIntent().getStringExtra("rom");
+         leagueId = getIntent().getStringExtra(EXTRA_LEAGUE);
+         if (leagueId != null && League.matchById(leagueId) == null) leagueId = null;
++        leagueHub = leagueId == null && getIntent().getBooleanExtra(EXTRA_LEAGUE_HUB, false);
+         game = Games.identify(romPath);
+         romType = (game != null) ? game.id : "svc";
+         lang = readLang();
+@@ -70,7 +76,7 @@ public class EmuActivity extends Activity {
+                한국어면 번역 패치를 **사본**에 입히고(유저 롬은 안 건드린다) 그 패치가 덮은
+                언어로 코어를 맞춘다. 일본어·영어는 롬에 원래 든 것이라 패치가 필요 없고
+                코어 설정만 바꾸면 된다. ngp_language 는 코어가 뜰 때 읽으므로 **로드 전에** 써야 한다. */
+-            String p = (leagueId != null)
++            String p = ranked()
+                     ? Patcher.resolveLeague(this, romPath, game, lang)   /* 랭크전: 원본 + 번역 패치만(고정 판) */
+                     : Patcher.resolve(this, romPath, game, lang,
+                     "enabled".equals(readOpt("pocketcore_svc_fastrom", "disabled")),
+@@ -80,7 +86,7 @@ public class EmuActivity extends Activity {
+             persistOption("ngp_language", Games.ngpLanguage(game, lang));
+         }
+         autoSave = "enabled".equals(readOpt("pocketcore_autosave", "enabled"));
+-        if (leagueId != null) autoSave = false;   /* 랭크전은 원작 오토세이브를 읽지도 쓰지도 않는다 */
++        if (ranked()) autoSave = false;   /* 랭크전은 원작 오토세이브를 읽지도 쓰지도 않는다 */
+         try {   /* 판독 오버레이 — 코어가 뜰 때 getenv 로 한 번 읽으므로 **로드 전에** 심는다.
+                    화면 왼쪽 위에 「내 동작번호|상대반응」을 상시 표시 — 영상만 찍어도
+                    무슨 기술이 실제로 나갔는지(약/강 포함) 게임이 직접 말해 준다. */
+@@ -161,7 +167,8 @@ public class EmuActivity extends Activity {
+                 if (open) { releasePhysical(); refreshSlotInfo(); }
+                 if (!loaded) return;
+                 Emu.nativeSetPaused(open || (sheet != null && sheet.isShowing()) || (leagueDlg != null && leagueDlg.isShowing())
+-                        || (leagueId != null && leagueArmed && nativeDone()));   /* 결판이 잡혀 정산을 기다리는 동안은 멈춘 채로 */
++                        || (leagueId != null && leagueArmed && nativeDone())     /* 결판이 잡혀 정산을 기다리는 동안은 멈춘 채로 */
++                        || hubCard != null);                                     /* 게임 속 리그 결과 카드가 떠 있는 동안도 */
+             }
+         });
+ 
+@@ -177,10 +184,12 @@ public class EmuActivity extends Activity {
+         });
+         setContentView(root);
+         applyScreenLayout();
+-        if (leagueId != null) addLeagueTag();
++        if (leagueHub) addHubBanner();
++        else if (leagueId != null) addLeagueTag();
+ 
+         loadCore();
+-        if (leagueId == null) watchRom();         /* 랭크전 중에 롬이 바뀌어 다시 로드되면 경기가 깨진다 */
++        if (!ranked()) watchRom();                /* 랭크전 중에 롬이 바뀌어 다시 로드되면 경기가 깨진다 */
++        else if (leagueHub) hubStart();
+         else leagueStart();
+     }
+ 
+@@ -309,6 +318,8 @@ public class EmuActivity extends Activity {
+         lp.leftMargin = mx; lp.topMargin = my;
+         gl.setLayoutParams(lp);
+         if (pad != null) pad.setScreenBox(mx, my, mx + gw, my + gh);
++        gameBox[0] = mx; gameBox[1] = my; gameBox[2] = mx + gw; gameBox[3] = my + gh;
++        placeHubBanner();
+     }
+ 
+     private void persistScreen() {
+@@ -342,7 +353,7 @@ public class EmuActivity extends Activity {
+         for (int i = 0; i < Games.LANGS.length; i++)
+             if (Games.LANGS[i].equals(lang)) suffix += " · " + Games.LANGS_KO[i];
+         if (patched) suffix += " 패치";
+-        if (leagueId != null && game != null) {          /* 랭크전은 롬처럼 코어도 고정 — 판정 주소를 실측한 앱 동봉 코어만 */
++        if (ranked() && game != null) {          /* 랭크전은 롬처럼 코어도 고정 — 판정 주소를 실측한 앱 동봉 코어만 */
+             coreLabel = game.ko + " · 동봉 코어(랭크전)" + suffix;
+             return getApplicationInfo().nativeLibraryDir + "/" + game.core;
+         }
+@@ -383,7 +394,7 @@ public class EmuActivity extends Activity {
+         corePathCache = corePath();
+         int rc = Emu.nativeLoad(corePathCache, romPath,
+                 MainActivity.sysDir().getAbsolutePath(),
+-                (leagueId != null ? League.saveDir() : MainActivity.saveDir()).getAbsolutePath(),
++                (ranked() ? League.saveDir() : MainActivity.saveDir()).getAbsolutePath(),
+                 MainActivity.optsFile().getAbsolutePath());
+         loaded = rc == 0;
+         snapCoreOpts();
+@@ -392,7 +403,7 @@ public class EmuActivity extends Activity {
+         /* 이어하기 — 옵션 바꾸고 다시 연 경우는 그 직전 상태(resume), 아니면 나갈 때 자동 저장해 둔 자리. 로드와 같은 스레드라 안전하다. */
+         String resume = getIntent().getStringExtra("resume");
+         boolean resumed = false;
+-        if (leagueId != null) resume = null;       /* 랭크전: 이어하기는 leagueStart 가 경기 체크포인트로만 */
++        if (ranked()) resume = null;       /* 랭크전: 이어하기는 leagueStart 가 경기 체크포인트로만 */
+         if (leagueId != null) { /* 오토세이브 이어하기도 안 한다(autoSave=false) */ }
+         else if (loaded && resume != null && new File(resume).exists()) {
+             if (Emu.nativeLoadState(resume) == 0) { toast("옵션 적용 — 그 자리에서 이어하기"); resumed = true; }
+@@ -471,14 +482,14 @@ public class EmuActivity extends Activity {
+     }
+ 
+     private void handleAction(int action) {
+-        if (leagueId != null && (action == PadView.ACT_LOAD || action == PadView.ACT_UNDO || action == PadView.ACT_RESET
++        if (ranked() && (action == PadView.ACT_LOAD || action == PadView.ACT_UNDO || action == PadView.ACT_RESET
+                 || action == PadView.ACT_CFG || action == PadView.ACT_SAVE || action == PadView.ACT_QSAVE)) {
+             toast("랭크전 중에는 쓸 수 없어요 — 그만두려면 뒤로 가기");   /* 저장도 막는다: 슬롯 파일 이름이 자유 플레이와 같다 */
+             return;
+         }
+-        if (leagueId != null && (action == PadView.ACT_PICK || action == PadView.ACT_QUIT)) {
++        if (ranked() && (action == PadView.ACT_PICK || action == PadView.ACT_QUIT)) {
+             /* 메뉴 바가 닫히며 멈춤을 푸는(menuChanged) 것보다 뒤에 창을 띄운다 */
+-            h.post(new Runnable() { @Override public void run() { leagueLeave(); } });
++            h.post(new Runnable() { @Override public void run() { if (leagueId != null) leagueLeave(); else hubLeave(); } });
+             return;
+         }
+         switch (action) {
+@@ -756,7 +767,9 @@ public class EmuActivity extends Activity {
+     /** 뒤로가기 = 목록으로 — 예전엔 앱이 그냥 닫혀서 「게임을 닫으면 테마가 다시
+      *  나와야 한다」는 흐름 자체가 없었다(제보). */
+     @Override public void onBackPressed() {
++        if (hubCard != null) { hubReturn(-1); return; }      /* 결과 카드에서 뒤로 = 계속 */
+         if (leagueId != null) { leagueLeave(); return; }
++        if (leagueHub) { hubLeave(); return; }
+         goList();
+     }
+ 
+@@ -998,7 +1011,7 @@ public class EmuActivity extends Activity {
+     private boolean resumedNow = false;        /* 화면에 떠 있나 — 백그라운드에서는 리그 화면을 띄우지 않고 복귀 때 띄운다 */
+     private boolean leagueChoosing = false;    /* 나가기 창에서 「나중에」·「기권」을 골랐다 — 창이 닫혀도 멈춤을 풀지 않는다 */
+ 
+-    private org.json.JSONObject lm() { return League.matchById(leagueId); }
++    private org.json.JSONObject lm() { return leagueId != null ? League.matchById(leagueId) : null; }
+ 
+     /** 게임 화면 밖 이름표 — 위쪽 메뉴 알약 줄의 왼쪽(게임 화면·버튼을 덮지 않는다). 게임 안 이름(우쿄)과 닉네임(칼끝노인)을 갈라 보인다. */
+     private void addLeagueTag() {
+@@ -1254,6 +1267,7 @@ public class EmuActivity extends Activity {
+ 
+     /** 리그 화면으로 — 결과가 있으면 그 결과 창을 띄운다. 코어는 GL 스레드에서 내린다(goList 와 같은 이유, 내릴 때 native 가 무장도 푼다). */
+     private void leagueExit(final String resultId) {
++        if (leagueHub && resultId != null) { hubResult(resultId); return; }   /* 게임 속 리그: 결과 카드를 게임 위에 — 나가지 않는다 */
+         if (leaving) return;
+         leaving = true;
+         MainActivity.forgetLast(this);
+@@ -1269,4 +1283,280 @@ public class EmuActivity extends Activity {
+             }});
+         }});
+     }
++
++    /* ── 게임 속 리그(허브) ─────────────────────────────────────────────
++       타이틀 메뉴 «2인 대전» 자리가 «리그 대전»(league.c 가 메뉴 글자를 바꿔 그린다). 그 칸을 고르면 1인 대전 캐릭터 고르기가
++       «상대 선택» 화면이 되고(커서 캐릭터 = 그 캐릭터를 주캐로 쓰는 가상 상대), A 로 상대를 고르면 경기 기록을 만들고(준비),
++       같은 화면에서 내 캐릭터·검질·카드를 고른다. 그 뒤는 1단계 랭크전과 같다(시작 → 진행 중 → 결판 → 정산·체크포인트·기권).
++       결판 뒤엔 게임 위에 결과 카드 → 계속(리셋 뒤 타이틀 «리그 대전» 칸) · 재대결(같은 상대로 바로) · 순위표. */
++
++    private final int[] gameBox = new int[4];
++    private TextView hubBanner;
++    private android.view.View hubCard;
++    private final String[] hubOpp = new String[15];       /* 캐릭터 id → 가상 상대 id */
++    private android.graphics.Typeface hubFont;
++    private int hubLastState = -1;
++    private int hubGen = 0, hubWaitGen = 0;     /* 코어가 받은 «타이틀로» 횟수 · 기다리는 횟수 — 닿기 전 옛 상태(3 = 상대 고름)로 경기 기록을 또 만들지 않게 */
++
++    private android.graphics.Typeface hubFont() {
++        if (hubFont == null) {
++            try { hubFont = android.graphics.Typeface.createFromAsset(getAssets(), "fonts/pixel.ttf"); }
++            catch (Exception e) { hubFont = android.graphics.Typeface.create(android.graphics.Typeface.MONOSPACE, android.graphics.Typeface.BOLD); }
++        }
++        return hubFont;
++    }
++
++    /** 게임 그림 바로 아래 안내 띠 — 게임 화면·버튼은 덮지 않는다(자리가 없으면 게임 그림 위쪽 가장자리에 얇게). */
++    private void addHubBanner() {
++        float dp = getResources().getDisplayMetrics().density;
++        hubBanner = new TextView(this);
++        hubBanner.setTypeface(hubFont());
++        hubBanner.setTextColor(0xffffd76a);
++        hubBanner.setTextSize(11);
++        hubBanner.setLineSpacing(0, 1.1f);
++        hubBanner.setGravity(android.view.Gravity.CENTER);
++        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
++        g.setColor(0xe6140d08); g.setStroke(Math.round(2 * dp), 0xffb8862b); g.setCornerRadius(4 * dp);
++        hubBanner.setBackground(g);
++        hubBanner.setPadding(Math.round(10 * dp), Math.round(6 * dp), Math.round(10 * dp), Math.round(6 * dp));
++        hubBanner.setText("가상 리그 — 메뉴의 「리그 대전」을 고르세요");
++        root.addView(hubBanner, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
++                FrameLayout.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP | android.view.Gravity.LEFT));
++        placeHubBanner();
++    }
++
++    private void placeHubBanner() {
++        if (hubBanner == null || root == null) return;
++        float dp = getResources().getDisplayMetrics().density;
++        FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) hubBanner.getLayoutParams();
++        int below = gameBox[3] + Math.round(6 * dp), need = Math.round(52 * dp);
++        /* 세로: 게임 그림 아래, 양옆 모서리 버튼(A+B·SP)을 비켜 가운데 66% 만 */
++        int side = root.getHeight() > root.getWidth() ? Math.round(root.getWidth() * 0.17f) : Math.round(8 * dp);
++        lp.leftMargin = Math.max(gameBox[0], side); lp.rightMargin = Math.max(root.getWidth() - gameBox[2], side);
++        lp.topMargin = (root.getHeight() > 0 && below + need > root.getHeight()) ? gameBox[1] + Math.round(4 * dp) : below;
++        hubBanner.setLayoutParams(lp);
++    }
++
++    /** 판정 주소를 실측한 롬 사본·동봉 코어인가(경기 없이 보는 판) — 아니면 이유 */
++    private String hubVersionProblem() {
++        String md5 = League.md5(new File(romPath));
++        if (League.romLabel(md5) == null) return "판정 주소를 확인하지 않은 롬입니다 (md5 " + md5 + ")";
++        String core = corePathCache;
++        if (core == null || !core.startsWith(getApplicationInfo().nativeLibraryDir)) return "앱 동봉 코어가 아닌 코어로 실행 중입니다 (" + core + ")";
++        return null;
++    }
++
++    private void hubStart() {
++        if (!loaded) { leagueBlocked("코어·롬을 불러오지 못했습니다."); return; }
++        String why = hubVersionProblem();
++        if (why == null) why = League.dbProblem;
++        if (why == null) why = League.writeProblem();
++        if (why != null) { leagueBlocked("가상 리그를 열 수 없습니다 — " + why); return; }
++        byte[] sty = new byte[15], dif = new byte[15];
++        java.util.Arrays.fill(sty, (byte) -1); java.util.Arrays.fill(dif, (byte) 1);
++        org.json.JSONArray os = League.opps();
++        for (int i = 0; i < os.length(); i++) {
++            org.json.JSONObject o = os.optJSONObject(i);
++            int c = o.optInt("char", -1), st = o.optInt("style");
++            if (c < 0 || c >= 15 || !League.oppSupported(c, st)) continue;
++            hubOpp[c] = o.optString("id"); sty[c] = (byte) st; dif[c] = (byte) o.optInt("diff");
++        }
++        Emu.nativeLeagueHub(true, sty, dif);
++        org.json.JSONObject open = League.openMatch();
++        if (open != null) {
++            if ("ready".equals(open.optString("status"))) League.cancel(open.optString("id"), "게임 속 리그를 새로 열며 정리(대진 전)");
++            else { leagueId = open.optString("id"); leagueStart(); }      /* 내려간 경기 — 체크포인트로 이어 하고, 결판 뒤 허브로 */
++        }
++        h.postDelayed(hubPoll, 200);
++    }
++
++    private final Runnable hubPoll = new Runnable() { @Override public void run() {
++        if (!leagueHub || leaving) return;
++        if (loaded) {
++            int[] hs = Emu.nativeLeagueHubStatus();
++            if (hs != null && hs.length >= 8) hubTick(hs);
++        }
++        h.postDelayed(this, 150);
++    }};
++
++    private void hubTick(int[] hs) {
++        int st = hs[0], hover = hs[1], picked = hs[2];
++        if (hs.length > 8) hubGen = hs[8];
++        if (hubGen < hubWaitGen) {                                      /* 결과 카드·«타이틀로» 뒤 리셋이 아직 GL 스레드에 안 닿음 */
++            if (hubBanner != null && hubCard == null) hubBanner.setText(hubText(5, hover, picked, hs[4]));
++            return;
++        }
++        /* 상대를 골랐다 → 경기 기록(준비). 뒤로 가기 창이 떠 있으면 창이 정한 뒤에(계속하기 → 다음 확인에서 만듦, 나가기·타이틀로 → 안 만듦) */
++        if (st == 3 && leagueId == null && hubCard == null && !(leagueDlg != null && leagueDlg.isShowing())) {
++            String oid = (picked >= 0 && picked < 15) ? hubOpp[picked] : null;
++            org.json.JSONObject m = oid != null ? League.newMatch(oid) : null;
++            if (m == null) {
++                String why = oid == null ? "그 캐릭터는 리그 상대가 없습니다" : League.blockedWhy(League.oppById(oid));
++                toast("경기를 만들지 못했어요 — " + (why != null ? why : "기록 저장 실패"));
++                hubReturn(-1);
++                return;
++            }
++            leagueId = m.optString("id"); leagueArmed = true; leagueDone = false; leagueStarted = false; leagueRetry = 0;
++            leagueVersionProblem(m);                                     /* 롬 md5·코어·앱 판을 경기에 적는다(판은 hubStart 에서 확인) */
++            h.removeCallbacks(leaguePoll); h.postDelayed(leaguePoll, 250);
++        }
++        hubLastState = st;
++        /* 결과 카드가 떠 있는 동안은 카드 안내를 그대로 두고, 카드를 닫은 직후(리셋이 GL 스레드에 닿기 전 — 허브는 아직 «경기»)는 «돌아가는 중» */
++        /* 이어 하는 경기(체크포인트)는 허브가 타이틀 상태인 채로 싸운다 — 띠는 경기 안내로 */
++        int shown = leagueId != null && st <= 2 ? 4 : st == 4 && leagueId == null ? 5 : st;
++        if (hubBanner != null && hubCard == null) hubBanner.setText(hubText(shown, hover, picked, hs[4]));
++    }
++
++    /** 상대 고르기 안내 세 줄 — 이름·캐릭터·난도 / 순위·점수·상대 전적 / 별칭·A (머리말이 이미 «상대 선택» 이라 앞말은 뺀다) */
++    private String hubOppLine(org.json.JSONObject o, String why) {
++        int myW = o.optInt("l"), myL = o.optInt("w");
++        String t = o.optString("nick") + " · " + League.CHAR[o.optInt("char")] + " " + League.STYLE[o.optInt("style")]
++                 + " · " + League.DIFF[o.optInt("diff")] + "\n" + League.rankOf(o.optString("id")) + "위 · " + o.optInt("score") + "점 · 나와 "
++                 + myW + "승 " + myL + "패" + (o.optInt("d") > 0 ? " " + o.optInt("d") + "무" : "") + "\n";
++        if (why != null) return t + "도전할 수 없음: " + why;
++        java.util.List<String> tg = League.tags(o);
++        String tag = o.optInt("char") == 14 ? "가운데 칸 = 숨은 상대" : tg.isEmpty() ? null : tg.get(0);   /* 유가는 고르기 판에 없어 무작위 칸에 */
++        return t + (tag == null ? "" : tag + "  ·  ") + "A: 도전";
++    }
++
++    private String hubText(int st, int hover, int picked, int label) {
++        org.json.JSONObject me = League.me();
++        switch (st) {
++        case 1: return "가상 리그 — 메뉴의 " + (label == 1 ? "「리그 대전」을" : label == 2 ? "「LEAGUE」를" : "셋째 줄을")
++                + " 고르세요\n다른 메뉴는 평소대로 · 리그 기록 안 됨\n내 순위 " + League.rankOf("me") + "위 / " + League.order().size() + "명 · "
++                + me.optInt("score") + "점 · " + me.optInt("w") + "승 " + me.optInt("l") + "패";
++        case 2: {
++            if (hover < 0) return "이 칸은 고를 수 없습니다\n캐릭터마다 그 캐릭터를 주캐로 쓰는\n가상 상대가 있습니다";
++            String oid = hover < 15 ? hubOpp[hover] : null;
++            org.json.JSONObject o = oid != null ? League.oppById(oid) : null;
++            if (o == null) return League.CHAR[hover] + " : 리그 상대 없음\n다른 캐릭터를 고르세요\n ";
++            return hubOppLine(o, League.blockedWhy(o));
++        }
++        case 3: {
++            org.json.JSONObject o = (picked >= 0 && picked < 15 && hubOpp[picked] != null) ? League.oppById(hubOpp[picked]) : null;
++            return "상대: " + (o != null ? o.optString("nick") + " · " + League.CHAR[o.optInt("char")] + " " + League.STYLE[o.optInt("style")]
++                    + " · " + League.DIFF[o.optInt("diff")] : "?") + "\n이제 내 캐릭터·검질·카드를 고르세요\n카드는 모두 풀려 있음(올카드)";
++        }
++        case 4: {
++            org.json.JSONObject m = lm();
++            org.json.JSONObject o = m != null ? League.oppById(m.optString("opp")) : null;
++            return "랭크전 · " + (o != null ? o.optString("nick") + " · " + League.CHAR[o.optInt("char")] + " " + League.STYLE[o.optInt("style")] : "?")
++                    + "\n2선승 · 라운드 60초\n경기 전체 결판만 기록";
++        }
++        case 5: return "가상 리그 · 타이틀로 돌아가는 중…";
++        default: return "가상 리그";
++        }
++    }
++
++    /** 결과 카드 — 게임 위, 그 경기 직후 값(after)으로. 계속 / 재대결 / 순위표. */
++    private void hubResult(final String resultId) {
++        if (hubCard != null || leaving) return;
++        final org.json.JSONObject m = League.matchById(resultId);
++        if (m == null) { hubReturn(-1); return; }
++        Emu.nativeSetPaused(true);
++        float dp = getResources().getDisplayMetrics().density;
++        final org.json.JSONObject o = League.oppById(m.optString("opp"));
++        String st = m.optString("status"), title;
++        StringBuilder sb = new StringBuilder();
++        if ("hold".equals(st) || "cancelled".equals(st)) {
++            title = "hold".equals(st) ? "보류" : "무효";
++            sb.append(m.optString("why")).append("\n점수는 그대로입니다.");
++        } else {
++            String out = m.optString("outcome");
++            title = m.optBoolean("forfeit") ? "기권패" : "W".equals(out) ? "승리!" : "L".equals(out) ? "패배" : "무승부";
++            org.json.JSONObject r = m.optJSONObject("result");
++            if (o != null) sb.append(o.optString("nick")).append(" (").append(League.CHAR[o.optInt("char")]).append(" ").append(League.STYLE[o.optInt("style")]).append(")\n");
++            if (r != null && !m.optBoolean("forfeit")) sb.append("최종 ").append(r.optInt("w1")).append(" : ").append(r.optInt("w2")).append("\n");
++            org.json.JSONObject s0 = m.optJSONObject("score_before");
++            int d = m.optInt("delta");
++            if (s0 != null) sb.append("점수 ").append(s0.optInt("me")).append(" → ").append(s0.optInt("me") + d).append(" (").append(d > 0 ? "+" + d : String.valueOf(d)).append(")\n")
++                              .append("순위 ").append(m.optInt("rank_before")).append("위 → ").append(m.optInt("rank_after")).append("위\n");
++            org.json.JSONObject af = m.optJSONObject("after");
++            if (af != null && o != null) sb.append(League.gwa(o.optString("nick"))).append("의 전적 ").append(af.optInt("h2h_w")).append("승 ").append(af.optInt("h2h_l")).append("패")
++                    .append(af.optInt("h2h_d") > 0 ? " " + af.optInt("h2h_d") + "무" : "").append("\n");
++            if (m.optBoolean("first_win")) sb.append("이 상대에게 첫 승!\n");
++            if (af != null && af.optInt("streak") > 1) sb.append(af.optInt("streak")).append("연승 (최장 ").append(af.optInt("best")).append(")\n");
++            if (m.optInt("broke_streak") >= 2) sb.append(m.optInt("broke_streak")).append("연승이 끊겼습니다\n");
++        }
++        android.widget.LinearLayout card = new android.widget.LinearLayout(this);
++        card.setOrientation(android.widget.LinearLayout.VERTICAL);
++        card.setGravity(android.view.Gravity.CENTER_HORIZONTAL);
++        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
++        g.setColor(0xf2140d08); g.setStroke(Math.round(3 * dp), 0xffd9a441); g.setCornerRadius(6 * dp);
++        card.setBackground(g);
++        card.setPadding(Math.round(16 * dp), Math.round(12 * dp), Math.round(16 * dp), Math.round(12 * dp));
++        TextView t = new TextView(this); t.setTypeface(hubFont()); t.setTextSize(26); t.setTextColor(0xffffd76a); t.setText(title); t.setGravity(android.view.Gravity.CENTER);
++        card.addView(t);
++        TextView b = new TextView(this); b.setTypeface(hubFont()); b.setTextSize(14); b.setTextColor(0xfff3ead7); b.setText(sb.toString().trim());
++        b.setGravity(android.view.Gravity.CENTER); b.setLineSpacing(0, 1.15f); b.setPadding(0, Math.round(6 * dp), 0, Math.round(10 * dp));
++        card.addView(b);
++        android.widget.LinearLayout row = new android.widget.LinearLayout(this);
++        row.setOrientation(android.widget.LinearLayout.HORIZONTAL);
++        final boolean canRe = o != null && League.blockedWhy(o) == null && o.optInt("char", -1) >= 0 && o.optInt("char") < 15 && hubOpp[o.optInt("char")] != null;
++        if (canRe) row.addView(hubPill("재대결", new Runnable() { @Override public void run() { hubReturn(o.optInt("char")); } }));
++        row.addView(hubPill("계속", new Runnable() { @Override public void run() { hubReturn(-1); } }));
++        row.addView(hubPill("순위표", new Runnable() { @Override public void run() { hubCard = null; leagueExitBoard(); } }));
++        card.addView(row);
++        FrameLayout.LayoutParams lp = new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT, FrameLayout.LayoutParams.WRAP_CONTENT,
++                android.view.Gravity.TOP | android.view.Gravity.CENTER_HORIZONTAL);
++        lp.topMargin = gameBox[1] + Math.round(8 * dp);
++        root.addView(card, lp);
++        hubCard = card;
++        if (hubBanner != null) hubBanner.setText("가상 리그 · 결과가 기록되었습니다");
++    }
++
++    private TextView hubPill(String s, final Runnable r) {
++        float dp = getResources().getDisplayMetrics().density;
++        TextView t = new TextView(this);
++        t.setTypeface(hubFont()); t.setText(s); t.setTextSize(15); t.setTextColor(0xff140d08); t.setGravity(android.view.Gravity.CENTER);
++        android.graphics.drawable.GradientDrawable g = new android.graphics.drawable.GradientDrawable();
++        g.setColor(0xffd9a441); g.setCornerRadius(4 * dp);
++        t.setBackground(g);
++        t.setPadding(Math.round(14 * dp), Math.round(8 * dp), Math.round(14 * dp), Math.round(8 * dp));
++        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
++                android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
++        lp.leftMargin = Math.round(5 * dp); lp.rightMargin = Math.round(5 * dp);
++        t.setLayoutParams(lp);
++        t.setClickable(true);
++        t.setOnClickListener(new android.view.View.OnClickListener() { @Override public void onClick(android.view.View v) { r.run(); } });
++        return t;
++    }
++
++    /** 결과 카드 닫기 → 리셋 뒤 타이틀 «리그 대전» 칸(rematch ≥ 0 이면 같은 상대로 바로 내 캐릭터 고르기까지). */
++    private void hubReturn(final int rematch) {
++        if (hubCard != null) { root.removeView(hubCard); hubCard = null; }
++        org.json.JSONObject m = lm();                       /* 상대만 고르고 대진 전에 타이틀로 — 준비 기록은 무효로(열린 채 남지 않게) */
++        if (m != null && "ready".equals(m.optString("status"))) League.cancel(leagueId, "게임 속 리그 — 대진 전에 타이틀로");
++        hubWaitGen = hubGen + 1;
++        leagueId = null; leagueArmed = false; leagueDone = false; leagueStarted = false; leagueRetry = 0;
++        h.removeCallbacks(leaguePoll);
++        Emu.nativeSetPaused(pad != null && pad.isBarOpen());
++        gl.queueEvent(new Runnable() { @Override public void run() { Emu.nativeLeagueHubReturn(rematch); } });
++    }
++
++    /** 경기 밖(타이틀·상대 고르기)에서 뒤로 가기 — 상대 다시 고르기(타이틀로) / 순위표로 나가기 / 계속 */
++    private void hubLeave() {
++        if (leagueDlg != null && leagueDlg.isShowing()) return;
++        Emu.nativeSetPaused(true);
++        android.app.AlertDialog.Builder d = new android.app.AlertDialog.Builder(this).setTitle("가상 리그")
++                .setPositiveButton("계속하기", null)
++                .setNegativeButton("순위표로 나가기", new android.content.DialogInterface.OnClickListener() {
++                    @Override public void onClick(android.content.DialogInterface x, int w) { leagueExitBoard(); } });
++        if (hubLastState == 1 || hubLastState == 2) {
++            d.setMessage(hubLastState == 2 ? "상대 고르기를 그만두고 타이틀로 돌아갈 수 있습니다(이 게임은 캐릭터 고르기에서 뒤로 갈 수 없어 리셋합니다)."
++                    : "리그 순위표로 나가거나, 게임을 리셋해 타이틀 메뉴(「리그 대전」 칸)로 돌아갈 수 있습니다.");
++            d.setNeutralButton("타이틀로", new android.content.DialogInterface.OnClickListener() {
++                @Override public void onClick(android.content.DialogInterface x, int w) { hubReturn(-1); } });
++        } else d.setMessage("리그 순위표로 나갈까요?");
++        leagueDlg = d.setOnDismissListener(new android.content.DialogInterface.OnDismissListener() {
++            @Override public void onDismiss(android.content.DialogInterface x) { if (hubCard == null) Emu.nativeSetPaused(pad.isBarOpen()); } }).show();
++    }
++
++    /** 순위표(리그 화면)로 나가기 — 결과 창 없이 */
++    private void leagueExitBoard() {
++        org.json.JSONObject m = lm();                       /* 대진 전에 나가면 준비 기록은 무효로(열린 채 남지 않게) */
++        if (m != null && "ready".equals(m.optString("status"))) League.cancel(leagueId, "게임 속 리그 — 대진 전에 순위표로");
++        leagueHub = false;                                   /* leagueExit 가 결과 카드로 새지 않게 */
++        leagueExit(null);
++    }
+ }
+diff --git a/app/src/main/java/com/dudu/pocketcore/LaunchSheet.java b/app/src/main/java/com/dudu/pocketcore/LaunchSheet.java
+index 9ea3735..0f85fca 100755
+--- a/app/src/main/java/com/dudu/pocketcore/LaunchSheet.java
++++ b/app/src/main/java/com/dudu/pocketcore/LaunchSheet.java
+@@ -290,11 +290,17 @@ public final class LaunchSheet {
+         if (onSettings == null && rom != null && g != null && "ss2".equals(g.id) && a instanceof MainActivity) {
+             /* 가상 리그(시험) — CPU 상대 랭크전. 실행 옵션(한글·조작 패치 등)은 위에서 고른 그대로 쓴다 */
+             TextView lg = new TextView(a);
+-            lg.setText("가상 리그 (시험) — CPU 상대 랭크전  ›"); lg.setTextColor(GOLD); lg.setTextSize(13); lg.setGravity(Gravity.CENTER);
++            lg.setText("가상 리그 (시험) — 게임 속 「리그 대전」으로  ›"); lg.setTextColor(GOLD); lg.setTextSize(13); lg.setGravity(Gravity.CENTER);
+             lg.setPadding(0, dp(12), 0, dp(2)); lg.setClickable(true);
+             lg.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
+-                dlg.dismiss(); ((MainActivity) a).openLeague(rom); } });
++                dlg.dismiss(); ((MainActivity) a).openLeagueHub(rom); } });
+             col.addView(lg);
++            TextView lb = new TextView(a);
++            lb.setText("리그 순위표  ›"); lb.setTextColor(GOLD); lb.setTextSize(12); lb.setGravity(Gravity.CENTER);
++            lb.setPadding(0, dp(6), 0, dp(2)); lb.setClickable(true);
++            lb.setOnClickListener(new View.OnClickListener() { @Override public void onClick(View v) {
++                dlg.dismiss(); ((MainActivity) a).openLeague(rom); } });
++            col.addView(lb);
+         }
+         if (KeyMap.physicalPresent()) {                             /* 패드가 붙어 있을 때만 — 터치만 쓰면 군더더기 */
+             TextView hint = new TextView(a);
+diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
+index 8a3c603..fafe0ec 100644
+--- a/app/src/main/java/com/dudu/pocketcore/League.java
++++ b/app/src/main/java/com/dudu/pocketcore/League.java
+@@ -105,6 +105,13 @@ final class League {
+         return db;
+     }
+ 
++    /** 기록 폴더에 실제로 쓸 수 있나 — 권한이 없으면 경기를 만들 때(고른 뒤)에야 실패하니 들어갈 때 먼저 본다 */
++    static String writeProblem() {
++        File t = new File(dir(), ".write_test");
++        try { new FileOutputStream(t).close(); t.delete(); return null; }
++        catch (Exception e) { return "리그 기록 폴더(" + dir() + ")에 쓸 수 없습니다 — 저장소 권한을 확인하세요"; }
++    }
++
+     private static JSONObject read(File f) {
+         if (!f.exists()) return null;
+         try (FileInputStream in = new FileInputStream(f)) {
+@@ -254,6 +261,7 @@ final class League {
+     }
+ 
+     static JSONObject matchById(String id) {
++        if (id == null) return null;
+         JSONArray a = matches();
+         for (int i = a.length() - 1; i >= 0; i--) if (id.equals(a.optJSONObject(i).optString("id"))) return a.optJSONObject(i);
+         return null;
+diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+index c38e87e..76a887c 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+@@ -159,6 +159,24 @@ public class LeagueActivity extends Activity {
+ 
+         final JSONObject open = League.openMatch();
+         if (open != null) col.addView(openCard(open));
++        if (open == null && rom != null) {                 /* 게임 속 리그전 — 타이틀 «리그 대전»에서 상대 고르기 */
++            TextView go = pill("게임 속 리그전  ›  (타이틀 「리그 대전」)", GOLD, INK);
++            go.setOnClickListener(v -> {
++                String why = League.dbProblem != null ? League.dbProblem : romWhy != null ? romWhy
++                        : !rom.equals(romChecked) ? "롬 확인 중입니다 — 잠시 뒤 다시 눌러 주세요" : null;
++                if (why != null) { toast(why); return; }
++                if (launching) return;
++                launching = true;
++                Intent i = new Intent(this, EmuActivity.class);
++                i.putExtra("rom", rom);
++                i.putExtra(EmuActivity.EXTRA_LEAGUE_HUB, true);
++                startActivity(i);
++                finish();
++            });
++            LinearLayout.LayoutParams glp = new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
++            glp.bottomMargin = dp(12);
++            col.addView(go, glp);
++        }
+ 
+         List<Row> rows = table();
+         col.addView(meCard(rows));
+diff --git a/app/src/main/java/com/dudu/pocketcore/MainActivity.java b/app/src/main/java/com/dudu/pocketcore/MainActivity.java
+index c04efc9..8550882 100644
+--- a/app/src/main/java/com/dudu/pocketcore/MainActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/MainActivity.java
+@@ -90,7 +90,7 @@ public class MainActivity extends Activity {
+     private boolean hasStorage() {
+         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R)
+             return Environment.isExternalStorageManager();
+-        return checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE)
++        return checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE)     /* 8~10: 읽기만으로는 세이브·리그 기록을 못 쓴다 */
+                 == PackageManager.PERMISSION_GRANTED;
+     }
+ 
+@@ -101,7 +101,7 @@ public class MainActivity extends Activity {
+             startActivity(i);
+             Toast.makeText(this, "파일 접근을 허용한 뒤 앱으로 돌아오세요", Toast.LENGTH_LONG).show();
+         } else {
+-            requestPermissions(new String[]{ Manifest.permission.READ_EXTERNAL_STORAGE }, 1);
++            requestPermissions(new String[]{ Manifest.permission.READ_EXTERNAL_STORAGE, Manifest.permission.WRITE_EXTERNAL_STORAGE }, 1);
+         }
+     }
+ 
+@@ -589,6 +589,19 @@ public class MainActivity extends Activity {
+         finish();
+     }
+ 
++    /** 게임 속 리그전 — 게임을 랭크전 판(고정 롬 사본·동봉 코어)으로 켜고 타이틀 «리그 대전»에서 시작한다. 마지막 게임으로 기억하지 않는다. */
++    void openLeagueHub(File rom) {
++        stopBoot();
++        stopTheme();
++        Thumbs.stop = true;
++        synchronized (Thumbs.LOCK) { }
++        Intent i = new Intent(this, EmuActivity.class);
++        i.putExtra("rom", rom.getAbsolutePath());
++        i.putExtra(EmuActivity.EXTRA_LEAGUE_HUB, true);
++        startActivity(i);
++        finish();
++    }
++
+     private void launch(String romPath) {
+         stopBoot();      /* 부팅송이 도는 7초 안에 게임을 켜도 확실히 끊는다 */
+         stopTheme();
+diff --git a/app/src/main/java/com/dudu/pocketcore/Patcher.java b/app/src/main/java/com/dudu/pocketcore/Patcher.java
+index 570f41e..c64e762 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Patcher.java
++++ b/app/src/main/java/com/dudu/pocketcore/Patcher.java
+@@ -59,6 +59,9 @@ public final class Patcher {
+         if (name == null) return romPath;
+         try {
+             File rom = new File(romPath);
++            /* 이미 한글패치가 든 롬(실측한 사본)이면 그대로 — 한 번 더 입히면 판정 주소를 모르는 롬이 된다 */
++            String lab = League.romLabel(League.md5(rom));
++            if (lab != null && lab.contains("한글패치")) return romPath;
+             byte[] ips = readFile(new File(new File(MainActivity.root(), "patch"), name));
+             if (ips == null) ips = readAsset(ctx, "patch/" + name);
+             byte[] data = readFile(rom);
