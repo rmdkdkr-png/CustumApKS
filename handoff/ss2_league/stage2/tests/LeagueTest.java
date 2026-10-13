@@ -178,8 +178,8 @@ public class LeagueTest {
         }
         ok(allHold && League.me().optInt("score") == sc0 && League.me().optInt("w") == w0, "판정 불가·승수 불일치·규칙 불일치·난도 불일치 결판은 모두 보류(점수·전적 그대로)");
         ok(whys[0].contains("결판 판정 불일치") && whys[3].contains("규칙 불일치") && whys[4].contains("난도 불일치"), "보류 사유가 원인별로 남음");
-        JSONObject dW = play("o03", st(0xD0, 3, 1, blk("o03"), 2, 60, lv("o03")));
-        ok(dW != null && "W".equals(dW.optString("outcome")), "결판 라운드가 무승부 라운드여도(0xD0 3:1) 승리로 정산");
+        JSONObject dW = play("o03", st(0xD0, 2, 1, blk("o03"), 2, 60, lv("o03")));
+        ok(dW != null && "W".equals(dW.optString("outcome")), "결판 라운드가 무승부 라운드여도(0xD0 2:1 — 1:0 뒤 무승부 라운드) 승리로 정산");
         // 시작 점수로 구간 고정 · 상대 점수가 시작 뒤 바뀌어도
         JSONObject mf = League.newMatch("o11"); int myS = League.me().optInt("score"), opS = League.oppById("o11").optInt("score");
         League.oppById("o11").put("score", myS);                 // 시작 뒤 상대 점수가 바뀌었다고 가정
@@ -208,6 +208,17 @@ public class LeagueTest {
         JSONObject nf = League.newMatch("o05");
         new File(blk2, "x").delete(); blk2.delete();
         ok(nf == null && League.matches().length() == nm && League.openMatch() == null, "새 경기 저장 실패 → 경기를 만들지 않음");
+        // 무효·보류 저장 실패 → «준비»/진행 그대로(되돌림) → 다시 시도하면 됨
+        JSONObject mc = League.newMatch("o05"); String mcid = mc.optString("id");
+        blk2.mkdir(); new File(blk2, "x").createNewFile();
+        boolean cFail = !League.cancel(mcid, "대진 전") && "ready".equals(League.matchById(mcid).optString("status"));
+        new File(blk2, "x").delete(); blk2.delete();
+        ok(cFail && League.cancel(mcid, "대진 전") && "cancelled".equals(League.matchById(mcid).optString("status")), "무효 저장 실패면 준비 그대로 → 다시 시도하면 무효");
+        JSONObject mh = League.newMatch("o05"); String mhid = mh.optString("id"); League.setStatus(mhid, "playing", ""); File ckh = touchCk(mhid);
+        blk2.mkdir(); new File(blk2, "x").createNewFile();
+        boolean hFail = !League.hold(mhid, "x", "y") && "playing".equals(League.matchById(mhid).optString("status")) && ckh.exists();
+        new File(blk2, "x").delete(); blk2.delete();
+        ok(hFail && League.hold(mhid, "x", "y") && "hold".equals(League.matchById(mhid).optString("status")) && !ckh.exists(), "보류 저장 실패면 진행 중·체크포인트 그대로 → 다시 시도하면 보류");
         // 진행 중 → 앱이 내려감 → 복귀 대기 · 사유 지우기
         JSONObject mi = League.newMatch("o06"); String miid = mi.optString("id");
         League.setStatus(miid, "resume", "체크포인트 없음"); League.note(miid, "fix", "x"); League.setStatus(miid, "playing", "");
