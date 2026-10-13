@@ -1,7 +1,7 @@
 """게임 속 리그(허브) 흐름 시험 — league.c 를 실제 코어 옆에서, 앱 native.c 와 같은 순서로(입력 콜백에서 허브가 받는 A 를 지우고,
 retro_run 뒤 league_vram + league_tick_hub) 돌린다.
 타이틀 «리그 대전» 글자 → 그 칸 A → 1인 대전 캐릭터 고르기(머리말 «상대 선택») → 상대 고르기 → 머리말 원래대로 → 내 캐릭터·검질·카드
-→ 경기(대진·규칙·난도 확인) → 결판 → 리셋 뒤 타이틀 «리그 대전» 칸으로 돌아오기(+ 재대결 자동 진입)까지.
+(오른쪽 세로 이름 칸 = 배경 이름 → 내 컬러 이름, 미리보기 그림 색, B = 2P색으로 확정) → 경기(대진·규칙·난도·배경·컬러 확인) → 결판 → 리셋 뒤 타이틀 «리그 대전» 칸으로 돌아오기(+ 재대결 자동 진입)까지.
 사용: python3 t_hub.py <롬>   (PYTHONPATH: handoff/ss2_league · stage1/tests, LEAGUE_HOST_SO=league.c 호스트 .so)"""
 import os, sys, ctypes as C, hosttest as T
 ROM = sys.argv[1]; tag = os.path.splitext(os.path.basename(ROM))[0]
@@ -34,6 +34,16 @@ def hub():
     v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
 def pal0():
     b = C.string_at(p.lib.retro_ngp_palram(), 8); return tuple(b[2 + j * 2] | (b[3 + j * 2] << 8) for j in range(3))
+VT = [0x130 + i for i in range(18)]                     # 오른쪽 세로 이름 칸(둘째 판 3~11줄 × 17·18칸)이 가리킬 우리 글자 타일
+def vp_cells():
+    scr = C.string_at(p.lib.retro_ngp_scrollram() + 0x800, 0x800)
+    return [(scr[((3 + i // 2) * 32 + 17 + (i & 1)) * 2] | scr[((3 + i // 2) * 32 + 17 + (i & 1)) * 2 + 1] << 8) & 0x1FF for i in range(18)]
+def vp_glyph(): return C.string_at(p.lib.retro_ngp_charram() + 0x130 * 16, 18 * 16)
+def ink(g): return sum(1 for k in range(0, len(g), 2) for x in range(8) if (((g[k] | g[k + 1] << 8) >> (14 - 2 * x)) & 3) == 1)   # 글자 칠(색 1) 점 수
+def px(png, c, tol=12):                                 # 찍힌 화면에서 12비트 색 c(0x0BGR, 4비트 × 17)인 점 수
+    from PIL import Image
+    r0, g0, b0 = (c & 15) * 17, ((c >> 4) & 15) * 17, ((c >> 8) & 15) * 17
+    return sum(1 for (r, g, b) in Image.open(png).convert('RGB').getdata() if abs(r - r0) <= tol and abs(g - g0) <= tol and abs(b - b0) <= tol)
 ST = ['꺼짐', '타이틀', '상대 고르기', '내 캐릭터', '경기', '타이틀로']
 fails = 0
 def ok(c, what):
@@ -55,8 +65,15 @@ kind = 1 if '_ko' in tag else 2                         # 한글판 «캐릭터 
 s = hub(); mid = hdr_tiles()
 ok(s[5] == kind, '상대 고르기 머리말을 «상대 선택» 으로 바꿈 (판 %d, 기대 %d)' % (s[5], kind))
 s = hub(); st0 = s[9]
+g_home = vp_glyph()                                     # 커서 = 아수라(8) — 상대 기본 배경 6(마계 제단)
+ok(vp_cells() == VT and ink(g_home) > 60, '상대 고르기 오른쪽 세로 칸 = 우리 글자 타일 0x130~0x141(배경 이름, 칠 점 %d)' % ink(g_home))
+gl = {}
+for k in [-2] + list(range(8)) + [-1]:                  # B 열 번: 무작위 → 0 … 7 → 상대 기본(한 바퀴)
+    h.press('B', 4, 20); gl[k] = vp_glyph()
+ok(len(set(gl[k] for k in range(-2, 8) if k != -1)) == 9 and gl[6] == g_home and gl[-1] == g_home and vp_cells() == VT,
+   'B 한 바퀴: 배경 8개·무작위 글자가 모두 다르고, «상대 기본» = 아수라 기본 배경(마계 제단) 글자 · 다시 상대 기본으로 돌아옴')
 for i in range(3): h.press('B', 4, 20)                 # B: 배경 — 상대 기본 → 무작위 → 0 → 1(숲속 호숫가)
-s = hub(); ok(st0 == -1 and s[9] == 1 and s[0] == 2 and p.peek(0x41C0) == 2, '상대 고르기에서 B 세 번 → 배경 «상대 기본» → 무작위 → 0 → 1(숲속 호숫가), 게임 화면 그대로 [%d → %d]' % (st0, s[9]))
+s = hub(); ok(st0 == -1 and s[9] == 1 and s[0] == 2 and p.peek(0x41C0) == 2 and vp_glyph() == gl[1], '상대 고르기에서 B 세 번 → 배경 «상대 기본» → 무작위 → 0 → 1(숲속 호숫가), 오른쪽 칸 글자도 1, 게임 화면 그대로 [%d → %d]' % (st0, s[9]))
 h.press('A', 4, 60)                                     # 가운데 아수라(8) — 리그 상대(검은달)
 s = hub(); ok(s[0] == 3 and s[2] == 8 and p.peek(0x41C0) == 2, '상대 고르기에서 A → 아수라(8) 상대 고름, 화면은 캐릭터 고르기 그대로(내 캐릭터 차례)')
 aft = hdr_tiles(); chg = [i for i in range(20) if mid[i] != aft[i]]
@@ -65,10 +82,21 @@ ok(chg == want, '상대를 고른 뒤 머리말 타일 원래대로 (되돌린 �
 st = T.status(); ok(st[0] == 1, '고른 상대로 대진 무장')
 p.shot(T.work('hub_%s_3_pickme.png' % tag))
 s = hub(); ok(s[11] == 1, '고른 상대로 무장할 때 배경 1 을 함께 (%d)' % s[11])
+gc0 = vp_glyph()
+ok(vp_cells() == VT and gc0 not in gl.values() and ink(gc0) > 30, '내 캐릭터 고르기 오른쪽 세로 칸 = 컬러 이름(«기본», 배경 글자와 다름)')
 h.press('D', 4, 30); h.press('D', 4, 30); h.press('R', 4, 30); h.press('R', 4, 30)   # 내 캐릭터: 우쿄(11)
+h.run(4); pv0 = pal0()
 h.press('O', 4, 20); s = hub()                           # 옵션: 컬러 1(2P색)
-ok(s[10] == 1 and p.peek(0x41C0) == 2, '내 캐릭터 고르기에서 옵션 → 컬러 1(2P색), 게임 화면 그대로 [컬러 %d · SCR %d]' % (s[10], p.peek(0x41C0)))
-h.press('A', 4, 200); h.press('A', 4, 200)             # 캐릭터·유파
+h.run(2); p.shot(T.work('hub_%s_3b_color1.png' % tag)); gc1 = vp_glyph()
+ok(s[10] == 1 and p.peek(0x41C0) == 2 and gc1 != gc0, '내 캐릭터 고르기에서 옵션 → 컬러 1(2P색), 오른쪽 칸 글자 바뀜, 게임 화면 그대로 [컬러 %d · SCR %d]' % (s[10], p.peek(0x41C0)))
+ok(pv0 == UKYO_SURA[0] and pal0() == UKYO_SURA[1] and px(T.work('hub_%s_3b_color1.png' % tag), UKYO_SURA[1][1]) >= 20,
+   '미리보기 그림 = 우쿄 2P색으로 바로 바뀜(팔레트 0 %s → %s, 화면에 2P색 점 %d)' % ('/'.join('%03x' % c for c in pv0), '/'.join('%03x' % c for c in pal0()), px(T.work('hub_%s_3b_color1.png' % tag), UKYO_SURA[1][1])))
+h.press('O', 4, 20); s = hub(); c2 = pal0()             # 컬러 2(만든 색)
+ok(s[10] == 2 and c2 not in UKYO_SURA and c2[0] == UKYO_SURA[0][0] and vp_glyph() not in (gc0, gc1), '옵션 한 번 더 → 컬러 2: 미리보기 = 만든 색(가장 밝은 색은 그대로) [%s]' % '/'.join('%03x' % c for c in c2))
+h.press('B', 40, 160); s = hub()                        # B(길게 눌러도): 2P색으로 확정 → 검질 고르기(B 가 «뒤로» 로 새지 않음)
+ok(s[10] == 1 and p.peek(0x41C0) == 4 and pal0() == UKYO_SURA[1] and vp_cells() == VT and vp_glyph() == gc1,
+   'B → 2P색으로 캐릭터 확정 · 검질 고르기(B 를 길게 눌러도 뒤로 안 감) · 미리보기 2P색 · 오른쪽 칸 «2P색» [컬러 %d · SCR %d]' % (s[10], p.peek(0x41C0)))
+h.press('A', 4, 200)                                    # 유파
 h.run(240); h.press('A', 4, 240); h.press('R', 4, 30); h.press('A', 4, 200)   # 카드 안 받음
 f = 0
 while f < 6000 and not T.status()[3]:
@@ -77,7 +105,8 @@ while f < 6000 and not T.status()[3]:
     f += 1
 h.run(60); p.shot(T.work('hub_%s_4_fight.png' % tag))
 ok(p.peek(0x5827) == 1 and p.peek(0x5778) == STAGE_ID[1], '경기 배경 = 고른 배경 1(숲속 호숫가): 판 번호 %d · 배경 id %d' % (p.peek(0x5827), p.peek(0x5778)))
-ok(pal0() == UKYO_SURA[1], '내 컬러 = 우쿄 수라 2P색 (팔레트 0 = %s)' % ' '.join('%03x' % c for c in pal0()))
+n2p = px(T.work('hub_%s_4_fight.png' % tag), UKYO_SURA[1][1])
+ok(pal0() == UKYO_SURA[1] and n2p >= 20, '내 컬러 = 우쿄 수라 2P색 (팔레트 0 = %s · 찍힌 경기 화면에 2P색 점 %d)' % (' '.join('%03x' % c for c in pal0()), n2p))
 s = hub(); st = T.status()
 ok(s[0] == 4 and st[3] == 1 and (st[12] & 0xF8) == (8 << 4 | 1 << 3) and p.peek(0x57D5) == 11, '경기 시작 · P2 = 아수라 나찰 · 내 캐릭터 우쿄 · 허브 경기 상태')
 f = 0; wait = None
