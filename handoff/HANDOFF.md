@@ -20,8 +20,8 @@
 
 | 저장소 | 브랜치 | 커밋 | 내용 |
 |---|---|---|---|
-| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | 139c3dd (소스 …·08a9888·04c24bf·d664f0e·308531c·dbc5f9f·5adbd99·0fbdad3·6148964·cac1e08, 코어 5종 재빌드 포함; 10/10 포즈 교대 수정 — 타일 그림 동일성 + 무리 강체 + 자리 겹침 검증 + 겉모습 짝짓기 + 4배 게임 박자 맞춤(예측·반반) + RAM 몸·물체 위치 + 런어헤드 + 이펙트·장풍 + 감전 몸·몸 따로 박자 + 포즈 섞기 + 10/11 60Hz 사이 그림 + 서기 자세 ¼픽셀(4배 출력, 고르기 화면 미리보기) + 모션 캐시 ss2_motion.bin(패치 97~99f + main 고침: 몸 지문·겹침·조각·순환 예측·왕복 방향·머묾 끝·긴 머묾, -lz) + 원버튼 최속 발동) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
-| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | (framegen HEAD e22341d) 1.5.85-SS2-1.1.21 → `release/ss2-v1.1.21/`; 1.1.1~1.1.20 대체됨 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
+| `ss2-sp-core` | **main** (framegen 을 fast-forward 로 병합, 10/9) | 8b2580e (소스 …·08a9888·04c24bf·d664f0e·308531c·dbc5f9f·5adbd99·0fbdad3·6148964·cac1e08·1249a9e·0966bed·92cbe48·e478c5a·5545b8c, 코어 5종 재빌드 포함; 10/10 포즈 교대 수정 — 타일 그림 동일성 + 무리 강체 + 자리 겹침 검증 + 겉모습 짝짓기 + 4배 게임 박자 맞춤(예측·반반) + RAM 몸·물체 위치 + 런어헤드 + 이펙트·장풍 + 감전 몸·몸 따로 박자 + 포즈 섞기 + 10/11 60Hz 사이 그림 + 서기 자세 ¼픽셀(4배 출력, 고르기 화면 미리보기) + 모션 캐시 ss2_motion.bin(패치 97~99f + main 고침: 몸 지문·겹침·조각·순환 예측·왕복 방향·머묾 끝·긴 머묾, -lz) + 원버튼 최속 발동) | `src/ss2fg.c/.h` 캡처·합성, libretro 배관, 옵션 2개, 검증 하네스 2개, `docs/프레임생성.md` |
+| `emu-ex-plus-alpha` | **`framegen`** (master 에서 가지) | (framegen HEAD f85c989) 1.5.85-SS2-1.1.22 → `release/ss2-v1.1.22/`; 1.1.1~1.1.21 대체됨 | EmuFramework 빈 vsync 슬롯 훅 `EmuSystem::interFrame`, NGP.emu 예측 합성, 옵션 「프레임 생성」, 1.5.85-SS2-1.1.0 → `release/ss2-v1.1.0/` APK |
 | `CustumApKS` | `claude/emu-ex-plus-alpha-build-9yqxli` | 이 커밋 | CHANGELOG 1.1.0, 이 절 |
 
 - 방식: 픽셀을 섞지 않는다. K2GE 스프라이트표·스크롤 레지스터를 스캔라인별로 캡처해 위치만 반 옮긴
