@@ -76,6 +76,14 @@ def close_menu():
 def menu_go(row):
     while pst()[2] != row: h.press('D', 2, 3)
 VR = ('chr', 'scr', 'spr', 'pal')
+def win_shown():
+    """찍힌 그림에 창 바탕(검남)이 보이나 — 창 안 빈칸 세 곳(줄 6·11·15 의 10칸 = 이름과 값 사이)"""
+    fb = p.fb; n = 0
+    for (x, y) in ((84, 52), (84, 92), (84, 124)):
+        v = fb[(y * 160 + x) * 2] | fb[(y * 160 + x) * 2 + 1] << 8
+        r, g, b = (v >> 11) & 31, (v >> 5) & 63, v & 31
+        n += (r <= 3 and g <= 6 and 6 <= b <= 12)
+    return n == 3
 def vdiff(a, b): return {VR[i]: [k for k in range(len(a[i])) if a[i][k] != b[i][k]] for i in range(4)}
 
 # ════ P-1 타이틀 글자 · P-14 새지 않기 ══════════════════════════════════
@@ -172,7 +180,10 @@ while f < 40:
     st_before = pst()[1]; h.run(1); f += 1
     if st_before != 2 and pst()[1] == 2: opened = last_pre['v']; break
 ok(opened is not None and pk(0x61D4) == 1, 'Option 탭(누르는 동안 다른 버튼 없음) → 뗄 때 일시정지(0x61D4=1) + 메뉴 창 (%s프레임)' % f)
-h.run(3); shot('6_menu')
+vis = []
+for k in range(12): h.run(1); vis.append((win_shown(), pk(0x41F5)))
+ok(all(v[0] for v in vis[1:]) and {v[1] for v in vis} == {0, 0x78}, '창이 매 프레임 보임(게임이 틱마다 첫째 판 가운데를 줄 4~16 ↔ 19~31 로 번갈아 보여도 — 0x41F5 %s) %s' % (sorted({v[1] for v in vis}), ''.join('O' if v[0] else '.' for v in vis)))
+shot('6_menu')
 sc = h.scr_()
 win_t = [plane_tiles(sc, 0, r, 3, 14) for r in range(4, 17)]
 ok(all(t != 0 for row in win_t for t in row), '첫째 판 줄 4~16 × 칸 3~16 이 창 칸으로 채워짐 (빌린 타일 %d · 빈 후보 중 쓰이던 것 %d)' % (pst()[16], pst()[17]))
@@ -349,7 +360,7 @@ ok(not pk(0x59CA) & 4 and not pk(0x5BCA) & 4, 'MAX 유지 끄면 움직일 수 �
 lg.practice_set(0, 1); lg.practice_set(1, 3); reset_wait(0)
 NF = 8000 if QUICK else 20000
 random.seed(11)
-st = dict(res_nz=0, notlive=0, hpmin=128, timer_bad=0, resets=0, reset_bad=[], push=[], menus=0, menu_bad=[], states={'air': 0, 'hitstop': 0, 'object': 0, 'max': 0})
+st = dict(hidden=0, res_nz=0, notlive=0, hpmin=128, timer_bad=0, resets=0, reset_bad=[], push=[], menus=0, menu_bad=[], states={'air': 0, 'hitstop': 0, 'object': 0, 'max': 0})
 TGT = {0: (120, 200, 80), 1: (24, 104, 0), 2: (216, 296, 159)}
 cyc = 0; f = 0; shots_done = set()
 h.pre_hook = pre2
@@ -394,7 +405,9 @@ while f < NF:
     st['menus'] += 1
     for nm, c in (('air', y_air), ('hitstop', hs), ('object', obj), ('max', mx)):
         if c: st['states'][nm] += 1
-    for k in range(random.randint(2, 8)): h.run(1); f += 1
+    for k in range(random.randint(2, 8)):
+        h.run(1); f += 1
+        if k >= 1 and not win_shown(): st['hidden'] += 1
     h.post_hook = post_close; closed = None
     h.press('B', 2, 0); h.post_hook = None
     wait_until(lambda: pst()[1] == 0, 60)
@@ -406,6 +419,7 @@ ok(st['resets'] >= (15 if QUICK else 40) and not st['reset_bad'], '무작위 순
 ok(not st['push'], '리셋 뒤 10프레임 동안 P1 X 밀림 없음 (밀림 %s)' % st['push'][:3])
 ok(st['menus'] >= (30 if QUICK else 100) and not st['menu_bad'], '메뉴 열고 닫기 %d번(공중 %d · 히트스톱 %d · 장풍/효과 %d · MAX %d): 닫은 뒤 문자 램·두 판·스프라이트·팔레트 = 열기 전과 바이트까지 같음 (어긋남 %s)' % (
    st['menus'], st['states']['air'], st['states']['hitstop'], st['states']['object'], st['states']['max'], st['menu_bad'][:3]))
+ok(st['hidden'] == 0, '메뉴가 열린 동안 창이 안 보인 프레임 %d (런어헤드 2 · 프레임 생성 켬)' % st['hidden'])
 info('버린 리셋 요청 %d' % pst()[21])
 
 # ════ P-10 결정성 — 메뉴 열고 닫기 = 그냥 일시정지·풀기 ═══════════════
