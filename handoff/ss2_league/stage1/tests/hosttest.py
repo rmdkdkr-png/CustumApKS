@@ -13,7 +13,7 @@ CORE = os.environ.get('LEAGUE_CORE', '/home/user/ss2-sp-core/cores/mednafen_ngp_
 lg = C.CDLL(os.environ.get('LEAGUE_HOST_SO', os.path.join(H, 'libleague_host.so')))
 lg.league_tick.argtypes = [C.c_void_p, C.c_size_t]
 def status():
-    v = (C.c_int * 17)(); lg.league_status(v); return list(v)
+    v = (C.c_int * 21)(); lg.league_status(v); return list(v)
 class Harness:
     def __init__(self, rom, wd, runahead=True):
         if runahead:   # Legacito 기본(런어헤드 2·프레임 생성 켬)과 같게
