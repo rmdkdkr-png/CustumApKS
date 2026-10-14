@@ -1,0 +1,27 @@
+--- a/handoff/ss2_practice/stage1/tests/t_practice.py
++++ b/handoff/ss2_practice/stage1/tests/t_practice.py
+@@ -287,12 +287,21 @@
+     if PRE['hp1'] < post: dmg1 += post - PRE['hp1']
+     post = pk(0x5A46)
+ ok(dmg1 > 0 and pk(0x5BCB) & 1 == 1 and h.tile(0x049) + h.tile(0x04A) == base_com, '더미 CPU 로 바꾸면 바로 싸움(P1 이 받은 대미지 %d) · bit0 = 1 · HUD «COM» 원래 그림' % dmg1)
+-lg.practice_set(0, 0); h.run(120); dmg1b = 0; post = pk(0x5A46)
++lg.practice_set(0, 0); h.run(120); dmg1b = 0; dmg1s = 0; post = pk(0x5A46)
++# 바꾸는 순간 더미가 하던 동작은 CPU 비트(0x5BCB bit0)와 상관없이 끝까지 간다 — CPU 가 막 낸 MAX 비오의(샬럿 ACT 0x1C8)는
++# 두 사람을 묶은 채(0x59CE·0x5BCE = 0xFF) 360프레임 넘게 이어지고, bit0 을 켜 두든 끄든 그동안 램이 같다(게임 연출).
++# 그래서 그 동작이 끝나 더미가 처음 움직일 수 있게 된(0x5BCE == 0) 다음 프레임부터 대미지를 센다(프레임 수는 그대로 — 뒤 시험 박자 같게)
++free = 0 if pk(0x5BCE) == 0 else None
+ for f in range(1200):
+     h.run(1)
+-    if PRE['hp1'] < post: dmg1b += post - PRE['hp1']
++    if PRE['hp1'] < post:
++        if free is None: dmg1s += post - PRE['hp1']
++        else: dmg1b += post - PRE['hp1']
++    if free is None and PRE['ctrl2'] == 0: free = f + 1
+     post = pk(0x5A46)
+-ok(dmg1b == 0 and pk(0x5BCB) & 1 == 0 and h.tile(0x049) + h.tile(0x04A) != base_com, '다시 서기 → 멈춤(1200프레임 P1 대미지 %d) · «2P»' % dmg1b)
++ok(free is not None and free <= 600 and dmg1b == 0 and pk(0x5BCB) & 1 == 0 and h.tile(0x049) + h.tile(0x04A) != base_com,
++   '다시 서기 → 하던 동작이 끝나면(120 + %s프레임, 그사이 대미지 %d) 멈춤(남은 %s프레임 P1 대미지 %d) · «2P»'
++   % (free, dmg1s, None if free is None else 1200 - free, dmg1b))
+ 
+ # ════ P-5 가드 «전부» ══════════════════════════════════════════════════
+ SC = {
