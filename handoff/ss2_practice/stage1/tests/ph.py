@@ -32,6 +32,7 @@ class PH(T.Harness):
             else:
                 on = gi('league_ovr_on')
                 blk = gi('league_in_block') | gi('practice_in_block'); orr = gi('league_in_or') | gi('practice_in_or')
+                if self.user & BIT['O']: blk |= gi('practice_opt_mask')   # native.c 입력 콜백과 같게(Option 과 같은 프레임의 방향·A·B)
                 m = gi('league_ovr_mask') if on else ((self.user & ~blk) | orr)
             self.p.mask = m
             if self.rec is not None: self.rec.append(m)
