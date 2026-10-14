@@ -521,10 +521,10 @@ index 646455e..57b405e 100644
     return ok ? 0 : -1;
 diff --git a/app/src/main/cpp/practice.c b/app/src/main/cpp/practice.c
 new file mode 100644
-index 0000000..477ffc6
+index 0000000..fc900c5
 --- /dev/null
 +++ b/app/src/main/cpp/practice.c
-@@ -0,0 +1,807 @@
+@@ -0,0 +1,815 @@
 +/* 연습 대전 1단계 — 사무쇼2 1인 대전 첫 경기를 «끝나지 않는 연습 경기»로.
 +
 +   설계: CustumApKS handoff/ss2_practice/0단계_조사설계.md 3-나 F2~F9 · 4-라~4-바. 주소는 그 문서 2장에서 확정한 것만 쓴다
@@ -538,6 +538,7 @@ index 0000000..477ffc6
 +     F3       더미 서기 = 0x5BCB bit0 끔(사람 갈래 · 패드 0) · CPU = bit0 켬(원래 AI). 싸우지 않는 6조합은 CPU 를 못 고른다.
 +     F4       가드: 켤 프레임에 땅이면(자세 0x60, 공중 0x80 아님) 0x5BC9 |= 0x18 — 자세 비트는 그대로. 첫 타 뒤 · 랜덤은 설계 그대로.
 +     F5       리셋: 요청 → «중립»(둘 다 0x59CE==0 · Y==128 · 히트스톱 0 · 물체 수가 라운드 시작 값 이하)이 되는 첫 프레임에 한 번에 씀.
++              비오의를 쓰면 게임이 그 판 동안 A+B 분노 오르기를 막는다(0x5A55 bit7) — 리셋이 풀어 다시 모을 수 있게 한다.
 +     F6       분노 MAX 유지: 진짜 MAX 비트 0x59CA bit2 + 타이머 0x5A48 = 0x3000 + 분노·표시 분노 0x30. 쓰여서 꺼지면 움직일 수 있을 때 다시.
 +     F7       연습 메뉴: Option 탭 → 게임 일시정지(0x61D4=1) 위, 첫째 판(HUD 판) 줄 4~16 × 칸 3~16 에 창(게임이 틱마다 번갈아 보이는
 +              줄 19~31 에도 같은 창 — 아래 WBAND). 타일·칸·팔레트는 빌렸다가 닫을 때
@@ -570,6 +571,8 @@ index 0000000..477ffc6
 +#define R_HSTOP  A(0x5DC7)   /* 히트스톱(두 사람 공통) */
 +#define R_PAUSE  A(0x61D4)   /* 일시정지 중 1 */
 +#define R_FXX    A(0x41F8)   /* 첫째 판 효과 층(줄 19~31)을 보여 주는 틱의 가로 스크롤 — 게임이 효과 자리로 옮긴다(아수라 MAX 비오의 뒤 0xC9 로 남음, 실측) */
++#define R_BAX    A(0x41F7)   /* 첫째 판 줄 4~16 을 보여 주는 틱의 가로 스크롤 — 보통 0 이지만 효과가 쓰고 남긴다(샬럿 CPU 의 ACT 0x1A0 · 효과 물체 0x1CC 뒤 0x1F, 실측).
++                                게임은 틱마다 지금 띠의 값(0x41F7 / 0x41F8)을 0x41F9 로 옮겨 래스터로 줄 32~136 의 가로 스크롤에 쓴다 */
 +#define R_CMD1RS A(0x5DCD)   /* P1 커맨드 이력 리셋(1 = 다음 틱에 비움) */
 +#define R_CMD2RS A(0x5E55)
 +#define PB(p)    (A(0x5980) + (p) * 0x200)   /* 플레이어 블록(P2 = P1 + 0x200) — 아래 오프셋은 이 기준 */
@@ -590,6 +593,7 @@ index 0000000..477ffc6
 +#define O_MAXT   0xC8        /* 0x5A48 MAX 유지 타이머 u16 */
 +#define O_DHP    0xCA        /* 0x5A4A 표시 체력 */
 +#define O_DRAGE  0xCB        /* 0x5A4B 표시 분노 */
++#define O_SECRET 0xD5        /* 0x5A55 bit7 = 이번 판 비오의를 씀 — 켜져 있으면 A+B 로 분노가 안 오른다(판이 끝날 때까지) */
 +#define O_COMBO  0x117       /* 0x5A97 그 사람이 맞은 콤보 수 */
 +#define O_CHAR   0x1D1       /* 0x5B51 (캐릭터<<4)|(유파<<3) */
 +#define OBJ(k)   (A(0x4E30) + (k) * 0x40)    /* 표시 물체 — +8 X · +0xA Y · +0x24 방향(1 = 왼쪽) */
@@ -662,6 +666,7 @@ index 0000000..477ffc6
 +#define WC 14
 +#define POOL_MAX 80
 +static const int WBAND[2] = { 4, 19 };
++static const int WBX[2] = { R_BAX, R_FXX };   /* 띠마다 가로 스크롤 램 */
 +static struct {
 +   int open;
 +   uint16_t cell_orig[2][WR][WC], cell_ours[2][WR][WC];
@@ -673,7 +678,7 @@ index 0000000..477ffc6
 +   uint16_t cand[512];
 +   int pal[2];                       /* 빌린 첫째 판 팔레트 두 개(보통 13·14 — 열 때 첫째 판 어느 칸도 안 쓰는 것으로) */
 +   uint8_t pal_orig[2][8], pal_ours[2][8];
-+   int fx_orig;                      /* 효과 층 가로 스크롤(0x41F8) 원래 값 — 창이 열린 동안 0 으로 둔다(−1 = 안 바꿈) */
++   int fx_orig[2];                   /* 두 띠의 가로 스크롤(0x41F7 · 0x41F8) 원래 값 — 창이 열린 동안 0 으로 둔다(−1 = 안 바꿈) */
 +} W;
 +static uint8_t *g_ram;                /* 코어 작업 램(practice_tick 이 받은 것 — 상태 저장 직전 되돌림에 쓴다) */
 +
@@ -754,6 +759,7 @@ index 0000000..477ffc6
 +      int b = PB(p);
 +      ram[b + O_HP] = 128; ram[b + O_DHP] = 128;
 +      if (PS.rage[p]) set_max(ram, p); else clear_max(ram, p);
++      ram[b + O_SECRET] &= (uint8_t)~0x80;      /* 비오의를 쓴 뒤에도 리셋하면 A+B 로 다시 분노를 모을 수 있게(연습 경기는 판이 안 끝난다) */
 +      P.prev_hp[p] = 128; P.calm[p] = 0;
 +   }
 +   ram[R_CMD1RS] = 1; ram[R_CMD2RS] = 1;
@@ -971,7 +977,7 @@ index 0000000..477ffc6
 +static void window_restore(void)
 +{
 +   if (!W.open) return;
-+   if (g_ram && W.fx_orig >= 0) { g_ram[R_FXX] = (uint8_t)W.fx_orig; W.fx_orig = -1; }
++   for (int b = 0; b < 2; b++) if (g_ram && W.fx_orig[b] >= 0) { g_ram[WBX[b]] = (uint8_t)W.fx_orig[b]; W.fx_orig[b] = -1; }
 +   if (v_scr) for (int b = 0; b < 2; b++) for (int r = 0; r < WR; r++) for (int c = 0; c < WC; c++) ent_wr(WBAND[b] + r, 3 + c, W.cell_orig[b][r][c]);
 +   if (v_chr) for (int i = 0; i < W.npool; i++) memcpy(v_chr + W.pool[i] * 16, W.pool_orig[i], 16);
 +   if (v_pal) for (int k = 0; k < 2; k++) memcpy(v_pal + 0x80 + W.pal[k] * 8, W.pal_orig[k], 8);
@@ -997,12 +1003,14 @@ index 0000000..477ffc6
 +   static const uint8_t *BT[4] = { PG_BORDER_H, PG_BORDER_V, PG_BORDER_C, PG_CURSOR };
 +   int key[WR][WC], pal[WR][WC], flip[WR][WC];
 +   if (!v_chr || !v_scr || !v_pal) return;
-+   /* 효과 층 틱엔 줄 19~31 이 가로로 0x41F8 만큼 밀려 보인다 — 창이 열린 동안은 0 으로(일시정지 중 게임은 이 값을 안 바꾼다, 실측).
++   /* 띠마다 그 틱엔 줄 32~136 이 가로로 0x41F7(줄 4~16) · 0x41F8(효과 층 줄 19~31) 만큼 밀려 보인다 — 창이 열린 동안은 둘 다 0 으로
++      (일시정지 중 게임은 이 값을 안 바꾼다, 실측). 줄 4~16 쪽도 효과가 남긴 값이 있으면 창이 틱마다 그만큼 옆으로 뛰고, 프레임 생성(60Hz 사이 그림)은
++      두 값 차가 32 px 안이면 그 사이로 옮겨 그려 매 프레임 다른 자리가 된다(0x1F ↔ 0 → 사이 그림 16 px, 실측).
 +      한 틱씩 X mod 8 px 흔들리지 않게 옮겨 그리는 대신 이렇게 한다. 닫을 때·상태 저장 전에 원래 값 */
-+   if (g_ram) {
-+      if (!W.open) W.fx_orig = g_ram[R_FXX];
-+      else if (W.fx_orig >= 0 && g_ram[R_FXX] != 0) W.fx_orig = g_ram[R_FXX];   /* 게임이 그사이 썼다 — 새 원래 값 */
-+      g_ram[R_FXX] = 0;
++   if (g_ram) for (int b = 0; b < 2; b++) {
++      if (!W.open) W.fx_orig[b] = g_ram[WBX[b]];
++      else if (W.fx_orig[b] >= 0 && g_ram[WBX[b]] != 0) W.fx_orig[b] = g_ram[WBX[b]];   /* 게임이 그사이 썼다 — 새 원래 값 */
++      g_ram[WBX[b]] = 0;
 +   }
 +   if (!W.open) {                                   /* 처음: 칸·팔레트 원래 값 보관 */
 +      for (int b = 0; b < 2; b++) for (int r = 0; r < WR; r++) for (int c = 0; c < WC; c++) W.cell_orig[b][r][c] = W.cell_ours[b][r][c] = ent_rd(WBAND[b] + r, 3 + c);
@@ -1140,7 +1148,7 @@ index 0000000..477ffc6
 +   for (int p = 0; p < 2; p++) { P.prev_hp[p] = ram[PB(p) + O_HP]; P.prev_combo[p] = ram[PB(p) + O_COMBO]; }
 +   P.shown = -1; P.shown_side = -1; P.cpu_set = -1; P.rng = 0x2545F491u;
 +   P.prev_in = P_ALL;                               /* 들어올 때 쥐고 있던 버튼은 새로 누른 것으로 치지 않는다 */
-+   W.pal[0] = 13; W.pal[1] = 14; W.fx_orig = -1;
++   W.pal[0] = 13; W.pal[1] = 14; W.fx_orig[0] = W.fx_orig[1] = -1;
 +   for (int p = 0; p < 2; p++) P.prev_x[p] = rd16(ram, PB(p) + O_X);
 +}
 +
@@ -1236,7 +1244,7 @@ index 0000000..477ffc6
 +void practice_forget(void)
 +{
 +   pthread_mutex_lock(&P_mu);
-+   P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig = -1;
++   P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
 +   practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
 +   pthread_mutex_unlock(&P_mu);
 +}
@@ -1311,7 +1319,7 @@ index 0000000..477ffc6
 +{
 +   pthread_mutex_lock(&P_mu);
 +   memcpy(&P, buf, sizeof P); memcpy(&PS, (const uint8_t *)buf + sizeof P, sizeof PS);
-+   W.open = 0; W.npool = 0; W.fx_orig = -1;
++   W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
 +   pthread_mutex_unlock(&P_mu);
 +}
 +
@@ -1533,7 +1541,7 @@ index 68cd239..dc4d9b3 100644
 +    public static native int[] nativePracticeStatus();
  }
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 80d3993..6f2f313 100644
+index 80d3993..cd89dbb 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -53,6 +53,9 @@ public class EmuActivity extends Activity {
@@ -1559,7 +1567,146 @@ index 80d3993..6f2f313 100644
          /* 사무쇼2 배경음악(SS1) 결과를 알려 준다 — 「넣었는데 안 바뀐다」를 눈으로 가릴 수 있게(유저 2026-10-10).
             이어하기면 지금 울리는 곡은 저장 당시 것이라(소리칩 램에 이미 올라가 있다) 다음 장면부터 바뀐다. */
          String mn = Patcher.musicNote;
-@@ -1584,4 +1588,75 @@ public class EmuActivity extends Activity {
+@@ -1315,7 +1319,9 @@ public class EmuActivity extends Activity {
+         return hubFont;
+     }
+ 
+-    /** 게임 그림 바로 아래 안내 띠 — 게임 화면·버튼은 덮지 않는다(자리가 없으면 게임 그림 위쪽 가장자리에 얇게). */
++    /** 안내 띠 — 게임 그림 아래에서 패드 버튼과 겹치지 않는 첫 빈 줄에(버튼 배치를 바꿔도 따라감). 자리가 없으면 게임 그림 위쪽 가장자리.
++     *  손가락으로 끌어 옮길 수 있고(세로·가로 따로 기억), 두 번 톡 치면 자동 자리로 돌아간다
++     *  (유저 2026-10-14 「밑에 옵션 설명해둔 거 패드를 가리는 데다가 이동도 안 되네」 — 전엔 SP·A+B 버튼 줄에 걸쳤다). */
+     private void addHubBanner() {
+         float dp = getResources().getDisplayMetrics().density;
+         hubBanner = new TextView(this);
+@@ -1329,23 +1335,121 @@ public class EmuActivity extends Activity {
+         hubBanner.setBackground(g);
+         hubBanner.setPadding(Math.round(10 * dp), Math.round(6 * dp), Math.round(10 * dp), Math.round(6 * dp));
+         hubBanner.setText("가상 리그 — 메뉴의 「리그 대전」을 고르세요");
+-        root.addView(hubBanner, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT,
++        root.addView(hubBanner, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.WRAP_CONTENT,
+                 FrameLayout.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP | android.view.Gravity.LEFT));
++        hubBanner.setOnTouchListener(bannerDrag);
++        hubBanner.addOnLayoutChangeListener((v, l, t, r, b, ol, ot, or, ob) -> {
++            if (!bannerDragging && (b - t) != (ob - ot) && (b - t) != bannerPlacedH) h.post(this::placeHubBanner);   /* 글이 바뀌어 줄 수가 달라짐 */
++        });
+         placeHubBanner();
+     }
+ 
++    private boolean bannerDragging = false, bannerUserPos = false;
++    private int bannerPlacedH = -1;
++    private String bannerKey() { return root != null && root.getHeight() > root.getWidth() ? "pocketcore_hubbanner_p" : "pocketcore_hubbanner_l"; }
++
++    private int bannerHeightAt(int width) {
++        hubBanner.measure(View.MeasureSpec.makeMeasureSpec(Math.max(1, width), View.MeasureSpec.EXACTLY),
++                View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED));
++        return hubBanner.getMeasuredHeight();
++    }
++
+     private void placeHubBanner() {
+         if (hubBanner == null || root == null) return;
++        int W = root.getWidth(), H = root.getHeight();
++        if (W <= 0 || H <= 0) return;
+         float dp = getResources().getDisplayMetrics().density;
++        boolean port = H > W;
+         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) hubBanner.getLayoutParams();
+-        int below = gameBox[3] + Math.round(6 * dp), need = Math.round(52 * dp);
+-        /* 세로: 게임 그림 아래, 양옆 모서리 버튼(A+B·SP)을 비켜 가운데 66% 만 */
+-        int side = root.getHeight() > root.getWidth() ? Math.round(root.getWidth() * 0.17f) : Math.round(8 * dp);
+-        lp.leftMargin = Math.max(gameBox[0], side); lp.rightMargin = Math.max(root.getWidth() - gameBox[2], side);
+-        lp.topMargin = (root.getHeight() > 0 && below + need > root.getHeight()) ? gameBox[1] + Math.round(4 * dp) : below;
++        int edge = Math.round(8 * dp);
++        int maxW = Math.min(W - 2 * edge, Math.round(W * (port ? 0.92f : 0.56f)));
++        int left, top, width;
++        String saved = Settings.load().get(bannerKey());
++        float[] pos = null;
++        if (saved != null) {
++            try { String[] a = saved.split(","); pos = new float[] { Float.parseFloat(a[0]), Float.parseFloat(a[1]) }; } catch (Exception e) { pos = null; }
++        }
++        bannerUserPos = pos != null;
++        if (pos != null) {                                       /* 유저가 옮겨 둔 자리 — 가운데 점(화면 비율)을 지킨다 */
++            width = Math.min(maxW, Math.round(W * (port ? 0.80f : 0.50f)));
++            int hh = bannerHeightAt(width);
++            left = Math.round(pos[0] * W - width / 2f); top = Math.round(pos[1] * H - hh / 2f);
++            left = Math.max(0, Math.min(W - width, left)); top = Math.max(0, Math.min(H - hh, top));
++            bannerPlacedH = hh;
++        } else {                                                 /* 자동 — 게임 그림 아래, 버튼과 안 겹치는 첫 줄(폭이 화면 절반 이상) */
++            int y = gameBox[3] + Math.round(6 * dp), step = Math.round(6 * dp);
++            int minW = Math.min(maxW, Math.round(W * (port ? 0.50f : 0.36f)));
++            left = -1; top = -1; width = maxW;
++            for (; y < H; y += step) {
++                int hh = bannerHeightAt(maxW);
++                if (y + hh > H - Math.round(4 * dp)) break;
++                float[] sp = pad != null ? pad.freeSpan(y, y + hh) : new float[] { 0, W };
++                int spW = Math.round(sp[1] - sp[0]) - 2 * edge;
++                if (spW < minW) continue;
++                int w2 = Math.min(maxW, spW), h2 = bannerHeightAt(w2);   /* 좁으면 줄이 늘 수 있다 — 늘어난 높이로 다시 본다 */
++                if (h2 > hh) {
++                    if (y + h2 > H - Math.round(4 * dp)) break;
++                    float[] sp2 = pad != null ? pad.freeSpan(y, y + h2) : sp;
++                    if (Math.round(sp2[1] - sp2[0]) - 2 * edge < w2) continue;
++                }
++                left = Math.round((sp[0] + sp[1]) / 2f - w2 / 2f); top = y; width = w2; bannerPlacedH = h2;
++                break;
++            }
++            if (top < 0) {                                       /* 빈 줄이 없다(가로 화면 등) — 게임 그림 위쪽 가장자리에 얇게 */
++                width = Math.min(maxW, gameBox[2] - gameBox[0]);
++                left = gameBox[0] + ((gameBox[2] - gameBox[0]) - width) / 2;
++                top = gameBox[1] + Math.round(4 * dp);
++                bannerPlacedH = bannerHeightAt(width);
++            }
++        }
++        lp.width = width; lp.leftMargin = left; lp.topMargin = top; lp.rightMargin = 0;
++        lp.gravity = android.view.Gravity.TOP | android.view.Gravity.LEFT;
+         hubBanner.setLayoutParams(lp);
+     }
+ 
++    private final View.OnTouchListener bannerDrag = new View.OnTouchListener() {
++        float x0, y0; int l0, t0; long lastUp = 0;
++        @Override public boolean onTouch(View v, android.view.MotionEvent e) {
++            FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) v.getLayoutParams();
++            float slop = android.view.ViewConfiguration.get(EmuActivity.this).getScaledTouchSlop();
++            switch (e.getActionMasked()) {
++            case android.view.MotionEvent.ACTION_DOWN:
++                x0 = e.getRawX(); y0 = e.getRawY(); l0 = lp.leftMargin; t0 = lp.topMargin; bannerDragging = false;
++                return true;
++            case android.view.MotionEvent.ACTION_MOVE: {
++                float dx = e.getRawX() - x0, dy = e.getRawY() - y0;
++                if (!bannerDragging && Math.hypot(dx, dy) < slop) return true;
++                bannerDragging = true;
++                lp.leftMargin = Math.max(0, Math.min(root.getWidth() - v.getWidth(), Math.round(l0 + dx)));
++                lp.topMargin = Math.max(0, Math.min(root.getHeight() - v.getHeight(), Math.round(t0 + dy)));
++                v.setLayoutParams(lp);
++                return true;
++            }
++            case android.view.MotionEvent.ACTION_UP:
++                if (bannerDragging) {                             /* 옮긴 자리 기억 — 가운데 점을 화면 비율로 */
++                    float cxF = (lp.leftMargin + v.getWidth() / 2f) / root.getWidth();
++                    float cyF = (lp.topMargin + v.getHeight() / 2f) / root.getHeight();
++                    Settings.put(bannerKey(), String.format(java.util.Locale.US, "%.4f,%.4f", cxF, cyF));
++                    bannerUserPos = true;
++                    bannerDragging = false;
++                } else {
++                    long now = android.os.SystemClock.uptimeMillis();
++                    if (now - lastUp < 350) {                     /* 두 번 톡 — 자동 자리로 */
++                        Settings.removePrefix(bannerKey());
++                        placeHubBanner();
++                        toast("안내 띠를 기본 자리로 돌렸어요");
++                        lastUp = 0;
++                    } else lastUp = now;
++                }
++                return true;
++            case android.view.MotionEvent.ACTION_CANCEL:
++                bannerDragging = false;
++                return true;
++            }
++            return false;
++        }
++    };
++
+     /** 판정 주소를 실측한 롬 사본·동봉 코어인가(경기 없이 보는 판) — 아니면 이유 */
+     private String hubVersionProblem() {
+         String md5 = League.md5(new File(romPath));
+@@ -1584,4 +1688,75 @@ public class EmuActivity extends Activity {
          leagueHub = false;                                   /* leagueExit 가 결과 카드로 새지 않게 */
          leagueExit(null);
      }
@@ -1615,7 +1762,7 @@ index 80d3993..6f2f313 100644
 +            int[] hs = Emu.nativeLeagueHubStatus(), ps = Emu.nativePracticeStatus();
 +            String t = (hs != null && ps != null) ? practiceText(hs[0], ps) : null;
 +            /* 경기 중(메뉴 닫힘)엔 띠가 게임 그림 위로 올라가면(가로 화면 — 아래 자리가 없음) 숨긴다: 체력 막대·«2P» 를 연습 내내 가리지 않게 */
-+            if (t != null && hs[0] == 4 && (ps.length < 2 || ps[1] == 0)
++            if (t != null && hs[0] == 4 && (ps.length < 2 || ps[1] == 0) && !bannerUserPos     /* 유저가 옮겨 둔 자리면 그대로 보인다 */
 +                    && ((FrameLayout.LayoutParams) hubBanner.getLayoutParams()).topMargin < gameBox[3]) t = null;
 +            if (t == null) hubBanner.setVisibility(View.GONE);
 +            else { if (!t.contentEquals(hubBanner.getText())) hubBanner.setText(t); hubBanner.setVisibility(View.VISIBLE); }
@@ -1679,6 +1826,47 @@ index 8550882..178ded0 100644
          startActivity(i);
          finish();
      }
+diff --git a/app/src/main/java/com/dudu/pocketcore/PadView.java b/app/src/main/java/com/dudu/pocketcore/PadView.java
+index 32b4505..0438f53 100644
+--- a/app/src/main/java/com/dudu/pocketcore/PadView.java
++++ b/app/src/main/java/com/dudu/pocketcore/PadView.java
+@@ -465,6 +465,36 @@ public class PadView extends View {
+         barHandle.set(w * 0.5f - hw / 2f, 0, w * 0.5f + hw / 2f, hh);
+     }
+ 
++    /** 화면 위 안내 띠(EmuActivity) 자리 찾기 — 세로 [top, bottom] 줄에서 보이는 버튼(원·십자·OPTION 알약)과 겹치지 않는
++     *  가장 넓은 가로 구간 {left, right}. 버튼 배치를 바꿔도 따라간다(유저 2026-10-14 「옵션 설명이 패드를 가린다」). */
++    public float[] freeSpan(float top, float bottom) {
++        int w = getWidth();
++        if (fx == null || w <= 0 || hidesTouch()) return new float[] { 0, w };
++        float m = 6 * getResources().getDisplayMetrics().density;
++        java.util.ArrayList<float[]> bl = new java.util.ArrayList<>();
++        for (int i = 0; i < nC; i++) {
++            if (!ctrlVisible(i)) continue;
++            float l, r, t, b;
++            if (bitOf(i) == -2) {
++                float base = Math.min(getWidth(), getHeight()), ow2 = base * 0.10f * sc[i], oh2 = base * 0.021f * sc[i];
++                l = cx(i) - ow2; r = cx(i) + ow2; t = cy(i) - oh2; b = cy(i) + oh2;
++            } else {
++                float rr = radOf(i);
++                l = cx(i) - rr; r = cx(i) + rr; t = cy(i) - rr; b = cy(i) + rr;
++            }
++            if (b + m <= top || t - m >= bottom) continue;
++            bl.add(new float[] { l - m, r + m });
++        }
++        java.util.Collections.sort(bl, (a, c) -> Float.compare(a[0], c[0]));
++        float bestL = 0, bestR = 0, x = 0;
++        for (float[] o : bl) {
++            if (o[0] - x > bestR - bestL) { bestL = x; bestR = o[0]; }
++            x = Math.max(x, o[1]);
++        }
++        if (w - x > bestR - bestL) { bestL = x; bestR = w; }
++        return new float[] { Math.max(0, bestL), Math.min(w, bestR) };
++    }
++
+     private boolean bit(int b) { return b >= 0 && (mask & (1 << b)) != 0; }
+     private float cx(int i) { return fx[i] * getWidth(); }
+     private float cy(int i) { return fy[i] * getHeight(); }
 diff --git a/app/src/main/java/com/dudu/pocketcore/Patcher.java b/app/src/main/java/com/dudu/pocketcore/Patcher.java
 index c64e762..275457a 100644
 --- a/app/src/main/java/com/dudu/pocketcore/Patcher.java
