@@ -22,4 +22,4 @@
 - 에뮬레이터에서 설치·실행·«버전 정보» 1.5.85-SS2-1.1.25 확인.
 
 ## 같은 수정이 들어간 코어
-libretro 코어(RetroArch·PocketCore·Legacito용): ss2-sp-core main (`cores/` 다섯 종). PocketCore PR #4.
+libretro 코어(RetroArch·PocketCore·Legacito용): ss2-sp-core main 1e0034b (`cores/` 다섯 종, 스탬프 d8137f4). PocketCore PR #4 (b80397c).
