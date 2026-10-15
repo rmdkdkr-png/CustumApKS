@@ -252,6 +252,11 @@ public class RankCoreTest {
         MemBook b2 = bookWithLegacy(); b2.lpAdj.put(r0.id, -120);
         RankCore.Row r1 = null; for (RankCore.Row x : RankCore.around(SEED, 20000, b2, 2400, "나", 60)) if (x.id.equals(r0.id)) r1 = x;
         ok(r0.lp < 9000 && r1 != null && r1.lp == r0.lp - 120, "순위표 LP 에 lp_adj 반영 (" + r0.lp + " → " + (r1 != null ? r1.lp : -1) + ")");
+        // 2차 리뷰 고침: MR 1500 아래 무쌍도 무쌍 아닌 사람(8990 LP)보다 위 · 내 주변 위쪽 줄이 있음
+        long rkNm = RankCore.rankOf(SEED, 20000, book, 8990), rk1400 = RankCore.rankOf(SEED, 20000, book, 1_000_000L + 1400), rk1350 = RankCore.rankOf(SEED, 20000, book, 1_000_000L + 1350);
+        List<RankCore.Row> a14 = RankCore.around(SEED, 20000, book, 1_000_000L + 1400, "나", 3);
+        int me14 = -1; for (int i = 0; i < a14.size(); i++) if (a14.get(i).me) me14 = i;
+        ok(rk1400 <= rkNm && rk1350 <= rkNm && me14 >= 1, "낮은 MR 무쌍도 8990 LP 보다 위 (MR1400 " + rk1400 + "위 · MR1350 " + rk1350 + "위 · 8990LP " + rkNm + "위) · 내 주변 위 " + me14 + "줄");
         boolean under = true; for (int d = 19000; d < 21000; d++) under &= RankCore.activeToday(SEED, d) < RankCore.total();
         ok(under, "오늘 접속 인원은 늘 전체보다 적음(2000일)");
     }
