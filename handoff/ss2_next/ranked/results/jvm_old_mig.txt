@@ -1,0 +1,16 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=44995 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 1단계 기록 이어받기: 12명으로 늘고 칼끝노인 점수·전적 그대로
+PASS 내 점수·최장 연승·경기 기록 그대로
+PASS 새 상대는 고정 id 순으로 뒤에, 초기 점수·빈 전적
+PASS 1단계 기록에서 재대결 표시를 되살림(첫 승 경기·2연승을 끊은 상대)
+PASS 옛 명단에서 시작한 열린 경기의 시작 순위(2명 기준)는 지움
+PASS 이어받은 명단이 바로 파일에 저장됨(roster 2)
+PASS 다시 열어도 그대로(명단·표시를 두 번 더하지 않음)
+PASS 이어받은 뒤 순위: 나 1012 는 새 상대들 사이 7위, 칼끝노인 988 아래
+PASS 그 경기를 이기면 순위 변화는 지금 명단 기준(7위 → 6위)
+PASS 칼끝노인을 이겨 «연승을 끊은 상대» 표시가 지워짐
+PASS 무승부·기권·보류·준비가 섞인 1단계 기록: 첫 승 표시, 1연승 끊김은 표시 안 함, 준비 경기 시작 순위 지움, 보류 그대로
+PASS 이어받은 준비 경기는 무효로 닫을 수 있음
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/rk/jvm_old/r_mig/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/rk/jvm_old/r_mig/league/league.json.tmp (Is a directory)
+PASS 이어받기 저장 실패 → 메모리 판으로 쓰고 파일은 옛 판 그대로, 다음 실행에서 같은 결과로 저장
+ALL PASS (migrate)

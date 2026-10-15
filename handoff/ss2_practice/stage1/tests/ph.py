@@ -11,7 +11,7 @@ lg.practice_state_size.restype = C.c_size_t
 lg.practice_state_get.argtypes = [C.c_void_p]; lg.practice_state_set.argtypes = [C.c_void_p]
 def gi(name): return C.c_int.in_dll(lg, name).value
 def hub():
-    v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
+    v = (C.c_int * 15)(); lg.league_hub_status(v); return list(v)
 def pst():
     v = (C.c_int * 26)(); lg.practice_status(v); return list(v)
 U, D, L, R, A, B, O = 'U', 'D', 'L', 'R', 'A', 'B', 'O'

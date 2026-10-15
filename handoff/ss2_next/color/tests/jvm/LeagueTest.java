@@ -276,6 +276,8 @@ public class LeagueTest {
     }
 
     /** 1단계 기록(상대 1명, 경기 3개, 순위 굳힘)을 깔아 두고 이어받기. */
+    /** 랭크 칸(내부 144)은 처음 만들 때 씨앗(설치마다 다른 세상)·시각을 새로 뽑는다 — 첫 저장이 실패하면 다음 실행에서 다시 뽑는 게 맞다(아무것도 안 남았고, 쓰기 실패면 리그도 안 열린다). 그래서 비교에서 뺀다 */
+    static String noRanked(JSONObject j) throws Exception { JSONObject c = new JSONObject(j.toString()); c.remove("ranked"); return c.toString(); }
     static void migrate(File dir) throws Exception {
         dir.mkdirs();
         String s1 = "{\"v\":1,\"me\":{\"name\":\"나\",\"score\":1012,\"w\":2,\"l\":1,\"d\":0,\"streak\":0,\"best\":2},"
@@ -330,10 +332,10 @@ public class LeagueTest {
         File blk = new File(dir, "league.json.tmp"); blk.mkdir(); new File(blk, "x").createNewFile();
         boolean memOk = League.opps().length() == 12;
         boolean fileOld = new JSONObject(raw(new File(dir, "league.json"))).optJSONArray("opps").length() == 1;
-        String memSnap = League.db().toString();
+        String memSnap = noRanked(League.db());
         new File(blk, "x").delete(); blk.delete();
         restart();
-        ok(memOk && fileOld && League.db().toString().equals(memSnap) && new JSONObject(raw(new File(dir, "league.json"))).optJSONArray("opps").length() == 12,
+        ok(memOk && fileOld && noRanked(League.db()).equals(memSnap) && new JSONObject(raw(new File(dir, "league.json"))).optJSONArray("opps").length() == 12,
            "이어받기 저장 실패 → 메모리 판으로 쓰고 파일은 옛 판 그대로, 다음 실행에서 같은 결과로 저장");
         System.out.println(fails == 0 ? "ALL PASS (migrate)" : fails + " FAIL (migrate)");
         System.exit(fails == 0 ? 0 : 1);

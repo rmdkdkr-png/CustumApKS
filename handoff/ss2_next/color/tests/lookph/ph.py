@@ -17,7 +17,7 @@ lg.look_forget(); lg.look_enable(1); lg.look_set_mem(bytes(16), 16)
 print('INFO lookph: 컬러(look) 켠 하네스', flush=True)
 def gi(name): return C.c_int.in_dll(lg, name).value
 def hub():
-    v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
+    v = (C.c_int * 15)(); lg.league_hub_status(v); return list(v)
 def pst():
     v = (C.c_int * 26)(); lg.practice_status(v); return list(v)
 U, D, L, R, A, B, O = 'U', 'D', 'L', 'R', 'A', 'B', 'O'

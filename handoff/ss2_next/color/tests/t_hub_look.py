@@ -42,7 +42,7 @@ class Hub(T.Harness):
             lg.league_tick_hub(self.p._ramp, self.p._rams, self.user)
             lg.look_tick(self.p._ramp, self.p._rams, self.user, lg.league_hub_owns_select())
 def hub():
-    v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
+    v = (C.c_int * 15)(); lg.league_hub_status(v); return list(v)
 def pal0():
     b = C.string_at(p.lib.retro_ngp_palram(), 8); return tuple(b[2 + j * 2] | (b[3 + j * 2] << 8) for j in range(3))
 VT = [0x130 + i for i in range(18)]                     # 오른쪽 세로 이름 칸(둘째 판 3~11줄 × 17·18칸)이 가리킬 우리 글자 타일

@@ -1,0 +1,31 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=44995 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 새 기록: 랭크 칸(씨앗 16자리) · 배치 5판 · MMR 1000
+PASS 재시작 뒤 같은 씨앗(같은 세상)
+PASS 찾기 — 고른 상대를 카드 전에 «잡힘»으로 저장
+PASS 카드에서 나가도(재시작해도) 다음 찾기에 같은 상대 — 골라 받기 막기
+PASS 프로필(닉네임·칭호·지역·아바타 씨앗)은 씨앗·id 로 늘 같음
+PASS 랭크 경기 기록 — 모드·손잡이 5개·상대 모습 사본·시작 값
+PASS 처음 만난 상대의 프로필을 글자 그대로 저장
+PASS 열린 경기가 있으면 새 경기를 만들지 않음
+PASS 랭크 경기는 ranked.matches 에(예전 앱이 안 봄) · 열린 경기로 보임 · 상대 MR 은 무쌍이 아니어도 적음(578)
+PASS 경기 기록은 시작 전에 파일에
+PASS CPU 단계가 다르면 «난도 불일치» 보류 — LP·전적 그대로, 잡힌 상대도 그대로
+PASS 같은 상대 다시 — 맞는 손잡이면 정산
+PASS 이김 — 배치 4판 남음 · 잡힌 상대 풀림 · 최근 상대 · 상대전적 1승
+PASS 다음 찾기 — 방금 상대는 안 나옴(최근 상대 빼기)
+PASS 결판 때 상한(0x5815)이 다르면 보류
+PASS 배치 5판 끝 — 첫 티어·LP (검객 ★1 2310)
+PASS 배치 뒤 이김 — LP 오름(+180)
+PASS 짐 — LP 내려감(-60) · 마지막 결과 패
+PASS 같은 상대 이어 붙은 판 수 1
+PASS 재대결 경기에 rematch_n 1
+PASS 재대결로 진 상대를 이김 — 설욕 +20
+PASS 이어 붙은 판 수 2 (3판째까지 재대결 가능)
+PASS 기권 = 짐 · 이어 붙은 판 수 3(재대결 끝)
+PASS 재시작 뒤 같은 LP·전적·순위표
+PASS 예전 리그 경기는 예전 규칙(점수) — 랭크 LP·판수 그대로
+PASS 파일은 v 1 그대로 · ranked 칸 왕복
+PASS 내 순위 20629 / 39899 · 내 주변 11명
+PASS 무쌍이 무쌍 아닌 상대를 이김 — MR 1520 → 1532 · «승 2:0 · +12 MR»
+PASS 파일: 위쪽 matches 는 예전 경기 1판뿐 · 랭크 12판은 ranked.matches
+FAILS 0

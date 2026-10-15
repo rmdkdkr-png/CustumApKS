@@ -120,11 +120,19 @@ lg.league_practice_blob.restype = C.c_size_t; lg.league_practice_blob.argtypes =
 buf = C.create_string_buffer(4096); n = lg.league_practice_blob(buf, 4096); blob = buf.raw[:n]
 dm = C.c_int(); st = C.c_int(); on0 = lg.league_practice_match(C.byref(dm), C.byref(st)); d0 = dm.value
 ok(on0 == 1 and n > 636, '연습 경기 중 허브 덩어리 %d바이트(지금 판)' % n)
-hn = n - (636 - 496)                                   # 지금 허브 크기(덩어리 = 허브 + L 132 + 배경·컬러 8)
-old = blob[:496] + blob[hn:]                          # 앞 판 모양: 허브 496바이트(둘 다 칸 앞까지) + L + 배경·컬러
+LN = 132 + 28                                          # 랭크 시제품: L 에 7칸(손잡이 5 · cap_seen · from_ckpt = 28바이트)이 붙었다
+hn = n - LN - 8                                        # 지금 허브 크기(덩어리 = 허브 + L + 배경·컬러 8)
+old = blob[:496] + blob[hn:hn + 132] + blob[-8:]       # 앞 판 모양: 허브 496바이트(둘 다 칸 앞까지) + 옛 L 132 + 배경·컬러
 lg.league_practice_title(); on1 = lg.league_practice_match(None, None)
 lg.league_practice_resume.argtypes = [C.c_void_p, C.c_size_t]
 ob = C.create_string_buffer(old, len(old)); lg.league_practice_resume(ob, len(old))
 on2 = lg.league_practice_match(C.byref(dm), C.byref(st))
 ok(on1 == 0 and on2 == 1 and dm.value == d0 and dual()[0] == 0, '앞 판 636바이트 덩어리로 연습 경기 되돌림(더미 %d · 둘 다 칸은 0)' % dm.value)
+# ── 6. (랭크 시제품) 내부 136·137 이 남긴 덩어리 — 허브 랭크 칸(56바이트)·L 손잡이 칸(24바이트)이 없는 크기
+h137 = hn - 56
+b137 = blob[:h137] + blob[hn:hn + 132] + blob[-8:]
+lg.league_practice_title(); on1 = lg.league_practice_match(None, None)
+bb = C.create_string_buffer(b137, len(b137)); lg.league_practice_resume(bb, len(b137))
+on2 = lg.league_practice_match(C.byref(dm), C.byref(st))
+ok(on1 == 0 and on2 == 1 and dm.value == d0, '내부 137 덩어리 %d바이트로 연습 경기 되돌림(더미 %d)' % (len(b137), dm.value))
 print('DONE fails=%d' % fails)
