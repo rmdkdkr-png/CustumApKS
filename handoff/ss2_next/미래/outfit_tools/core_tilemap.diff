@@ -1,0 +1,141 @@
+--- a/build/mednafen/ngp/gfx.c	2026-10-15 06:33:36.161496319 +0000
++++ build/mednafen/ngp/gfx.c	2026-10-15 06:41:37.496486866 +0000
+@@ -19,6 +19,7 @@
+ #include "neopop.h"
+ #include "mem.h"
+ #include "gfx.h"
++#include "rom.h"
+ #include "interrupt.h"
+ #include "dma.h"
+ #include "TLCS-900h/TLCS900h_registers.h"
+@@ -849,6 +850,101 @@
+    }
+ }
+ 
++
++/* 아웃핏(타일 바꿔 넣기) — 게임은 캐릭터 몸 그림을 롬의 캐릭터 타일 묶음에서 문자 램으로 16비트씩 베껴 올린다(사무쇼2: 롬 0x2006B6~0x2006C9 고리,
++   대전 중 P1 = 타일 0x57~0x6F · P2 = 0x70~0x88, 고르기 화면 미리보기 = 0x100~0x118, 1~3프레임마다 다시 올림). 올리는 쓰기 순간 바꾸면
++   런어헤드·프레임 생성·상태 저장까지 같은 그림이고 게임 논리(작업 램)는 그대로다. 자리(who) 둘 — 보통 P1·P2(미러전에서 따로).
++   맞는 쓰기: 대상 타일 ∈ [slot_lo, slot_hi) 이고 방금 loadW 로 읽은 롬 낱말 src ∈ [bank_lo, bank_hi) 이고 쓰는 값의 아랫바이트가 롬 값과 같음.
++   바꿈: idx = (src − bank_lo) / 16 이 바꿈 표에 있으면 그 줄(16비트) — 없으면 무늬(pat_from 색 화소 중 8×8 가리개 칸을 pat_to 색으로).
++   상태 저장엔 안 들어간다(앱이 매 프레임 정한다 — palremap 과 같음). */
++extern RomInfo ngpc_rom;
++#define TM_MAXIDX 4096
++typedef struct { int on; uint32 slot_lo, slot_hi, bank_lo, bank_hi; int pfrom, pto; uint16 hm[8]; int nidx; uint16 *repl; uint8 *has; } tm_t;
++static tm_t tm[2];
++uint32 ngp_tm_src;                     /* mem.c loadW 가 롬 읽기마다 적음 */
++static uint32 tm_slot_src[512];        /* 타일 칸마다 마지막으로 올린 롬 주소(타일 첫 낱말) — 바로 다시 입히기용 */
++int    ngp_tm_any;                     /* 켠 자리가 있나(빠른 길) */
++static void tm_any(void) { ngp_tm_any = tm[0].on || tm[1].on; }
++void retro_ngp_tilemap(int who, unsigned slot_lo, unsigned slot_hi, unsigned bank_lo, unsigned bank_hi,
++                       int pat_from, int pat_to, const uint8 *mask8)
++{
++   int r, c;
++   if (who < 0) { tm[0].on = tm[1].on = 0; tm_any(); return; }
++   if (who > 1) return;
++   tm[who].slot_lo = slot_lo; tm[who].slot_hi = slot_hi; tm[who].bank_lo = bank_lo; tm[who].bank_hi = bank_hi;
++   tm[who].pfrom = pat_from & 3; tm[who].pto = pat_to & 3;
++   for (r = 0; r < 8; r++) {
++      uint16 hm = 0; uint8 m = mask8 ? mask8[r] : 0;
++      for (c = 0; c < 8; c++) if (m & (0x80 >> c)) hm |= (uint16)(2u << (14 - 2 * c));
++      tm[who].hm[r] = hm;
++   }
++   tm[who].on = slot_lo < slot_hi && bank_lo < bank_hi; tm_any();
++}
++/* 바꿈 표 넣기(복사함). xor_rom = 1 이면 words 는 롬 타일과의 XOR 차이(앱·팩 파일에 원래 그림을 담지 않는다) — 이 자리의 bank_lo 를 먼저 정해 둘 것. */
++void retro_ngp_tilemap_repl(int who, int nidx, const uint16 *words, const uint8 *has, int xor_rom)
++{
++   if (who < 0 || who > 1) return;
++   if (nidx <= 0 || !words || !has) { tm[who].nidx = 0; return; }
++   if (nidx > TM_MAXIDX) nidx = TM_MAXIDX;
++   if (!tm[who].repl) { tm[who].repl = (uint16 *)malloc(TM_MAXIDX * 8 * sizeof(uint16)); tm[who].has = (uint8 *)malloc(TM_MAXIDX); }
++   if (!tm[who].repl || !tm[who].has) { tm[who].nidx = 0; return; }
++   memcpy(tm[who].repl, words, (size_t)nidx * 8 * sizeof(uint16)); memcpy(tm[who].has, has, (size_t)nidx);
++   if (xor_rom) {
++      int i, r;
++      for (i = 0; i < nidx; i++) {
++         uint32 a = tm[who].bank_lo + (uint32)i * 16 - 0x200000;
++         if (!tm[who].has[i]) continue;
++         if (tm[who].bank_lo < 0x200000 || a + 16 > ngpc_rom.length) { tm[who].has[i] = 0; continue; }
++         for (r = 0; r < 8; r++) tm[who].repl[i * 8 + r] ^= (uint16)(ngpc_rom.data[a + 2 * r] | (ngpc_rom.data[a + 2 * r + 1] << 8));
++      }
++   }
++   tm[who].nidx = nidx;
++}
++static uint16 tm_pat(uint16 w, const tm_t *o, int row)
++{
++   uint16 hi = w & 0xAAAA, lo = (uint16)((w & 0x5555) << 1), eq, sel;
++   if (!o->pfrom || !o->hm[row]) return w;
++   eq = o->pfrom == 1 ? (uint16)(~hi & lo & 0xAAAA) : o->pfrom == 2 ? (uint16)(hi & ~lo & 0xAAAA) : (uint16)(hi & lo);
++   sel = eq & o->hm[row];
++   w = (uint16)(w & ~(sel | (sel >> 1)));
++   if (o->pto & 2) w |= sel;
++   if (o->pto & 1) w |= (uint16)(sel >> 1);
++   return w;
++}
++/* 지금 문자 램의 그 자리 타일을 롬에서 다시 읽어 지금 설정으로 바로 입힌다(고르기 화면에서 아웃핏을 바꿨을 때·상태를 불러왔을 때 —
++   게임은 포즈가 바뀌어야 다시 올리므로 그냥 두면 다음 포즈까지 옛 그림). 바꿈을 끈 자리는 원래 그림으로 되돌린다. */
++extern RomInfo ngpc_rom;
++void retro_ngp_tilemap_refresh(int who)
++{
++   uint32 t;
++   if (who < 0 || who > 1 || !NGPGfx) return;
++   for (t = tm[who].slot_lo; t < tm[who].slot_hi && t < 512; t++) {
++      uint32 src = tm_slot_src[t], r;
++      if (src < tm[who].bank_lo || src >= tm[who].bank_hi || src + 16 - 0x200000 > ngpc_rom.length) continue;
++      for (r = 0; r < 8; r++) {
++         const uint8 *b = ngpc_rom.data + (src - 0x200000) + 2 * r;
++         uint16 w = (uint16)(b[0] | (b[1] << 8)), off = (uint16)(src - tm[who].bank_lo); int idx = off >> 4;
++         if (tm[who].on) w = (idx < tm[who].nidx && tm[who].has[idx]) ? tm[who].repl[idx * 8 + r] : tm_pat(w, &tm[who], (int)r);
++         NGPGfx->CharacterRAM[t * 16 + 2 * r] = (uint8)w; NGPGfx->CharacterRAM[t * 16 + 2 * r + 1] = (uint8)(w >> 8);
++      }
++   }
++}
++/* mem.c storeW(0xA000~0xBFFF, 짝수 주소) 에서 부른다 */
++uint16 ngp_tilemap_w(uint32 address, uint16 data, const uint8 *rom, uint32 romlen)
++{
++   uint32 t = (address - 0xA000) >> 4, src = ngp_tm_src; int k;
++   for (k = 0; k < 2; k++) {
++      const tm_t *o = &tm[k]; uint32 off; int idx, row;
++      if (!o->on || t < o->slot_lo || t >= o->slot_hi) continue;
++      if (src < o->bank_lo || src >= o->bank_hi || src - 0x200000 >= romlen || rom[src - 0x200000] != (data & 0xFF)) return data;
++      off = src - o->bank_lo; idx = (int)(off >> 4); row = (int)((off & 15) >> 1);
++      if ((address & 15) == 0 && row == 0) tm_slot_src[t] = src;
++      if (idx < o->nidx && o->has[idx]) return o->repl[idx * 8 + row];
++      return tm_pat(data, o, row);
++   }
++   return data;
++}
++
+ void ngpgfx_write8(ngpgfx_t *gfx, uint32 address, uint8 data)
+ {
+    ss2fg_note_write(gfx, address);
+--- a/build/mednafen/ngp/mem.c	2026-10-15 06:33:36.165496319 +0000
++++ build/mednafen/ngp/mem.c	2026-10-15 06:33:30.482765246 +0000
+@@ -213,6 +213,10 @@
+ /* WARNING:  32-bit loads and stores apparently DON'T have to be 4-byte-aligned(so we must +2 instead of |2). */
+ /* Treat all 32-bit operations as two 16-bit operations */
+ 
++/* 아웃핏: gfx.c 타일 바꿔 넣기 */
++extern uint32 ngp_tm_src; extern int ngp_tm_any;
++uint16_t ngp_tilemap_w(uint32 address, uint16_t data, const uint8_t *rom, uint32 romlen);
++
+ uint8_t loadB(uint32 address)
+ {
+    uint8_t *ptr;
+@@ -256,6 +260,7 @@
+ {
+    uint16_t* ptr;
+    address &= 0xFFFFFF;
++   if (ngp_tm_any && address >= 0x200000 && address < 0x400000) ngp_tm_src = address;   /* 아웃핏: 마지막 롬 낱말 읽기 */
+ 
+    if(address & 1)
+    {
+@@ -433,6 +438,7 @@
+ 
+    if(address >= 0x8000 && address <= 0xbfff)
+    {
++      if (ngp_tm_any && address >= 0xA000) data = ngp_tilemap_w(address, data, ngpc_rom.data, ngpc_rom.length);   /* 아웃핏 */
+       ngpgfx_write16(NGPGfx, address, data);
+       return;
+    }
