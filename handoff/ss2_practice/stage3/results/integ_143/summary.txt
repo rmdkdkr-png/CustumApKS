@@ -1,0 +1,38 @@
+det_off PASS 0 FAIL 0 | off MODE 241 prog 06 | EXIT 0
+det_on PASS 0 FAIL 0 | on MODE 241 prog 06 | EXIT 0
+dual PASS 31 FAIL 0 | DONE fails=0 | EXIT 0
+fd_app PASS 25 FAIL 0 | FAILS 0 | EXIT 0
+fd_jp PASS 25 FAIL 0 | FAILS 0 | EXIT 0
+fd_ko PASS 25 FAIL 0 | FAILS 0 | EXIT 0
+fix1 PASS 7 FAIL 0 | ss2_ko_bundled: ALL PASS | EXIT 0
+fx_autosave PASS 5 FAIL 0 | == ko autosave: ALL PASS | EXIT 0
+fx_permoff PASS 3 FAIL 0 | == ko permoff: ALL PASS | EXIT 0
+fx_pow3 PASS 2 FAIL 0 | == ko pow3: ALL PASS | EXIT 0
+fx_pracblock PASS 3 FAIL 0 | == ko pracblock: ALL PASS | EXIT 0
+fx_pracyuga PASS 4 FAIL 0 | == ko pracyuga: ALL PASS | EXIT 0
+fx_stfight PASS 5 FAIL 0 | == ko stfight: ALL PASS | EXIT 0
+fx_stload PASS 3 FAIL 0 | == ko stload: ALL PASS | EXIT 0
+fx_tempperm PASS 2 FAIL 0 | == ko tempperm: ALL PASS | EXIT 0
+fx_yugastory PASS 1 FAIL 0 | == ko yugastory: ALL PASS | EXIT 0
+hublook PASS 28 FAIL 0 | ss2_ko_bundled: ALL PASS | EXIT 0
+look PASS 27 FAIL 0 | == 27/27 통과 (ROM_KO) | EXIT 0
+look2 PASS 28 FAIL 0 | == 28/28 통과 (ROM_KO) | EXIT 0
+lookhub PASS 12 FAIL 0 | == 12/12 통과 (ROM_KO) | EXIT 0
+prac PASS 68 FAIL 0 | ss2_ko_bundled: ALL PASS | EXIT 0
+resume PASS 12 FAIL 0 | ss2_ko_bundled: ALL PASS | EXIT 0
+tc_cards PASS 13 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_clear PASS 2 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_cpu PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_diff PASS 1 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_hp PASS 2 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_ko PASS 4 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_league PASS 2 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_perm PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_pow PASS 2 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_prac PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_rage PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_save PASS 2 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_surv PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_time PASS 3 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_yuga PASS 5 FAIL 0 | == ko: ALL PASS | EXIT 0
+tc_yugasurv PASS 1 FAIL 0 | == ko: ALL PASS | EXIT 0

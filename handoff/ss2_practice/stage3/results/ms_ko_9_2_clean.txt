@@ -1,0 +1,8 @@
+샬럿     5A    whiff S5 A6 R14 T24 probe 5 | hit -2/-2/-2/-2 (vs [-2, -2]) | block -6/-6/-6/-6 (vs [-6, -6])
+샬럿     5A+   whiff S7 A12 R30 T48 probe 7 | hit -2/-2/-2/-2 (vs [-2, -2]) | block -10/-10/-10/-10 (vs [-10, -10])
+샬럿     2A    whiff S5 A4 R20 T28 probe 5 | hit 2/2/2/2 (vs [2, 2]) | block -6/-6/-6/-6 (vs [-6, -6])
+샬럿     2A+   whiff S5 A16 R24 T44 probe 5 | hit 4/4/4/4 (vs [4, 4]) | block -10/-10/-10/-10 (vs [-10, -10])
+샬럿     4B    whiff S5 A6 R40 T50 probe 5 | hit -18/-18/-18/-18 (vs [-18, -18]) | block -34/-34/-34/-34 (vs [-34, -34])
+샬럿     236A  whiff S41 ANone R30 T71 proj probe 41 | hit 4/4/4/4 (vs [4, 4]) | block 4/4/4/4 (vs [4, 4])
+샬럿     623A  whiff S5 A28 R32 T64 probe 5 | hit 114다운/114다운/114다운/114다운 (vs [70, 70]) | block -38/-38/-38/-38 (vs [-38, -38])
+샬럿     잡기    whiff SNone ANone RNone TNone probe None | hit 26/26/26/26 (vs [26, 26]) | block  (vs None)

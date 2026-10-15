@@ -1,0 +1,212 @@
+하오마루 5A whiff SSSSSSAAAAAARRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 14, 'total': 26, 'proj': False}
+     hit   SSSSSSAAAAAAAAAAARRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhh..
+     line  발동 7F · 히트 −2 [(-2, 7, 1), (-2, 7, 1), (-2, 7, 1), (-2, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 7F · 가드 −6
+하오마루 5A+ whiff SSSSSSSSAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 9, 'active': 4, 'recovery': 42, 'total': 54, 'proj': False}
+     hit   SSSSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh........
+     line  발동 9F · 히트 −8 [(-8, 9, 1), (-8, 9, 1), (-8, 9, 1), (-8, 9, 1)]
+     blk   SSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ........bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............
+     line  발동 9F · 가드 −12
+하오마루 2A whiff SSSSSSAAAAAARRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 14, 'total': 26, 'proj': False}
+     hit   SSSSSSAAAAAAAAAAARRRRRRRRRRRRRR......
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 7F · 히트 +6 [(6, 7, 1), (6, 7, 1), (6, 7, 1), (6, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 7F · 가드 −6
+하오마루 2A+ whiff SSSSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 9, 'active': 6, 'recovery': 38, 'total': 52, 'proj': False}
+     hit   SSSSSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 9F · 다운 +120 [(120, 9, 1), (120, 9, 1), (120, 9, 1), (120, 9, 1)]
+     blk   SSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ........bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb..........
+     line  발동 9F · 가드 −10
+하오마루 4B whiff SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 38, 'total': 50, 'proj': False}
+     hit   SSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh................
+     line  발동 7F · 히트 −16 [(-16, 7, 1), (-16, 7, 1), (-16, 7, 1), (-16, 7, 1)]
+     blk   SSSSSSAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbb................................
+     line  발동 7F · 가드 −32
+하오마루 236A whiff SSSSSSSSSS******************RRRRRRRRRRRRRRRRRRRRRRR........|........| {'startup': 11, 'active': None, 'recovery': 40, 'total': 51, 'proj': True}
+     hit   SSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ..........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 11F · 장풍 · 다운 +124 [(124, 11, 1), (124, 11, 1), (124, 11, 1), (124, 11, 1)]
+     blk   SSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ..........bbbbbbbbbbbbbbbbbbb....................
+     line  발동 11F · 장풍 · 가드 −20
+하오마루 623A whiff SSSSAAAAAARRRRAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 5, 'active': 36, 'recovery': 34, 'total': 74, 'proj': False}
+     hit   .......|........|RRAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR.
+           hhhhhhh|dddddddd|hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 5F · 다운 +104 [(104, 5, 1), (104, 5, 1), (104, 5, 1), (104, 5, 1)]
+     blk   SSSSAAAAAAAAARRRRAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb..........................................
+     line  발동 5F · 가드 −42
+하오마루 잡기 whiff None None
+     hit   SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|
+     line  발동 3F · 잡기 +26 [(26, 3, 5), (26, 3, 5), (26, 3, 5), (26, 3, 5)]
+샬럿 5A whiff SSSSAAAAAARRRRRRRRRRRRRR {'startup': 5, 'active': 6, 'recovery': 14, 'total': 24, 'proj': False}
+     hit   SSSSAAAAAAAAAAARRRRRRRRRRRRRR
+           ....hhhhhhhhhhhhhhhhhhhhhhh..
+     line  발동 5F · 히트 −2 [(-2, 5, 1), (-2, 5, 1), (-2, 5, 1), (-2, 5, 1)]
+     blk   SSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 5F · 가드 −6
+샬럿 5A+ whiff SSSSSSAAAARRAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 12, 'recovery': 30, 'total': 48, 'proj': False}
+     hit   SSSSSSAAAAAAAAARRAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh..
+     line  발동 7F · 히트 −2 [(-2, 7, 1), (-2, 7, 1), (-2, 7, 1), (-2, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..........
+     line  발동 7F · 가드 −10
+샬럿 2A whiff SSSSAAAARRRRRRRRRRRRRRRRRRRR {'startup': 5, 'active': 4, 'recovery': 20, 'total': 28, 'proj': False}
+     hit   SSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRR..
+           ....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 5F · 히트 +2 [(2, 5, 1), (2, 5, 1), (2, 5, 1), (2, 5, 1)]
+     blk   SSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 5F · 가드 −6
+샬럿 2A+ whiff SSSSAAAAAARRRRAAAAAARRRRRRRRRRRRRRRRRRRRRRRR {'startup': 5, 'active': 16, 'recovery': 24, 'total': 44, 'proj': False}
+     hit   SSSSAAAAAAAAAAARRRRAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR....
+           ....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 5F · 히트 +4 [(4, 5, 1), (4, 5, 1), (4, 5, 1), (4, 5, 1)]
+     blk   SSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..........
+     line  발동 5F · 가드 −10
+샬럿 4B whiff SSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 5, 'active': 6, 'recovery': 40, 'total': 50, 'proj': False}
+     hit   SSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh..................
+     line  발동 5F · 히트 −18 [(-18, 5, 1), (-18, 5, 1), (-18, 5, 1), (-18, 5, 1)]
+     blk   SSSSAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbb..................................
+     line  발동 5F · 가드 −34
+샬럿 236A whiff SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS**************RRRRRRRRRRRRRRRRR........| {'startup': 41, 'active': None, 'recovery': 30, 'total': 71, 'proj': True}
+     hit   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRR....
+           ........................................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 41F · 장풍 · 히트 +4 [(4, 41, 1), (4, 41, 1), (4, 41, 1), (4, 41, 1)]
+     blk   SSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRR....
+           ........................................bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+     line  발동 41F · 장풍 · 가드 +4
+샬럿 623A whiff SSSSAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 5, 'active': 28, 'recovery': 32, 'total': 64, 'proj': False}
+     hit   .....|........|AAAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR...
+           hhhhh|dddddddd|hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 5F · 다운 +114 [(114, 5, 1), (114, 5, 1), (114, 5, 1), (114, 5, 1)]
+     blk   SSSSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb......................................
+     line  발동 5F · 가드 −38
+샬럿 잡기 whiff None None
+     hit   SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|
+     line  발동 3F · 잡기 +26 [(26, 3, 5), (26, 3, 5), (26, 3, 5), (26, 3, 5)]
+갈포드 5A whiff SSSSAAAARRRRRRRRRRRRRRRR {'startup': 5, 'active': 4, 'recovery': 16, 'total': 24, 'proj': False}
+     hit   SSSSAAAAAAAAARRRRRRRRRRRRRRRR
+           ....hhhhhhhhhhhhhhhhhhhhhhh..
+     line  발동 5F · 히트 −2 [(-2, 5, 1), (-2, 5, 1), (-2, 5, 1), (-2, 5, 1)]
+     blk   SSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ....bbbbbbbbbbbbbbbbbbbbbbbbbbbbb........
+     line  발동 5F · 가드 −8
+갈포드 5A+ whiff SSSSSSSSAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 9, 'active': 4, 'recovery': 28, 'total': 40, 'proj': False}
+     hit   SSSSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR......
+           ........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 9F · 히트 +6 [(6, 9, 1), (6, 9, 1), (6, 9, 1), (6, 9, 1)]
+     blk   SSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ........bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............
+     line  발동 9F · 가드 −12
+갈포드 2A whiff SSSSAAAARRRRRRRRRRRRRRRR {'startup': 5, 'active': 4, 'recovery': 16, 'total': 24, 'proj': False}
+     hit   SSSSAAAARRRRRRRRRRRRRRRR
+           ........................
+     line  발동 5F · 지속 4F · 경직 16F [(6, 5, 1), (6, 5, 1), (None, None, None), (None, None, None)]
+     blk   SSSSAAAARRRRRRRRRRRRRRRR
+           ........................
+     line  발동 5F · 지속 4F · 경직 16F
+갈포드 2A+ whiff SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 28, 'total': 40, 'proj': False}
+     hit   SSSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 7F · 다운 +98 [(98, 7, 1), (98, 7, 1), (98, 7, 1), (98, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............
+     line  발동 7F · 가드 −12
+갈포드 4B whiff SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 38, 'total': 50, 'proj': False}
+     hit   SSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh................
+     line  발동 7F · 히트 −16 [(-16, 7, 1), (-16, 7, 1), (-16, 7, 1), (-16, 7, 1)]
+     blk   SSSSSSAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbb................................
+     line  발동 7F · 가드 −32
+갈포드 236A whiff SSSSSSSSSS*******************************RRRRRRRRRR........|........| {'startup': 11, 'active': None, 'recovery': 40, 'total': 51, 'proj': True}
+     hit   SSSSSSSSSS***************RRRRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ..................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 11F · 장풍 · 다운 +116 [(118, 11, 11), (118, 11, 11), (116, 11, 9), (116, 11, 9)]
+     blk   SSSSSSSSSS*************RRRRRRRRRRRRRRRRRRRRRRRRRR
+           ..................bbbbbbbbbbbbbbbbbbbbbbbbbbbbb..
+     line  발동 11F · 장풍 · 가드 −2
+갈포드 214A whiff SSSSSSSSSSSSSS******************************RRRRRRRR........| {'startup': 15, 'active': None, 'recovery': 37, 'total': 52, 'proj': True}
+     hit   SSSSSSSSSSSSSS**************RRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ........................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 15F · 장풍 · 다운 +148 [(148, 15, 13), (148, 15, 13), (148, 15, 11), (148, 15, 11)]
+     blk   SSSSSSSSSSSSSS***************RRRRRRRRRRRRRRRRRRRRRRRR
+           ........................bbbbbbbbbbbbb................
+     line  발동 15F · 장풍 · 가드 −16
+갈포드 잡기 whiff None None
+     hit   SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|
+     line  발동 3F · 잡기 +26 [(26, 3, 5), (26, 3, 5), (26, 3, 5), (26, 3, 5)]
+나코루루 5A whiff SSSSSSAAAAAARRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 14, 'total': 26, 'proj': False}
+     hit   SSSSSSAAAAAAAAAAARRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhh..
+     line  발동 7F · 히트 −2 [(-2, 7, 1), (-2, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 7F · 가드 −6
+나코루루 5A+ whiff SSSSSSSSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 13, 'active': 6, 'recovery': 26, 'total': 44, 'proj': False}
+     hit   SSSSSSSSSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR......
+           ............hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 13F · 히트 +6 [(6, 13, 1), (6, 13, 1)]
+     blk   SSSSSSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ............bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............
+     line  발동 13F · 가드 −12
+나코루루 2A whiff SSSSSSAAAAAARRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 18, 'total': 30, 'proj': False}
+     hit   SSSSSSAAAAAAAAAAARRRRRRRRRRRRRRRRRR..
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh
+     line  발동 7F · 히트 +2 [(2, 7, 1), (2, 7, 1)]
+     blk   SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbb......
+     line  발동 7F · 가드 −6
+나코루루 2A+ whiff SSSSSSSSSSAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 11, 'active': 10, 'recovery': 32, 'total': 52, 'proj': False}
+     hit   SSSSSSSSSSAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|
+           ..........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 11F · 다운 +122 [(122, 11, 1), (122, 11, 1)]
+     blk   SSSSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ..........bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb..........
+     line  발동 11F · 가드 −10
+나코루루 4B whiff SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR {'startup': 7, 'active': 6, 'recovery': 38, 'total': 50, 'proj': False}
+     hit   SSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh................
+     line  발동 7F · 히트 −16 [(-16, 7, 1), (-16, 7, 1)]
+     blk   SSSSSSAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbb................................
+     line  발동 7F · 가드 −32
+나코루루 236A whiff SSSSSS***********************RRRRRRRRRR........| {'startup': 7, 'active': None, 'recovery': 32, 'total': 39, 'proj': True}
+     hit   SSSSSS********************RRRRRRRRRR
+           ....................................
+     line  발동 7F · 장풍 [(None, None, None), (None, None, None)]
+     blk   SSSSSS********************RRRRRRRRRR
+           ....................................
+     line  발동 7F · 장풍
+나코루루 623A whiff SSSSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRR {'startup': 5, 'active': 34, 'recovery': 16, 'total': 54, 'proj': False}
+     hit   SSSSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRR........|........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|
+     line  발동 5F · 다운 +96 [(96, 5, 3), (96, 5, 3)]
+     blk   SSSSAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARRRRRRRRRRRRRRRR
+           ......bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb..............
+     line  발동 5F · 가드 −14
+나코루루 잡기 whiff None None
+     hit   SSAAAAAARRRRRRRRRRRRRRRRRRRRRR........|
+           ......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|
+     line  발동 3F · 잡기 +26 [(26, 3, 5), (26, 3, 5)]

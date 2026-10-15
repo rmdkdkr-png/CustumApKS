@@ -13,7 +13,7 @@ def gi(name): return C.c_int.in_dll(lg, name).value
 def hub():
     v = (C.c_int * 12)(); lg.league_hub_status(v); return list(v)
 def pst():
-    v = (C.c_int * 24)(); lg.practice_status(v); return list(v)
+    v = (C.c_int * 26)(); lg.practice_status(v); return list(v)
 U, D, L, R, A, B, O = 'U', 'D', 'L', 'R', 'A', 'B', 'O'
 BIT = {'A': 1 << 0, 'O': 1 << 3, 'U': 1 << 4, 'D': 1 << 5, 'L': 1 << 6, 'R': 1 << 7, 'B': 1 << 8}
 def bits(s): return sum(BIT[c] for c in s)
