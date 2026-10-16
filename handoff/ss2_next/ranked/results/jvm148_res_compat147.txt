@@ -1,0 +1,15 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=41541 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+148 이 씀: 시즌 2 · 지난 시즌 1줄 · pending p0710460 miss 1 · 무효 55c4493e-ef47-456b-8fe1-b488b8cbc8db · last_rom /sdcard/roms/ss2.ngc
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=41541 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 148 이 쓴 파일에 148 칸이 다 있음
+PASS 147: 열린 경기 없음(시작한 뒤 무효도 끝난 상태 cancelled)
+PASS 147: 시작한 뒤 무효는 랭크 무효처럼 목록에서 숨김
+PASS 147: 이번 시즌 전적·LP 를 자기 기록으로 읽음(시즌 1 글자는 꾸밈만)
+PASS 147: 148 이 잡은 상대(miss 칸 있음)를 그대로 따름
+PASS 147 이 파일을 다시 씀(pref.stage 5)
+PASS 147 이 다시 써도 season·season_start·seasons 그대로
+PASS 147 이 다시 써도 pending(miss 1) 그대로
+PASS 147 이 다시 써도 무효 경기 칸(void_after_start·void_kind·why) 그대로
+PASS 147 이 다시 써도 pref.last_rom 그대로
+PASS 147 이 다시 쓴 파일 = 148 이 쓴 파일 + pref.stage 만 다름
+ALL PASS (11)

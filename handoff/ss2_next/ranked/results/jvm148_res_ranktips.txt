@@ -1,0 +1,15 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=41541 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 팁 12개
+PASS 팁에 캐릭터 이름 없음(이미 고른 상대를 미리 알려 주지 않게)
+PASS 보너스 팁은 RankCore 상수에서 («오늘 첫 승엔 +30 LP 보너스» · «지고 바로 재대결에서 이기면 설욕 보너스 +20»)
+PASS 처음 팁 = 오늘(한국 날짜)로 정한 자리 6
+PASS next() 는 하나씩 넘어가며 12개를 다 돌고 처음으로
+PASS 팁은 340dp·12sp 두 줄 안(40자 이하) — 가장 긴 것 37자 «필살기는 한 틱 일찍 넣어도 나가요 — 보통 기술은 선입력이 없어요»
+PASS 팁에 U+2212(빼기 기호) 없음 — ASCII '-'
+PASS 글꼴 /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/int/app/src/main/assets/fonts/pixel.ttf
+PASS cmap 읽음 — 글자 2583개
+PASS 팁 12개의 글자가 모두 글꼴에 있음
+PASS 148 새 화면 글자(125줄 · 2191자)가 모두 글꼴에 있음
+PASS 화살표·도형 ↓↑←→ ▲▼◀▶ ●○★ ·…«» 있음
+PASS U+2212(−)는 글꼴에 없음 — 그 글자가 든 줄은 이 시험이 걸러 냄(ASCII '-' 는 통과)
+ALL PASS (13)
