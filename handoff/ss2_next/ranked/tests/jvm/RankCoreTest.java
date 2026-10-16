@@ -36,7 +36,7 @@ public class RankCoreTest {
     }
 
     public static void main(String[] a) {
-        pool(); knobs(); tiers(); rating(); matching(); board(); simulate();
+        pool(); knobs(); tiers(); rating(); matching(); board(); simulate(); waitModel(); reel(); seasonLp();
         System.out.println(fails == 0 ? "ALL PASS (" + passes + ")" : fails + " FAIL / " + (passes + fails));
         if (fails != 0) System.exit(1);
     }
@@ -291,5 +291,156 @@ public class RankCoreTest {
             ok(toTier > 0 && toTier <= (t >= 1600 ? 200 : 120), "실력 " + t + ": 실력 LP 근처까지 " + toTier + "판");
             ok(wins * 100 / matches >= 40 && wins * 100 / matches <= 66, "실력 " + t + ": 승률 " + wins * 100 / matches + "%(매칭이 실력 근처로 맞춰 줌)");
         }
+    }
+
+    /* ── 148: 대기창 시간·릴·새 시즌 LP ─────────────────────────────────── */
+
+    /** 대기창 시간(RankCore.waitMs) — «보통» 4~9초 × 시각, 15초 끝 · «빠르게» = searchMs · 잡힌 상대 1.2~2.4초 · 예상 시간은 늘 넉넉히 */
+    static void waitModel() {
+        MemBook book = new MemBook();
+        RankCore.Rng r = new RankCore.Rng(148);
+        boolean inRange = true, fastSame = true, est = true, capped = true; int n = 0;
+        for (int i = 0; i < 300; i++) {
+            RankCore.Me me = fresh(); me.mmr = 1050;
+            RankCore.Pick pk = RankCore.pick(SEED, me, 20000, book, r);
+            if (pk.waitU < 0) continue;
+            n++;
+            for (int h = 0; h < 24; h++) {
+                double hf = h >= 19 && h <= 23 ? 0.85 : h >= 2 && h <= 6 ? 1.4 : 1.0;
+                long w = RankCore.waitMs(pk, me.mmr, false, h);
+                inRange &= w >= Math.floor(4000 * hf) && w <= Math.ceil(9000 * hf) && w <= 15000;
+                est &= RankCore.estSec(w) * 1000L >= w;
+                fastSame &= RankCore.waitMs(pk, me.mmr, true, h) == pk.searchMs;
+            }
+        }
+        ok(n > 200 && inRange, "«보통» 대기 = [4000, 9000] × 시각 (저녁 ×0.85 · 새벽 ×1.4) · 15초 끝 (" + n + "번 × 24시)");
+        ok(fastSame, "«빠르게» = searchMs(147 그대로 2~6초)");
+        RankCore.Pick one = RankCore.pick(SEED, fresh(), 20000, book, new RankCore.Rng(5));
+        long w21 = RankCore.waitMs(one, 1050, false, 21), w14 = RankCore.waitMs(one, 1050, false, 14), w4 = RankCore.waitMs(one, 1050, false, 4);
+        ok(one.waitU >= 0 && w21 < w14 && w14 < w4, "같은 난수면 21시 < 14시 < 4시 (" + w21 + " < " + w14 + " < " + w4 + ")");
+        RankCore.Me top = fresh(); top.mmr = 1800; long mx = 0;
+        for (int i = 0; i < 100; i++) { RankCore.Pick pk = RankCore.pick(SEED, top, 20000, book, r); long w = RankCore.waitMs(pk, top.mmr, false, 4); capped &= w <= 15000; mx = Math.max(mx, w); est &= RankCore.estSec(w) * 1000L >= w; }
+        ok(capped && mx == 15000, "상위권·새벽도 15초 끝 (가장 긴 " + mx + "ms)");
+        RankCore.Me hm = fresh(); hm.pendingId = "p0650001"; boolean held = true;
+        for (int i = 0; i < 200; i++) {
+            RankCore.Pick pk = RankCore.pick(SEED, hm, 20000, book, r);
+            for (int h : new int[]{ 4, 14, 21 }) for (boolean f : new boolean[]{ false, true }) {
+                long w = RankCore.waitMs(pk, hm.mmr, f, h);
+                held &= pk.pending && pk.waitU < 0 && w >= 1200 && w <= 2400;
+                est &= RankCore.estSec(w) * 1000L >= w;
+            }
+        }
+        ok(held, "잡힌 상대는 «보통»·«빠르게» 모두 1.2~2.4초");
+        ok(est && RankCore.estSec(4000) == 5 && RankCore.estSec(4001) == 6, "예상 시간(초) × 1000 ≥ 실제 시간 — ceil + 1");
+    }
+
+    /** 147(7b35ba2) RankCore.pick 에서 잰 (씨앗, 난수 씨앗, MMR, 판수, 연승, 연패, 날, 최근 상대 있음) → (상대 id, searchMs) */
+    static final long[][] REG = {
+        { 104372539625493L, 1000L, 1050, 30, 0, 0, 20000, 0 }, { 104372539629862L, 8919L, 1050, 3, 0, 0, 20001, 0 },
+        { 104372539634231L, 16838L, 820, 30, 0, 0, 20002, 0 }, { 104372539638600L, 24757L, 1300, 30, 0, 0, 20003, 0 },
+        { 104372539625493L, 32676L, 1700, 30, 0, 0, 20004, 0 }, { 104372539629862L, 40595L, 1050, 30, 5, 0, 20005, 0 },
+        { 104372539634231L, 48514L, 600, 30, 0, 4, 20006, 0 }, { 104372539638600L, 56433L, 1500, 30, 0, 0, 20007, 0 },
+        { 104372539625493L, 64352L, 1050, 30, 0, 0, 20008, 0 }, { 104372539629862L, 72271L, 1150, 8, 0, 0, 20009, 0 },
+        { 104372539634231L, 80190L, 1050, 30, 0, 0, 20010, 0 }, { 104372539638600L, 88109L, 1050, 3, 0, 0, 20011, 0 },
+        { 104372539625493L, 96028L, 820, 30, 0, 0, 20012, 0 }, { 104372539629862L, 103947L, 1300, 30, 0, 0, 20013, 0 },
+        { 104372539634231L, 111866L, 1700, 30, 0, 0, 20014, 0 }, { 104372539638600L, 119785L, 1050, 30, 5, 0, 20015, 0 },
+        { 104372539625493L, 127704L, 600, 30, 0, 4, 20016, 1 }, { 104372539629862L, 135623L, 1500, 30, 0, 0, 20017, 1 },
+        { 104372539634231L, 143542L, 1050, 30, 0, 0, 20018, 1 }, { 104372539638600L, 151461L, 1150, 8, 0, 0, 20019, 1 } };
+    static final String[] REG_ID = { "p0650553", "p0620175", "p0410406", "p0930297", "p1270002", "p0710260", "p0170080", "p1120079", "p0630349", "p0750610",
+        "p0640412", "p0590419", "p0400111", "p0920013", "p1310008", "p0720540", "o07", "p1130059", "p0660073", "p0770360" };
+    static final long[] REG_MS = { 2776, 2469, 5218, 3475, 12000, 4632, 3365, 6350, 3341, 3087, 5787, 4318, 3294, 5595, 12000, 3302, 3909, 7861, 3024, 2836 };
+    static RankCore.Me regMe(long[] c) {
+        RankCore.Me me = new RankCore.Me(); me.placementLeft = 0; me.games = (int) c[3]; me.mmr = c[2]; me.streak = (int) c[4]; me.lstreak = (int) c[5];
+        if (c[7] == 1) { me.recent.add("o01"); me.recent.add("p0650001"); }
+        return me;
+    }
+    /** pick 이 실제로 훑은 후보(최근 상대 빼고, 뽑은 순서) — pick 의 12번 뽑기를 그대로 따라 한다(라이벌로 갔으면 null) */
+    static List<String> sampled(long seed, RankCore.Me me, int day, MemBook book, long rs) {
+        RankCore.Rng r = new RankCore.Rng(rs);
+        Set<String> recent = new HashSet<>(me.recent.subList(0, Math.min(8, me.recent.size())));
+        double sigma = me.games < 10 ? 90 : 60;
+        double skew = me.streak >= 3 ? 25 * Math.min(me.streak - 2, 4) : me.lstreak >= 3 ? -25 * Math.min(me.lstreak - 2, 3) : 0;
+        double target = me.mmr + skew;
+        r.nextInt(4000);
+        if (r.nextDouble() < RankCore.RIVAL_P) {
+            List<RankCore.Player> c = new ArrayList<>();
+            for (RankCore.Player p : book.rivals()) if (!recent.contains(p.id) && Math.abs(p.mmr(day, book.adj(p.id)) - me.mmr) <= 200) c.add(p);
+            if (!c.isEmpty()) return null;
+        }
+        List<String> out = new ArrayList<>();
+        for (int i = 0; i < 12; i++) {
+            double m = target + r.gauss() * sigma;
+            int b = RankCore.bucketOf(m);
+            for (int t = 0; t < 6 && RankCore.bucketCount(b) == 0; t++) b += (b < RankCore.bucketOf(RankCore.MU) ? 1 : -1);
+            if (RankCore.bucketCount(b) == 0) continue;
+            RankCore.Player p = RankCore.playerAt(seed, b, r.nextInt(RankCore.bucketCount(b)));
+            if (recent.contains(p.id)) continue;
+            out.add(p.id);
+            r.nextDouble();
+        }
+        return out;
+    }
+    /** 릴(Pick.reel) — 147 과 같은 상대·같은 searchMs(난수 순서 그대로) · 실제로 훑은 후보만 · 고른 상대·최근 상대 빼고 · 8명까지 · 잡힌 상대·라이벌은 빈 릴 */
+    static void reel() {
+        MemBook book = bookWithLegacy();
+        int same = 0; StringBuilder bad = new StringBuilder();
+        for (int i = 0; i < REG.length; i++) {
+            RankCore.Pick pk = RankCore.pick(REG[i][0], regMe(REG[i]), (int) REG[i][6], book, new RankCore.Rng(REG[i][1]));
+            if (pk.p.id.equals(REG_ID[i]) && pk.searchMs == REG_MS[i]) same++; else bad.append(' ').append(i).append(':').append(pk.p.id).append('/').append(pk.searchMs);
+        }
+        ok(same == REG.length, "147 과 같은 매칭 " + same + "/" + REG.length + " (씨앗·난수 씨앗 → 상대 id·searchMs)" + bad);
+        boolean sub = true, noBest = true, noRecent = true, max8 = true, uniq = true, order = true; int nonEmpty = 0, tested = 0, sum = 0;
+        RankCore.Rng rr = new RankCore.Rng(99);
+        for (int i = 0; i < 400; i++) {
+            RankCore.Me me = fresh(); me.mmr = 700 + rr.nextInt(1100); me.games = rr.nextInt(3) == 0 ? 4 : 30;
+            for (int k = 0; k < rr.nextInt(9); k++) { int b = RankCore.bucketOf(me.mmr + rr.gauss() * 60); if (RankCore.bucketCount(b) > 0) me.recent.add(RankCore.idOf(b, rr.nextInt(RankCore.bucketCount(b)))); }
+            long rs = 5000 + i;
+            RankCore.Pick pk = RankCore.pick(SEED, me, 20000, book, new RankCore.Rng(rs));
+            List<String> smp = sampled(SEED, me, 20000, book, rs);
+            if (pk.p.legacy || smp == null) { sub &= pk.reel.isEmpty() && pk.waitU < 0; continue; }
+            tested++;
+            Set<String> ids = new HashSet<>(); List<String> want = new ArrayList<>();
+            for (String id : smp) if (!id.equals(pk.p.id) && !want.contains(id)) want.add(id);   // 훑은 사람(12번 뽑기라 12명까지)에서 고른 상대·겹침 빼고
+            for (RankCore.Player p : pk.reel) {
+                sub &= smp.contains(p.id) && RankCore.player(SEED, p.id) != null && RankCore.player(SEED, p.id).nick.equals(p.nick);
+                noBest &= !p.id.equals(pk.p.id);
+                noRecent &= !me.recent.subList(0, Math.min(8, me.recent.size())).contains(p.id);
+                uniq &= ids.add(p.id);
+            }
+            List<String> got = new ArrayList<>(); for (RankCore.Player p : pk.reel) got.add(p.id);
+            order &= got.equals(want.subList(0, Math.min(8, want.size())));
+            max8 &= pk.reel.size() <= 8;
+            if (!pk.reel.isEmpty()) nonEmpty++;
+            sum += pk.reel.size();
+        }
+        ok(sub && order, "릴 = pick 이 실제로 훑은 후보만, 훑은 순서 그대로 (" + tested + "번)");
+        ok(noBest && noRecent && uniq && max8, "릴엔 고른 상대·최근 상대·겹친 사람 없음 · 8명까지 (평균 " + (tested == 0 ? 0 : sum * 10 / tested / 10.0) + "명)");
+        ok(nonEmpty > tested * 0.95, "릴이 거의 늘 차 있음 (" + nonEmpty + "/" + tested + ")");
+        RankCore.Me pm = fresh(); pm.pendingId = "p0650001";
+        RankCore.Pick pp = RankCore.pick(SEED, pm, 20000, book, new RankCore.Rng(3));
+        RankCore.Pick rv = null;
+        for (long s = 1; s < 500 && rv == null; s++) { RankCore.Pick x = RankCore.pick(SEED, fresh(), 20000, book, new RankCore.Rng(s)); if (x.p.legacy) rv = x; }
+        ok(pp.pending && pp.reel.isEmpty() && pp.waitU == -1 && rv != null && rv.reel.isEmpty() && rv.waitU == -1,
+           "잡힌 상대·라이벌 경로는 빈 릴 · waitU −1 (라이벌 " + (rv != null ? rv.p.nick : "?") + ")");
+    }
+
+    /** 새 시즌 LP(RankCore.newSeasonLp) — 배치 자리 아래면 그대로, 위면 반, 10 단위, 음수 없음, 무쌍에서도 9000 아래 */
+    static void seasonLp() {
+        boolean below = true, half = true, ten = true, neg = true, master = true;
+        for (int mmr = 500; mmr <= 2000; mmr += 7) {
+            int base = RankCore.placementLp(mmr);
+            for (int lp = 0; lp <= 9000; lp += 10) {
+                int v = RankCore.newSeasonLp(lp, mmr);
+                if (lp <= base && lp < RankCore.MASTER_LP) below &= v == lp;
+                if (lp > base && lp < RankCore.MASTER_LP) half &= v >= base && v < lp && v <= base + (lp - base) / 2.0 && v > base + (lp - base) / 2.0 - 10;
+                ten &= v % 10 == 0; neg &= v >= 0;
+                if (lp == RankCore.MASTER_LP) master &= v < RankCore.MASTER_LP;
+            }
+        }
+        ok(below, "배치 자리(base) 아래 LP 는 그대로");
+        ok(half, "base 위는 base 쪽으로 반");
+        ok(ten && neg && master, "늘 10 단위 · 음수 없음 · 무쌍(9000)에서도 9000 아래");
+        ok(RankCore.placementLp(1090) == 2700 && RankCore.newSeasonLp(3920, 1090) == 3310, "보기: LP 3,920 · base 2,700 → 3,310 (" + RankCore.newSeasonLp(3920, 1090) + ")");
+        ok(RankCore.label(3920).equals("검호 ★2") && RankCore.label(3310).equals("검객 ★5"), "보기 티어: 검호 ★2 → 검객 ★5");
     }
 }
