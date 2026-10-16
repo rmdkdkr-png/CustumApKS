@@ -1,0 +1,11 @@
+--- a/src/ss2fg.c
++++ b/src/ss2fg.c
+@@ -1623,6 +1623,8 @@
+          if (b1 < 0 || id_lt[p][i].cnt > id_lt[p][b1].cnt) { if (b1 >= 0 && id_lt[p][b1].cnt > c2) c2 = id_lt[p][b1].cnt; b1 = i; }
+          else if (id_lt[p][i].cnt > c2) c2 = id_lt[p][i].cnt;
+       }
++      if (b1 >= 0 && !pass && from && id_lt[p][b1].sb == from && c2 > 0)
++         continue;                              /* 온 쪽으로 되돌아가는 짐작인데 다른 다음도 본 적 있다 — 왕복의 가운데(우쿄 서기 be94)·준비=회복 공통 포즈(리무루루 약베기 4c71): 온 쪽을 빼고 다시 */
+       if (b1 >= 0 && id_lt[p][b1].cnt >= 2 && id_lt[p][b1].cnt >= 2 * c2)
+       {
+          if (hold) *hold = id_lt[p][b1].hold;
