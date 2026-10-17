@@ -1,0 +1,76 @@
+앱 방 코어 패치 zzzzzz_fg_victim — 맞은 몸(피격자)이 사이 그림에서 «날아가 보이는» 것: 번진 캐시 사이 그림은 안 쓴다.
+유저 「캐릭터가 날아감」 → «날아가는 건 피격자인데». 163 코어(zzz_fg_walk2·zzzz_fg_posebuild·zzzzz_fg_landing 까지)로 다시 잰 것
+(u164, 같은 상태·같은 입력으로 프레임 패치 켬/끔, 램 매 프레임 같음): 남은 피격자 «날아감»은 모두 모션 캐시 사이 그림(패치 97 mc_plan/mc_draw).
+맞고 넘어짐·뒤집혀 떨어짐·착지·튕김처럼 포즈가 한 프레임에 통째로 바뀌는 데서 팩의 사이 그림(RIFE)이 몸을 납작한 띠로 펴거나
+머리·다리를 빈 데로 늘여, 실제 앞뒤 프레임 어디에도 없는 자리(선분에서 6~17px)에 몸이 나타났다. 162 의 착지 한도로 착지 바뀜에도 더 붙었다.
+mc_plan: 사이 그림 칸의 10% 넘게가 A·B(캐시 자리) 어느 화소에서도 2px 넘게 떨어져 있으면 그 칸을 안 쓴다(그 출력은 A 그대로 — 원래처럼 툭).
+항목·칸마다 한 번만 잰다. 칼 휘두르기처럼 몸은 그대로고 가는 부분만 멀리 가는 바뀜은 몫이 작아 그대로. 프레임 패치 끔(모션 캐시 끔)은 안 거친다.
+
+diff --git a/src/ss2fg.c b/src/ss2fg.c
+index 4b9ba4a..042fa34 100644
+--- a/src/ss2fg.c
++++ b/src/ss2fg.c
+@@ -1918,6 +1918,7 @@ typedef struct mc_ent {
+    int8_t cx, cy, bdx, bdy; uint8_t w, h, aw, ah, bw, bh;
+    uint32_t ro[3], mo[3], fo[3];        /* t 마다 칸 비트맵·A 고르기 비트맵·이동의 자리 */
+    uint8_t *buf; uint32_t blen;
++   uint8_t smear[3];                    /* zzzzzz_fg_victim: t 마다 사이 그림 검사 — 0 아직 · 1 괜찮음 · 2 번짐(안 씀) */
+ } mc_ent;
+ static FILE    *mc_f = 0;
+ static mc_idx_t *mc_ix = 0;
+@@ -2120,6 +2121,47 @@ static int mc_top_left(const ss2fg_frame *f, int p, int *x, int *y)
+    *x = x0; *y = y0;
+    return 1;
+ }
++/* zzzzzz_fg_victim: 번진 캐시 사이 그림 — 맞은 몸(피격자)의 포즈는 한 프레임에 통째로 바뀐다(공중에서 뒤집힌 몸 → 누운 몸,
++   웅크려 뜬 몸 → 펴진 몸, 착지·튕김). 팩의 사이 그림(오프라인 흐름 RIFE)은 이런 두 포즈 사이를 몸을 납작하게 펴거나 머리·다리를
++   빈 데로 늘여 그려(하오마루 넘어짐 672da743→c085a0f4 ½ 칸: 폭 69 의 띠, 겐쥬로 뒤집혀 떨어짐 782da427→ab627354 ½ 칸), 실제 두
++   프레임 어디에도 없는 자리에 몸이 나타났다 — 유저 「캐릭터가 날아감」·「날아가는 건 피격자인데」(u164 탐지: 몸이 앞뒤 실제 프레임
++   사이 선분에서 6~17px). 162 의 착지 한도(zzzzz_fg_landing: 실제로 본 뒤 포즈면 자리 차 6·12 까지)로 착지 바뀜에도 더 붙었다.
++   사이 그림 칸의 10% 넘게가 A·B(캐시 자리) 어느 화소에서도 2px 넘게(1배, 체스판 거리) 떨어져 있으면 번진 것으로 보고 그 칸은
++   안 쓴다(그 출력은 캐시가 없을 때처럼 A 그대로 — 실제 게임과 같이 툭 바뀜). 항목·칸마다 한 번 재어 둔다(A·B 그림은 지문으로 정해짐).
++   칼 휘두르기처럼 몸은 그대로고 가는 부분만 멀리 가는 바뀜은 칸 몫이 작아 그대로 쓴다 */
++#define MC_SMEAR_PM 100
++static int mc_smeared(mc_ent *e, int ti, const id_pose *A, const id_pose *B)
++{
++   static uint8_t d[256 * 256];
++   int W = e->w, H = e->h, x, y, it, n = 0, far = 0;
++   const uint8_t *reg = e->buf + e->ro[ti];
++   if (e->smear[ti]) return e->smear[ti] == 2;
++   e->smear[ti] = 1;
++   for (y = 0; y < H; y++)
++      for (x = 0; x < W; x++)
++      {
++         int ax = x + e->cx, ay = y + e->cy, bx = ax - e->bdx, by = ay - e->bdy;
++         d[y * W + x] = (uint8_t)(((ax >= 0 && ay >= 0 && ax < A->w && ay < A->h && A->c[ay * A->w + ax] != ID_NONE) ||
++                                   (bx >= 0 && by >= 0 && bx < B->w && by < B->h && B->c[by * B->w + bx] != ID_NONE)) ? 0 : 3);
++      }
++   for (it = 0; it < 2; it++)                                  /* 체스판 거리(3 = 3 이상) — 앞으로 한 번, 뒤로 한 번 쓸기 */
++      for (y = it ? H - 1 : 0; it ? y >= 0 : y < H; y += it ? -1 : 1)
++         for (x = it ? W - 1 : 0; it ? x >= 0 : x < W; x += it ? -1 : 1)
++         {
++            int v = d[y * W + x], i, j;
++            for (j = -1; j <= 1; j++)
++               for (i = -1; i <= 1; i++)
++               {
++                  int xx = x + i, yy = y + j;
++                  if ((i || j) && xx >= 0 && yy >= 0 && xx < W && yy < H && d[yy * W + xx] + 1 < v) v = d[yy * W + xx] + 1;
++               }
++            d[y * W + x] = (uint8_t)v;
++         }
++   for (y = 0; y < W * H; y++)
++      if ((reg[y >> 3] >> (y & 7)) & 1) { n++; if (d[y] > 2) far++; }
++   if (n && far * 1000 > n * MC_SMEAR_PM) e->smear[ti] = 2;
++   return e->smear[ti] == 2;
++}
+ /* 출력 칸 slot 의 몸 p — D+1·D+2 에서 포즈가 바뀌면(제자리) 캐시로. 1 = 계획함 */
+ static void id_realign(const ss2fg_frame *f, int p, uint64_t sg);
+ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_frame *f2, unsigned realn, int h, int slot, int p)
+@@ -2256,6 +2298,7 @@ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_fra
+       rq->gx = ax0 + e->cx; rq->gy = ay0 + e->cy;
+       rq->sx4 = (ti + 1) * dx; rq->sy4 = (ti + 1) * dy;   /* t = (ti+1)/4 → 4배 화소로 t·차·4 */
+    }
++   if (mc_smeared(e, ti, A, B)) { mc_stats[3]++; return 0; }      /* zzzzzz_fg_victim: 번진 사이 그림 — 안 쓴다(툭) */
+    if (!K) { id_sp_at[p] = id_start[p] + 1u; id_sp_b[p] = sb; }   /* 99h: K 를 모르는데 그린다 = 순환으로 고르게 펴는 중 */
+    id_ti_last[p] = (int8_t)ti; id_ti_sb[p] = sb;                   /* 99k */
+    if (seen34) { id_far_sb[p] = sb; id_far_st[p] = id_start[p]; }    /* 99o */
