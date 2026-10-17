@@ -1,0 +1,311 @@
+--- a/src/ss2fg.c
++++ b/src/ss2fg.c
+@@ -1463,6 +1463,23 @@
+ static uint8_t    id_far_want[2];    /* 99o: 이번 D 에 D+3·D+4 로 뒤 포즈를 찾을 몸 */
+ static const ss2fg_frame *id_far[2]; /* 99o: 미리 더 돌린 D+3·D+4 (없으면 0) */
+ static uint64_t   id_far_sb[2];      /* 99o: D+3·D+4 로 찾아 펴기 시작한 뒤 포즈 */
++/* ── 실험실(lab) — 계기 + 시제품 스위치(환경 변수) ── */
++static int lab_v[5] = { -1, -1, -1, -1, -1 };
++static int lab_get(int i) { static const char *nm[5] = { "SS2FG_DBG", "SS2FG_P_IDNEXT", "SS2FG_P_MONO", "SS2FG_P_99K", "SS2FG_P_TABSYM" }; if (lab_v[i] < 0) { const char *s = getenv(nm[i]); lab_v[i] = s ? atoi(s) : 0; } return lab_v[i]; }
++#define LDBG     lab_get(0)
++#define P_IDNEXT lab_get(1)
++#define P_MONO   lab_get(2)
++#define P_99K    lab_get(3)
++#define P_TABSYM lab_get(4)
++/* 시제품 MONO: 머묾(id_start)마다 마지막으로 그린 t(256 단위)와 뒤 포즈 — 서기 엔진·캐시 엔진이 같이 본다 */
++static unsigned pm_start[2]; static uint64_t pm_sb[2]; static int pm_t[2];
++static int pm_get(int p, uint64_t sb) { return (pm_t[p] > 0 && pm_start[p] == id_start[p] && pm_sb[p] == sb) ? pm_t[p] : 0; }
++static int pm_any(int p, uint64_t *sb) { if (pm_t[p] > 0 && pm_start[p] == id_start[p]) { *sb = pm_sb[p]; return pm_t[p]; } return 0; }
++static void pm_put(int p, uint64_t sb, int t)
++{
++   if (pm_start[p] != id_start[p] || pm_sb[p] != sb) { pm_start[p] = id_start[p]; pm_sb[p] = sb; pm_t[p] = 0; }
++   if (t > pm_t[p]) pm_t[p] = t;
++}
+ static unsigned   id_far_st[2];      /* 99o: 그때 앞 포즈의 시작 프레임 */
+ static uint8_t    id_chv[2];         /* 99s: 몸의 캐릭터 번호(마지막으로 본 값) */
+ static uint64_t   id_prev2[2];       /* 99t: 그 앞 포즈(id_prev 의 앞) */
+@@ -1506,6 +1523,7 @@
+       id_far[0] = id_far[1] = 0; memset(id_far_sb, 0, sizeof id_far_sb); memset(id_far_st, 0, sizeof id_far_st);
+       memset(id_prev2, 0, sizeof id_prev2); memset(id_chs, 0, sizeof id_chs); memset(id_chu, 0, sizeof id_chu);   /* 99t */
+       id_ti_last[0] = id_ti_last[1] = -1;
++      memset(pm_t, 0, sizeof pm_t);
+       { int q_; for (q_ = 0; q_ < ID_NR; q_++) id_pt[0][q_].on = id_pt[1][q_].on = 0; }
+    }
+    id_on = on ? 1 : 0;
+@@ -1623,6 +1641,8 @@
+          if (b1 < 0 || id_lt[p][i].cnt > id_lt[p][b1].cnt) { if (b1 >= 0 && id_lt[p][b1].cnt > c2) c2 = id_lt[p][b1].cnt; b1 = i; }
+          else if (id_lt[p][i].cnt > c2) c2 = id_lt[p][i].cnt;
+       }
++      if (P_IDNEXT && b1 >= 0 && !pass && from && id_lt[p][b1].sb == from && c2 > 0)
++         continue;                              /* 시제품: 온 쪽으로 되돌아가는 짐작인데 다른 다음도 본 적 있다 */
+       if (b1 >= 0 && id_lt[p][b1].cnt >= 2 && id_lt[p][b1].cnt >= 2 * c2)
+       {
+          if (hold) *hold = id_lt[p][b1].hold;
+@@ -2084,21 +2104,37 @@
+ }
+ /* 출력 칸 slot 의 몸 p — D+1·D+2 에서 포즈가 바뀌면(제자리) 캐시로. 1 = 계획함 */
+ static void id_realign(const ss2fg_frame *f, int p, uint64_t sg);
++/* 시제품 99K: 앞 걸음(앞 포즈 → 지금 포즈)의 저장 길이(같은 출처 — 표면 표, 배움이면 배움)가 이번 걸음 길이와 1.5배 안일 때만 덮어쓴다.
++   걸음은 장마다 길이가 같다(표 14/14 → 실제 6 으로 바꿔도 된다). 준비 4F → 끝 자세 16F 처럼 다른 걸음의 길이를 옮기지 않는다 */
++static int lab_hold_similar(int p, unsigned hold, int src)
++{
++   unsigned hp = 0, h3 = 0;
++   int i;
++   if (!id_prev[p] || !hold) return 0;
++   if (src == 2) { if (mc_ln && mc_loop_next(id_prev[p], &h3) == id_cur[p]) hp = h3; }
++   else for (i = 0; i < ID_LEARN; i++) if (id_lt[p][i].sa == id_prev[p] && id_lt[p][i].sb == id_cur[p] && id_lt[p][i].cnt) { hp = id_lt[p][i].hold; break; }
++   if (!hp) return 0;
++   return 2 * hold <= 3 * hp && 2 * hp <= 3 * hold;
++}
+ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_frame *f2, unsigned realn, int h, int slot, int p)
+ {
++#define MCRET(w) do { if (LDBG && p == 0) fprintf(stderr, "MCSKIP realn=%u slot=%d why=%s\n", realn, slot, w); return 0; } while (0)
++   /* 시제품 MONO: 안 그리고 돌아갈 자리에서 — 이 머묾에서 이미 펴던 그림(같은 뒤 포즈, 캐시에 있음)이 있으면 그 t 를 붙잡는다 */
++#define MCFRZ(w) do { uint64_t fs_ = 0; int pt_;       if (P_MONO && (pt_ = pm_any(p, &fs_)) > 0 && (!K || fs_ == sb) && mc_has(id_cur[p], fs_))       { sb = fs_; ti = (pt_ + 32) / 64 - 1; if (ti > 2) ti = 2; if (ti < 0) ti = 0; mfrz = 1; goto lab_frz; }       MCRET(w); } while (0)
+    uint8_t mm[64];
++   int lsrc = 0, mfrz = 0;
+    uint64_t sb = 0;
+    int k, K = 0, L, num, ti, seen34 = 0;
+    const ss2fg_frame *fk = 0;
+    mc_ent *e;
+    id_pose *A, *B;
+    id_req_t *rq = &id_rq[slot][p];
+-   if (!mc_on || !mc_f || !id_cur[p]) return 0;
++   if (!mc_on || !mc_f || !id_cur[p]) MCRET("off");
+    for (k = 1; k <= 2; k++)
+    {
+       const ss2fg_frame *g = k == 1 ? f1 : f2;
+       uint64_t sg;
+-      if (!g || !g->valid || g->mono || !g->body_ok || !body_mask(g, p, mm)) return 0;
++      if (!g || !g->valid || g->mono || !g->body_ok || !body_mask(g, p, mm)) MCRET("f12");
+       sg = body_sig(g, mm);
+       if (sg != id_cur[p]) { sb = sg; K = k; fk = g; break; }
+    }
+@@ -2119,47 +2155,52 @@
+    {  /* 99v: 대전 밖 멀리 미리 보기로 찾은 뒤 포즈 — 바뀔 때까지의 실제 길이로 고르게(99o 와 같은 길) */
+       sb = pb.sb; K = (int)(pb.at - realn); fk = &pb.fk; seen34 = 1;
+    }
+-   if (f0->pick && (K ? (fk->ch[p] != f0->ch[p] || fk->ch_now[p] != f0->ch[p]) : f0->pick == 2)) return 0;   /* 99s: 고르기 화면 — 배운 바뀜(id_plan_learned)과 같다 */
++   if (f0->pick && (K ? (fk->ch[p] != f0->ch[p] || fk->ch_now[p] != f0->ch[p]) : f0->pick == 2)) MCRET("pick");   /* 99s: 고르기 화면 — 배운 바뀜(id_plan_learned)과 같다 */
+    /* 되풀이 동작(배운 순환 — 걷기 등): 다음 포즈를 미리 알면 사이 그림을 한 걸음 내내 고르게 편다(패치 99).
+       바뀌기 직전 2 프레임에만 몰면, 걷기는 몸은 120Hz 로 매끄럽게 가는데 다리는 6 프레임 멈춰 미끄러지듯 보였다
+       (유저 「앞으로 올 때 슬라이딩하는 것처럼 보일 때가 있다」). t = 지난 시간/길이 → ¼·½·¾ 중 가까운 칸(⅛ 전엔 A 그대로).
+       미리 돌린 D+1·D+2 가 다른 포즈면 순환이 아닌 것으로 — 아래 «마지막 2 프레임» 으로 그 포즈를 향한다 */
+    {
+       unsigned hold = 0;
++      int d99e = 0, d99h = 0, ovk = 0;
+       uint64_t nb = id_next(p, id_cur[p], id_prev[p], &hold);
+       int loop = nb && hold >= 3 && hold <= 60 && id_loop(p, id_cur[p], nb) && (!K || sb == nb);
++      if (loop) lsrc = 1;
+       if (!loop && mc_ln)
+       {  /* 아직 못 배웠으면 캐시의 순환 표로(패치 99b) */
+          unsigned h2 = 0;
+          uint64_t cb = mc_loop_next(id_cur[p], &h2);
+-         if (cb && h2 >= 3 && h2 <= 60 && (!K || sb == cb)) { nb = cb; hold = h2; loop = 1; }
++         { unsigned h3 = 0; if (P_TABSYM && cb && mc_loop_next(cb, &h3) == id_cur[p] && (h2 >= 2 * h3 || h3 >= 2 * h2)) cb = 0; }   /* 시제품 TABSYM: 길이가 2배 넘게 다른 2-순환은 공격(준비=회복 그림)으로 보고 안 쓴다 */
++         if (cb && h2 >= 3 && h2 <= 60 && (!K || sb == cb)) { nb = cb; hold = h2; loop = 1; lsrc = 2; }
+       }
+       /* 99k: 걸음 길이는 바로 앞 걸음 것으로 — 캐시 순환 표·배운 길이는 모아 둔 판의 대표값이라 지금 걷는 빠르기와 다를 수 있다
+          (갈포드 앞으로 걷기: 표 14 프레임, 실제 6 — 걸음은 장마다 길이가 같다). 길게 잡으면 다리가 ¼ 에서 멈춰 있다가, 바뀔 때가 보이면(미리 돌린 D+1·D+2)
+          ¾ 로 툭 건너뛰었다 — 몸은 ¼ px 로 매끄럽게 가니(99i) 더 눈에 띔(유저 2026-10-14 「걷는 거 또 찐빠 난 거 같은데」) */
+-      if (loop && id_prev_link[p] && id_prev_moved[p] && id_hold_prev[p] >= 3 && id_hold_prev[p] <= 60) hold = id_hold_prev[p];
++      if (loop && id_prev_link[p] && id_prev_moved[p] && id_hold_prev[p] >= 3 && id_hold_prev[p] <= 60 && (!P_99K || lab_hold_similar(p, hold, lsrc)))
++      { if (hold != id_hold_prev[p]) ovk = (int)hold; hold = id_hold_prev[p]; }
+       /* 99o: D+3·D+4 로 뒤 포즈를 봤으면(또는 그렇게 펴던 뒤 포즈가 이제 D+1·D+2 에 보이면) 바뀔 때까지의 실제 길이로 고르게 */
+-      if (seen34) { nb = sb; hold = realn + (unsigned)K - id_start[p]; loop = 1; }
++      if (seen34) { nb = sb; hold = realn + (unsigned)K - id_start[p]; loop = 1; lsrc = 3; }
+       else if (K && id_far_sb[p] == sb && id_far_st[p] == id_start[p] && id_ti_last[p] >= 0 && id_ti_sb[p] == sb)
+-      { nb = sb; hold = realn + (unsigned)K - id_start[p]; loop = 1; seen34 = 1; }
++      { nb = sb; hold = realn + (unsigned)K - id_start[p]; loop = 1; seen34 = 1; lsrc = 4; }
+       if (loop && (K ? 2 * (int)(realn + (unsigned)K - id_start[p]) : 2 * (int)(realn - id_start[p]) + 6) > 2 * (int)hold + 4
+           && !(K && id_ti_last[p] >= 0 && id_ti_sb[p] == sb))   /* 99k: 같은 뒤 포즈로 펴던 중 바뀜이 보이면 이어서(¼ 로 되돌아가지 않게) */
+-         loop = 0;                     /* 99e: 배운 길이보다 오래 머묾 — 순환이 아니라 붙잡은 자세. 바뀌기 직전 2 프레임만(아래).
++         { loop = 0; d99e = 1; }      /* 99e: 배운 길이보다 오래 머묾 — 순환이 아니라 붙잡은 자세. 바뀌기 직전 2 프레임만(아래).
+                                           99h: 길이는 바뀔 때를 알면 실제 길이, 모르면 가장 짧은 길이(D+2 까진 안 바뀜 — 3 프레임 더).
+                                           예전엔 출력 반 칸(h)까지 더 쳐서, 배운 길이보다 1 프레임 길게 머문 걸음이 마지막에 ¾ → ¼ 로 뒤로 갔다 */
+       /* 99h: 뒤 포즈를 아직 한 번도 못 봐(기억에 없음) 앞 포즈가 보이는 동안 고르게 펴지 못했으면, 뒤 포즈가 미리 돌린 D+1·D+2 에
+          보일 때 t 가 이미 끝 쪽이라 ¾ 한 장만 4 칸 내내 나왔다(¼·½ 없이 툭 — 유저 2026-10-13 「수라·나찰 고르기 화면·판 시작 전 «いざ尋常に»
+          에서 120 이 제대로 안 되는 듯」: 미리보기·소개는 처음 보는 포즈가 많다). 그럴 땐 순환이 아닌 바뀜처럼 바뀌기 직전 2 프레임에 ¼·½·¾ */
+       if (loop && K && !seen34 && (id_sp_at[p] != id_start[p] + 1u || id_sp_b[p] != sb))
+-         loop = 0;
+-      if (!K && !loop) return 0;
+-      if (loop)
++         { loop = 0; d99h = 1; }
++      if (LDBG && p == 0) fprintf(stderr, "MC realn=%u h=%d slot=%d p=%d cur=%016llx K=%d sb=%016llx loop=%d src=%d hold=%u start=%u d99e=%d d99h=%d ovk=%d\n", realn, h, slot, p, (unsigned long long)id_cur[p], K, (unsigned long long)(K ? sb : nb), loop, loop ? lsrc : 0, hold, id_start[p], d99e, d99h, ovk);
++      if (!K && !loop) MCFRZ(d99e ? "99e" : "noloop");   /* 시제품 MONO: 99e 로 순환을 버려도 A 로 툭 되돌아가지 않게 */
++      else if (loop)
+       {
+          int e2 = 2 * (int)(realn - id_start[p]) + h, tot2;
+          if (!K) sb = nb;
+          tot2 = K ? 2 * (int)(realn + (unsigned)K - id_start[p]) : 2 * (int)hold;
+          if (!K && tot2 < e2 + 6) tot2 = e2 + 6;                                 /* D+2 까진 안 바뀜 — 적어도 3 프레임 남음 */
+-         if (tot2 <= 0 || e2 < 0) return 0;
++         if (tot2 <= 0 || e2 < 0) MCFRZ("tot");
+          ti = (8 * e2 + tot2) / (2 * tot2) - 1;                                   /* round(4t) − 1 */
+          if (!K && tot2 >= 20) ti = 3 * e2 / (tot2 - 4) - 1;                      /* 99u: 긴 머묾 — 바뀜이 보이기 전 시간을 셋으로(앞·¼·½) */
+          if (ti > 2) ti = 2;
+@@ -2171,27 +2212,30 @@
+             if (ti < id_ti_last[p]) ti = id_ti_last[p];
+             if (ti > id_ti_last[p] + 1) ti = id_ti_last[p] + 1;
+          }
+-         if (ti < 0) return 0;
++         if (P_MONO) { int pt = pm_get(p, sb); if (pt) { int tm = (pt + 32) / 64 - 1; if (tm > 2) tm = 2; if (ti < tm) ti = tm; } }
++         if (ti < 0) MCFRZ("ti<0");
+       }
+       else
+       {
+          L = (int)(realn + (unsigned)K - id_start[p]);                            /* A 가 보이는 프레임 수(바뀔 때까지) */
+          if (L > 2) L = 2;
+-         if (L < 1) return 0;
++         if (L < 1) MCFRZ("L<1");
+          num = 2 * L - (2 * K - h);                                               /* t = num / (2L) */
+-         if (num <= 0) return 0;
++         if (num <= 0) MCFRZ("num");
+          ti = L == 2 ? num - 1 : 1;                                               /* ¼·½·¾ 칸 */
+-         if (ti < 0 || ti > 2) return 0;
++         if (ti < 0 || ti > 2) MCFRZ("tiK");
++         if (P_MONO) { int pt = pm_get(p, sb); if (pt) { int tm = (pt + 32) / 64 - 1; if (tm > 2) tm = 2; if (ti < tm) ti = tm; } }
+       }
+    }
++lab_frz:
+    e = mc_get(id_cur[p], sb);
+-   if (!e) return 0;
++   if (!e) MCRET("noent");
+    A = id_find_pose(p, id_cur[p]);
+    B = id_find_pose(p, sb);
+    if (!B && fk) { id_capture(fk, p, mm, sb); B = id_find_pose(p, sb); }
+    else if (B && fk) id_realign(fk, p, sb);                    /* 뒤 포즈가 다른 장면에서 잡힌 것이면 지금 것으로(99e) */
+    else if (A && B && B->depth != A->depth) B->depth = A->depth; /* 아직 안 보인 뒤 포즈의 우선순위는 지금 장면(A) 것으로(99e) */
+-   if (!A || !B || A->depth != B->depth || A->w != e->aw || A->h != e->ah || B->w != e->bw || B->h != e->bh) { mc_stats[3]++; return 0; }
++   if (!A || !B || A->depth != B->depth || A->w != e->aw || A->h != e->ah || B->w != e->bw || B->h != e->bh) { mc_stats[3]++; MCRET("posemis"); }
+    {  /* 자리(패치 99c) — 전엔 기억한 두 포즈의 «물체 자리 기준 왼쪽 위» 차가 캐시의 B 자리(bdx·bdy)와 한 픽셀이라도 다르면 버렸다.
+          물체 자리(RAM)와 스프라이트가 움직일 때 한 박자 어긋나 같은 포즈라도 잡힌 때마다 1~3 픽셀 달라, 바뀜의 10% 가 사이 그림 없이 툭 바뀌었다(검수 2026-10-11).
+          이제 A 는 지금 D 의 실제 자리에 놓고, B 는 D+K 의 실제 자리(K 를 모르는 되풀이 동작은 기억한 자리)와 캐시 자리의 차를 t 만큼 나눠 밀어 메운다.
+@@ -2201,19 +2245,23 @@
+       if (fk && mc_top_left(fk, p, &bx0, &by0)) { rbx = bx0 - ax0; rby = by0 - ay0; }
+       else { rbx = B->ox - A->ox; rby = B->oy - A->oy; }
+       dx = rbx - e->bdx; dy = rby - e->bdy;
+-      if (dx < -4 || dx > 4 || dy < -4 || dy > 4) { mc_stats[3]++; return 0; }
++      if (dx < -4 || dx > 4 || dy < -4 || dy > 4) { mc_stats[3]++; MCRET("offs"); }
+       rq->gx = ax0 + e->cx; rq->gy = ay0 + e->cy;
+       rq->sx4 = (ti + 1) * dx; rq->sy4 = (ti + 1) * dy;   /* t = (ti+1)/4 → 4배 화소로 t·차·4 */
+    }
+    if (!K) { id_sp_at[p] = id_start[p] + 1u; id_sp_b[p] = sb; }   /* 99h: K 를 모르는데 그린다 = 순환으로 고르게 펴는 중 */
+    id_ti_last[p] = (int8_t)ti; id_ti_sb[p] = sb;                   /* 99k */
+    if (seen34) { id_far_sb[p] = sb; id_far_st[p] = id_start[p]; }    /* 99o */
++   if (P_MONO) pm_put(p, sb, 64 * (ti + 1));
++   if (LDBG && p == 0) fprintf(stderr, "MCDRAW realn=%u h=%d slot=%d ti=%d K=%d src=%d frz=%d sb=%016llx\n", realn, h, slot, ti, K, lsrc, mfrz, (unsigned long long)sb);
+    rq->on = 1; rq->kind = 1; rq->pr = 0; rq->t256 = 64 * (ti + 1);
+    rq->e = e; rq->ti = ti; rq->A = A; rq->B = B;
+    rq->ax = f0->ob_x[p]; rq->ay = f0->ob_y[p];              /* 몸 자리는 보여 줄 D 의 것 — 움직이는 몸은 그리기에서 몸 조각의 옮김만큼 더 민다(패치 98) */
+    rq->gw = e->w; rq->gh = e->h;
+    rq->depth = A->depth; rq->first = A->first < B->first ? A->first : B->first;
+    return 1;
++#undef MCRET
++#undef MCFRZ
+ }
+ 
+ /* 99v: 멀리 미리 보기 */
+@@ -2622,6 +2670,7 @@
+    for (p = 0; p < 2; p++) id_rq[slot][p].on = 0;
+    for (p = 0; p < ID_NR; p++) id_pt[slot][p].on = 0;
+    if (!id_on || !f0 || !f0->body_ok) { fx_reset_slot(slot); return 0; }
++   if (LDBG) fprintf(stderr, "POSE realn=%u h=%d slot=%d cur=%016llx start=%u prev=%016llx hp=%u x=%d y=%d x1=%d s1x=%d\n", realn, h, slot, (unsigned long long)id_cur[0], id_start[0], (unsigned long long)id_prev[0], id_hold_prev[0], (int)f0->ob_x[0], (int)f0->ob_y[0], (int)f0->ob_x[1], (int)f0->line[100].s1x);
+    for (p = 0; p < 2; p++)
+    {
+       if (id_plan_learned(f0, f1, f2, realn, h, slot, p) || mc_plan(f0, f1, f2, realn, h, slot, p)) any = 1;
+@@ -2633,31 +2682,32 @@
+ /* 서기(배운 되풀이 바뀜) — 지난 시간/길이로 t, ±3px 이동표(id_pair) */
+ static int id_plan_learned(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_frame *f2, unsigned realn, int h, int slot, int p)
+ {
++#define IDRET(w) do { if (LDBG && p == 0) fprintf(stderr, "ID realn=%u slot=%d why=%s sb=%016llx K=%d hold=%u start=%u\n", realn, slot, w, (unsigned long long)sb, K, hold, id_start[p]); return 0; } while (0)
+    {
+       unsigned hold = 0;
+-      uint64_t sb;
+-      int k, K = 0, bad = 0, e2, tot2, t256, tl;
++      uint64_t sb = 0;
++      int k, K = 0, bad = 0, e2, tot2 = 0, t256, tl, frz = 0;
+       id_pair *pr;
+       id_req_t *rq = &id_rq[slot][p];
+-      if (!id_cur[p] || !id_still[p] || f0->ob_x[p] != id_ax[p] || f0->ob_y[p] != id_ay[p]) return 0;
++      if (!id_cur[p] || !id_still[p] || f0->ob_x[p] != id_ax[p] || f0->ob_y[p] != id_ay[p]) IDRET(!id_cur[p] ? "nocur" : !id_still[p] ? "moved" : "movenow");
+       sb = id_next(p, id_cur[p], id_prev[p], &hold);
+-      if (!sb || !id_find_pose(p, sb)) return 0;
++      if (!sb || !id_find_pose(p, sb)) IDRET("nonext");
+       for (k = 1; k <= 2 && !K && !bad; k++)
+       {
+          const ss2fg_frame *fk = k == 1 ? f1 : f2;
+          uint8_t mm[64];
+          uint64_t s;
+          if (!fk || !fk->body_ok || !body_mask(fk, p, mm)) { bad = 1; break; }
+-         if (fk->ob_x[p] != id_ax[p] || fk->ob_y[p] != id_ay[p]) { bad = 1; break; }   /* 움직이기 시작 */
++         if (fk->ob_x[p] != id_ax[p] || fk->ob_y[p] != id_ay[p]) { bad = 2; break; }   /* 움직이기 시작 */
+          s = body_sig(fk, mm);
+          if (s == id_cur[p]) continue;
+-         if (s == sb) K = k; else bad = 1;
++         if (s == sb) K = k; else bad = 3;
+       }
+-      if (bad) { id_stats[3]++; return 0; }
++      if (bad) { id_stats[3]++; IDRET(bad == 2 ? "badmove" : bad == 3 ? "badpose" : "badbody"); }
+       if (f0->pick)
+       {  /* 99s: 고르기 화면 — 보이는 바뀜은 같은 캐릭터만. 캐릭터 고르기(2)의 미리보기는 커서를 둔 동안 멈춰 있어 바뀔 때를 모르고 펴면 늘 빗나간다 */
+          const ss2fg_frame *fk = K == 1 ? f1 : f2;
+-         if (K ? (fk->ch[p] != f0->ch[p] || fk->ch_now[p] != f0->ch[p]) : f0->pick == 2) return 0;
++         if (K ? (fk->ch[p] != f0->ch[p] || fk->ch_now[p] != f0->ch[p]) : f0->pick == 2) IDRET("pick");
+       }
+       if (K) id_realign(K == 1 ? f1 : f2, p, sb);      /* 뒤 포즈도 지금 장면 것으로(99e) */
+       else
+@@ -2676,30 +2726,42 @@
+       tl = K ? 2 * (int)(realn + K - id_start[p]) : 2 * (int)(realn - id_start[p]) + 6;
+       if (tl > 2 * (int)hold + 4 || (K && (id_sp_at[p] != id_start[p] + 1u || id_sp_b[p] != sb)))
+       {
+-         if (!K) return 0;
+-         tot2 = tl;
+-         e2 -= tot2 - 4; tot2 = 4;
+-         if (e2 <= 0) return 0;
++         if (!K) { if (P_MONO && pm_get(p, sb)) frz = 1; else IDRET("99e"); }   /* 시제품 MONO: 펴던 t 를 붙잡는다 */
++         else
++         {
++            tot2 = tl;
++            e2 -= tot2 - 4; tot2 = 4;
++            if (e2 <= 0) { if (P_MONO && pm_get(p, sb)) frz = 1; else IDRET("99eK0"); }
++         }
+       }
+       else if (K) tot2 = tl;
+       else { tot2 = 2 * (int)hold; if (tot2 < e2 + 6) tot2 = e2 + 6; }      /* D+2 까진 안 바뀜 — 적어도 3 프레임 남음 */
+-      if (tot2 <= 0) return 0;
+-      t256 = 256 * e2 / tot2;
+-      if (t256 <= 0) return 0;
+-      if (t256 > 255) t256 = 255;
++      if (frz) t256 = pm_get(p, sb);
++      else
++      {
++         if (tot2 <= 0) IDRET("tot");
++         t256 = 256 * e2 / tot2;
++         if (t256 <= 0) IDRET("t0");
++         if (t256 > 255) t256 = 255;
++      }
++      if (P_MONO && t256 < pm_get(p, sb)) t256 = pm_get(p, sb);   /* 시제품 MONO: 한 머묾 안에서 뒤로 안 감(캐시 엔진이 그린 것 포함) */
++      if (P_MONO && !K && t256 > 192 && mc_has(id_cur[p], sb)) t256 = 192;   /* 시제품 MONO: 캐시가 이어받을 수 있는 바뀜은 ¾ 까지만(넘김 때 0.9 → ¾ 로 안 물러나게) */
+       pr = id_get_pair(p, id_cur[p], sb);
+-      if (!pr) return 0;
++      if (!pr) IDRET("nopair");
+       /* 큰 바뀜(사이 그림이 반쯤에서 뒤 그림으로 넘어감)은 되풀이 동작(서기)일 때만 — 착지→서기·공격 끝 자세→서기처럼 한 번 지나가는
+          바뀜이면 그 자세가 끝나는 때가 앞당겨 보인다 */
+-      if (!pr->small && !id_loop(p, id_cur[p], sb)) return 0;
+-      if (pr->bigp && mc_has(id_cur[p], sb)) return 0;           /* 99f: 가는 부분이 멀리 가는 바뀜 — 캐시 사이 그림(칼이 이어짐)으로 */
++      if (!pr->small && !id_loop(p, id_cur[p], sb)) IDRET("oneshot");
++      if (pr->bigp && mc_has(id_cur[p], sb)) IDRET("99f");           /* 99f: 가는 부분이 멀리 가는 바뀜 — 캐시 사이 그림(칼이 이어짐)으로 */
+       if (!K) { id_sp_at[p] = id_start[p] + 1u; id_sp_b[p] = sb; }   /* 99h: 뒤 포즈를 모른 채 고르게 펴는 중 */
++      if (P_MONO) pm_put(p, sb, t256);
++      if (LDBG && p == 0) fprintf(stderr, "IDDRAW realn=%u h=%d slot=%d cur=%016llx sb=%016llx K=%d t256=%d hold=%u start=%u small=%d frz=%d\n", realn, h, slot, (unsigned long long)id_cur[p], (unsigned long long)sb, K, t256, hold, id_start[p], pr->small, frz);
+       rq->on = 1; rq->kind = 0; rq->pr = pr; rq->t256 = t256; rq->sx4 = rq->sy4 = 0;
+       rq->ax = id_ax[p]; rq->ay = id_ay[p];
+       rq->gx = pr->ox; rq->gy = pr->oy; rq->gw = pr->w; rq->gh = pr->h; rq->depth = pr->depth; rq->first = pr->first;
+       id_stats[1]++;
+       return 1;
+    }
++#undef IDRET
+ }
+ 
+ /* 99j: 배경 스크롤도 ¼ px — 카메라는 2 프레임에 1 px 씩만 움직인다(대전 실측 92%). 사이 칸의 스크롤을 1배 정수로 반올림하면

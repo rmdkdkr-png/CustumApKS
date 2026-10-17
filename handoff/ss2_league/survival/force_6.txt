@@ -1,0 +1,14 @@
+SURV opp  1/0 B2=10 streak 0 start=True | idle2400 dmg   0 hits  0 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 12, res C0
+SURV opp  4/1 B2=48 streak 0 start=True | idle2400 dmg  24 hits 10 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 10, res C0
+SURV opp  5/1 B2=58 streak 0 start=True | idle2400 dmg   0 hits  0 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 10, res C0
+SURV opp  6/1 B2=68 streak 0 start=True | idle2400 dmg   0 hits  0 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 11, res C0
+SURV opp 10/1 B2=A8 streak 0 start=True | idle2400 dmg   0 hits  0 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits  2, res 00
+SURV opp 12/1 B2=C8 streak 0 start=True | idle2400 dmg   0 hits  0 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits  2, res 00
+SURV opp  1/1 B2=18 streak 0 start=True | idle2400 dmg  78 hits 21 | bot: CPU->P1 hits 23 dmg 128, P1->CPU hits  4, res A0
+SURV opp  4/0 B2=40 streak 0 start=True | idle2400 dmg 117 hits 17 | bot: CPU->P1 hits 13 dmg 128, P1->CPU hits  3, res A0
+SURV opp  5/0 B2=50 streak 0 start=True | idle2400 dmg 116 hits 21 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 10, res C0
+SURV opp  6/0 B2=60 streak 0 start=True | idle2400 dmg 110 hits 30 | bot: CPU->P1 hits  0 dmg   0, P1->CPU hits 11, res C0
+SURV opp 10/0 B2=A0 streak 0 start=True | idle2400 dmg  66 hits 12 | bot: CPU->P1 hits  8 dmg  93, P1->CPU hits 11, res C0
+SURV opp 12/0 B2=C0 streak 0 start=True | idle2400 dmg 104 hits 25 | bot: CPU->P1 hits  4 dmg  13, P1->CPU hits 10, res C0
+SURV opp 14/0 B2=E0 streak 0 start=True | idle2400 dmg  80 hits 14 | bot: CPU->P1 hits  8 dmg 128, P1->CPU hits  0, res A0
+SURV opp 14/1 B2=E8 streak 0 start=True | idle2400 dmg  96 hits 11 | bot: CPU->P1 hits 36 dmg 119, P1->CPU hits 14, res C0

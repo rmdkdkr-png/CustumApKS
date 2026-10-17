@@ -1,0 +1,43 @@
+--- a/src/ss2fg.c
++++ b/src/ss2fg.c
+@@ -2082,6 +2082,19 @@
+    *x = x0; *y = y0;
+    return 1;
+ }
++/* 99k 좁히기: 앞 걸음(앞 포즈 → 지금 포즈)의 저장 길이(같은 출처 — 순환 표면 표, 배움이면 배움)가 이번 걸음 길이와 1.5배 안일 때만
++   «바로 앞 걸음 길이»로 덮어쓴다. 걸음은 장마다 길이가 같다(갈포드: 표 14/14 → 실제 6). 리무루루 약베기처럼 준비 4F → 끝 자세 16F 인
++   다른 걸음의 길이(4)를 끝 자세에 옮기지 않는다 */
++static int hold_like_prev(int p, unsigned hold, int src)
++{
++   unsigned hp = 0, h3 = 0;
++   int i;
++   if (!id_prev[p] || !hold) return 0;
++   if (src == 2) { if (mc_ln && mc_loop_next(id_prev[p], &h3) == id_cur[p]) hp = h3; }
++   else for (i = 0; i < ID_LEARN; i++) if (id_lt[p][i].sa == id_prev[p] && id_lt[p][i].sb == id_cur[p] && id_lt[p][i].cnt) { hp = id_lt[p][i].hold; break; }
++   if (!hp) return 0;
++   return 2 * hold <= 3 * hp && 2 * hp <= 3 * hold;
++}
+ /* 출력 칸 slot 의 몸 p — D+1·D+2 에서 포즈가 바뀌면(제자리) 캐시로. 1 = 계획함 */
+ static void id_realign(const ss2fg_frame *f, int p, uint64_t sg);
+ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_frame *f2, unsigned realn, int h, int slot, int p)
+@@ -2127,17 +2140,17 @@
+    {
+       unsigned hold = 0;
+       uint64_t nb = id_next(p, id_cur[p], id_prev[p], &hold);
+-      int loop = nb && hold >= 3 && hold <= 60 && id_loop(p, id_cur[p], nb) && (!K || sb == nb);
++      int loop = nb && hold >= 3 && hold <= 60 && id_loop(p, id_cur[p], nb) && (!K || sb == nb), src = loop ? 1 : 0;
+       if (!loop && mc_ln)
+       {  /* 아직 못 배웠으면 캐시의 순환 표로(패치 99b) */
+          unsigned h2 = 0;
+          uint64_t cb = mc_loop_next(id_cur[p], &h2);
+-         if (cb && h2 >= 3 && h2 <= 60 && (!K || sb == cb)) { nb = cb; hold = h2; loop = 1; }
++         if (cb && h2 >= 3 && h2 <= 60 && (!K || sb == cb)) { nb = cb; hold = h2; loop = 1; src = 2; }
+       }
+       /* 99k: 걸음 길이는 바로 앞 걸음 것으로 — 캐시 순환 표·배운 길이는 모아 둔 판의 대표값이라 지금 걷는 빠르기와 다를 수 있다
+          (갈포드 앞으로 걷기: 표 14 프레임, 실제 6 — 걸음은 장마다 길이가 같다). 길게 잡으면 다리가 ¼ 에서 멈춰 있다가, 바뀔 때가 보이면(미리 돌린 D+1·D+2)
+          ¾ 로 툭 건너뛰었다 — 몸은 ¼ px 로 매끄럽게 가니(99i) 더 눈에 띔(유저 2026-10-14 「걷는 거 또 찐빠 난 거 같은데」) */
+-      if (loop && id_prev_link[p] && id_prev_moved[p] && id_hold_prev[p] >= 3 && id_hold_prev[p] <= 60) hold = id_hold_prev[p];
++      if (loop && id_prev_link[p] && id_prev_moved[p] && id_hold_prev[p] >= 3 && id_hold_prev[p] <= 60 && hold_like_prev(p, hold, src)) hold = id_hold_prev[p];
+       /* 99o: D+3·D+4 로 뒤 포즈를 봤으면(또는 그렇게 펴던 뒤 포즈가 이제 D+1·D+2 에 보이면) 바뀔 때까지의 실제 길이로 고르게 */
+       if (seen34) { nb = sb; hold = realn + (unsigned)K - id_start[p]; loop = 1; }
+       else if (K && id_far_sb[p] == sb && id_far_st[p] == id_start[p] && id_ti_last[p] >= 0 && id_ti_sb[p] == sb)

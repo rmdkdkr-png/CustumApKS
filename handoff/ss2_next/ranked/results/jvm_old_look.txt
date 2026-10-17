@@ -1,0 +1,30 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=44995 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 이름 18개(기본 · 2P색 · 쪽빛 … 그림자 … 내 색 2)
+PASS cv 없는 옛 기록: 2·3 = 컬러 3·4, 범위 밖 = 기본
+PASS cv 2: 2 = 쪽빛 · 16 = 내 색 1 · 범위 밖 = 기본
+PASS League.COLORS = Look.NAMES (넓힌 컬러 이름 하나로)
+PASS 기억 16칸 글자 왕복 «9,0,0,0,0,0,0,0,0,0,0,16,0,0,0,13»
+PASS 깨진 기억 글자 = null(처음처럼 옮기기)
+PASS 범위 밖 값(99·−1)은 0
+PASS (시작) 리그 기록 파일 없음
+PASS 리그를 안 써 본 사람: 16칸 모두 기본 · 앱 설정에 남김 · 리그 기록 파일은 안 만듦
+PASS 옛 pref.color 2
+PASS 옛 «컬러 3»(2) → 16칸 모두 2 = 쪽빛
+PASS 한 번 옮긴 뒤엔 pref.color 가 바뀌어도 앱 설정 값 그대로(다시 안 옮김)
+PASS setPrefStage 는 배경만 — pref.color 는 안 건드림
+PASS prefColor 넓힘: 0~17 (예전 & 3 없음) — 12 그대로
+PASS saveMem → 우쿄 칸만 황금(9)
+PASS 처음 내 색 없음
+PASS 내 색 1(우쿄) 저장 → 다시 읽어도 같은 세 색 · 내 색 2 없음
+PASS 앱 설정 JSON {"v":1,"c":{"11":[[3039,744,65],null]}} — {"c":{"11":[[3039,744,65],null]},"v":1}
+PASS 12비트로 자름(0x1FFF → 0xFFF)
+PASS 내 색 1 지움 — 내 색 2 는 그대로
+PASS 깨진 JSON·없는 캐릭터 번호는 무시
+PASS push: 기억 16칸 · 내 색 있는 칸은 세 색, 없는 칸은 지움(−1)
+PASS 0x0BGR → 안드로이드 색
+PASS 세 색이 너무 비슷한지(채널 차 합 < 6)
+PASS 경기 기록: 내 색이면 {stage, color 16, cv 2, tri [3039,744,65]} — 재시작 뒤 그대로
+PASS 프리셋이면 tri 없음(cv 2)
+PASS 옛 3인자 setLook 도 cv 2 로 남김
+PASS 끝난 경기는 안 바뀜
+ALL PASS

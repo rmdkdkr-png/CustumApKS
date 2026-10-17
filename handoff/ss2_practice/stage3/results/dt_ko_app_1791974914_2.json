@@ -1,0 +1,260 @@
+{
+ "5A whiff": {
+  "m0": "SSSSSSAAAAAARRRRRRRRRRRRRR",
+  "m1": "..........................",
+  "done": [
+   {
+    "total": 26,
+    "startup": 7,
+    "active": 6,
+    "recovery": 14,
+    "proj": false,
+    "contact": 0,
+    "contact_at": null,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [],
+  "line": "발동 7F · 지속 6F · 경직 14F",
+  "frozen": 0,
+  "gap": 0
+ },
+ "5A hit": {
+  "m0": "SSSSSSAAAAAAAAAAARRRRRRRRRRRRRR",
+  "m1": "......hhhhhhhhhhhhhhhhhhhhhhh..",
+  "done": [
+   {
+    "total": 31,
+    "startup": 7,
+    "active": 11,
+    "recovery": 14,
+    "proj": false,
+    "contact": 1,
+    "contact_at": 6,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    -2,
+    1,
+    0
+   ]
+  ],
+  "line": "발동 7F · 히트 −2",
+  "frozen": 9,
+  "gap": 0
+ },
+ "5A block": {
+  "m0": "SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "m1": "......bbbbbbbbbbbbbbbbbbbbbbbbb......",
+  "done": [
+   {
+    "total": 37,
+    "startup": 7,
+    "active": 2,
+    "recovery": 29,
+    "proj": false,
+    "contact": 2,
+    "contact_at": 6,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    -6,
+    2,
+    0
+   ]
+  ],
+  "line": "발동 7F · 가드 −6",
+  "frozen": 5,
+  "gap": 0
+ },
+ "5A+ hit": {
+  "m0": "SSSSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "m1": "........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh........",
+  "done": [
+   {
+    "total": 63,
+    "startup": 9,
+    "active": 9,
+    "recovery": 46,
+    "proj": false,
+    "contact": 1,
+    "contact_at": 8,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    -8,
+    1,
+    0
+   ]
+  ],
+  "line": "발동 9F · 히트 −8",
+  "frozen": 21,
+  "gap": 0
+ },
+ "2A+ hit": {
+  "m0": "SSSSSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|",
+  "m1": "........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|",
+  "done": [
+   {
+    "total": 61,
+    "startup": 9,
+    "active": 13,
+    "recovery": 40,
+    "proj": false,
+    "contact": 1,
+    "contact_at": 8,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    120,
+    5,
+    0
+   ]
+  ],
+  "line": "발동 9F · 다운 +120",
+  "frozen": 17,
+  "gap": 104
+ },
+ "236A whiff": {
+  "m0": "SSSSSSSSSS******************RRRRRRRRRRRRRRRRRRRRRRR........|........|",
+  "m1": "..........................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|",
+  "done": [
+   {
+    "total": 51,
+    "startup": 11,
+    "active": null,
+    "recovery": 40,
+    "proj": true,
+    "contact": 1,
+    "contact_at": 26,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    140,
+    5,
+    0
+   ]
+  ],
+  "line": "발동 11F · 장풍 · 다운 +140",
+  "frozen": 1,
+  "gap": 124
+ },
+ "236A block": {
+  "m0": "SSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "m1": "..........bbbbbbbbbbbbbbbbbbb....................",
+  "done": [
+   {
+    "total": 49,
+    "startup": 11,
+    "active": null,
+    "recovery": 38,
+    "proj": true,
+    "contact": 2,
+    "contact_at": 10,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    -20,
+    2,
+    0
+   ]
+  ],
+  "line": "발동 11F · 장풍 · 가드 −20",
+  "frozen": 5,
+  "gap": 0
+ },
+ "throw": {
+  "m0": "SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR........|",
+  "m1": "......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|",
+  "done": [
+   {
+    "total": 34,
+    "startup": 3,
+    "active": 6,
+    "recovery": 26,
+    "proj": false,
+    "contact": 3,
+    "contact_at": 6,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    26,
+    3,
+    0
+   ]
+  ],
+  "line": "발동 3F · 잡기 +26",
+  "frozen": 0,
+  "gap": 18
+ },
+ "2A>236A": {
+  "m0": "...|SSAAAAAAAAASSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|.....",
+  "m1": "ddd|..hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|ddddd",
+  "done": [
+   {
+    "total": 15,
+    "startup": 7,
+    "active": 9,
+    "recovery": 0,
+    "proj": false,
+    "contact": 1,
+    "contact_at": 6,
+    "parry": null,
+    "p": 0,
+    "why": 2
+   },
+   {
+    "total": 51,
+    "startup": 11,
+    "active": null,
+    "recovery": 40,
+    "proj": true,
+    "contact": 1,
+    "contact_at": 10,
+    "parry": null,
+    "p": 0,
+    "why": 0
+   }
+  ],
+  "ev": [
+   [
+    124,
+    5,
+    0
+   ]
+  ],
+  "line": "발동 11F · 장풍 · 다운 +124",
+  "frozen": 10,
+  "gap": 108
+ }
+}

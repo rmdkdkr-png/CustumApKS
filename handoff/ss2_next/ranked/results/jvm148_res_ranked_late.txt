@@ -1,0 +1,9 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=41541 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_late/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_late/league/league.json.tmp (Not a directory)
+PASS 파일을 못 보는 동안: 빈 기록(배치 5판) · 저장 못 함
+PASS 진짜 파일이 보이면 다시 읽음 — 배치 없이 MMR 1100 (0 · 1100.0)
+PASS 저장해도 진짜 기록 그대로(빈 기록으로 안 덮음)
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_late_bad/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_late_bad/league/league.json.tmp (Not a directory)
+PASS 못 읽는 파일이 나타남 — 씨앗 그대로(다시 만들기 고리 없음) · 저장 막음(리그 기록 파일을 읽지 못했습니다 — 저장소를 확인한 뒤 다시 읽어 주세요(기록은 건드리지 않았습니다))
+PASS 다시 확인(reload) — 못 읽는 파일은 옆으로 치우고 새로 시작
+FAILS 0
