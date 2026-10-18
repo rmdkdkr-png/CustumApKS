@@ -1,5 +1,5 @@
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index f0fc579..c0ded0b 100644
+index f0fc579..4583650 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -1248,6 +1248,7 @@ public class EmuActivity extends Activity {
@@ -19,7 +19,7 @@ index f0fc579..c0ded0b 100644
      private MenuModel lgmModel;                      /* 지금 열린 사본(서랍 그림용) */
      private RankCore.Me lgmMeBefore, lgmMeAfter;     /* 이 판 전·뒤 나(순위 ▲▼) */
      private int lgmGen, lgmTries, lgmDrawerTab = -1;
-@@ -2957,13 +2958,43 @@ public class EmuActivity extends Activity {
+@@ -2957,13 +2958,33 @@ public class EmuActivity extends Activity {
      private LgmPages lgmPages;                       /* 그림 스레드에서만 */
      private View lgmTouch;
      private static final String LGM = "PocketCore";
@@ -30,21 +30,11 @@ index f0fc579..c0ded0b 100644
 +    private boolean lgmRendering;                    /* 결판 장면을 그림 스레드가 그리는 중(정산 → armResult) */
 +    private long lgmRenderT0, lgmLatchAt;            /* 그리기 시작 · 걸쇠 뒤 기다리기 시작(uptime ms) */
 +    private volatile String lgmRenderErr;            /* 그림 스레드의 마지막 예외(까닭 글) */
-+    private final java.util.HashSet<String> lgmWhySeen = new java.util.HashSet<>();
-+    private Boolean lgmDebug;
 +    static final long LGM_LATCH_WAIT = 1500, LGM_RENDER_WAIT = 10000;
-+    /** 덧판을 못 써 옛 길로 가는 까닭 — logcat «lgm fallback <key> · <detail>» 늘 · 디버그 판이면 까닭마다 한 번 짧은 토스트(기기 제보가 스스로 설명되게) */
++    /** 덧판을 못 써 옛 길로 가는 까닭 — logcat «lgm fallback <key> · <detail>» 만(토스트 없음 — 기기 제보는 logcat 으로) */
 +    private void lgmWhy(String key, String detail) {
++        /* logcat 에만 — 시험판(fgtest)도 디버그 판이라 토스트를 띄우면 유저에게 보인다(유저: 안내 글을 보고 싶지 않음) */
 +        android.util.Log.w(LGM, "lgm fallback " + key + (detail != null && !detail.isEmpty() ? " · " + detail : ""));
-+        if (lgmDebug == null) {
-+            boolean d = false;
-+            try { d = (getApplicationInfo().flags & android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0; } catch (Throwable ignored) { }
-+            lgmDebug = d;
-+        }
-+        if (lgmDebug && lgmWhySeen.add(key)) {
-+            String s = "덧판 대신 옛 길: " + key + (detail != null && !detail.isEmpty() ? " · " + detail : "");
-+            toast(s.length() > 120 ? s.substring(0, 120) + "…" : s);
-+        }
 +    }
 +    /** 덧판·이름표 상태 한 줄(까닭 글에 붙임) */
 +    private String lgmState() {
@@ -64,7 +54,7 @@ index f0fc579..c0ded0b 100644
          }
          final RankCore.Me me = League.rankMe();
          if (me.placementLeft == 0) BoardCache.warm(this, me, true, 4, false, () -> { BoardCache.Board b = BoardCache.get(me, true, 4); if (b != null && b.rank > 0) League.sessionRank0(b.rank); });
-@@ -2974,6 +3005,7 @@ public class EmuActivity extends Activity {
+@@ -2974,6 +2995,7 @@ public class EmuActivity extends Activity {
          LeagueMenu mm = new LeagueMenu(port, lgmActions, h);
          mm.setPortrait(root == null || root.getHeight() >= root.getWidth());
          lgm = mm;
@@ -72,7 +62,7 @@ index f0fc579..c0ded0b 100644
      }
      /** nativeOvStatus — 옛 native 면 null */
      private static int[] lgmStatus() {
-@@ -2994,16 +3026,56 @@ public class EmuActivity extends Activity {
+@@ -2994,16 +3016,56 @@ public class EmuActivity extends Activity {
          final LeagueMenu mm = lgm;
          final String id = leagueId;
          if (mm == null || id == null || !leagueHub || !hubRanked || leaving) return;
@@ -133,7 +123,7 @@ index f0fc579..c0ded0b 100644
      }
      /** 쉼 자격 — 랭크 경기(첫 라운드 뒤) · 결판 전 · 찾기 겹창·결과·카드·바 없음 */
      private boolean lgmEligible() { return lgmEligible(false); }
-@@ -3032,7 +3104,7 @@ public class EmuActivity extends Activity {
+@@ -3032,7 +3094,7 @@ public class EmuActivity extends Activity {
      }
      /** 결판·쉼 표시를 끈다(덧판 닫기는 부른 쪽이 GL 에서 — hubReturn 은 nativeLeagueHubReturn 앞) */
      private void lgmReset() {
@@ -142,7 +132,7 @@ index f0fc579..c0ded0b 100644
          if (lgmOpen) lgmOpenUi(false);
      }
      /** 리그를 나가기 전 — 표시 끄고 GL 에서 덧판 닫기(코어 내리기보다 먼저 — queueEvent 순서) */
-@@ -3042,40 +3114,48 @@ public class EmuActivity extends Activity {
+@@ -3042,40 +3104,48 @@ public class EmuActivity extends Activity {
          if (mm != null) gl.queueEvent(mm::close);
      }
  
@@ -203,7 +193,7 @@ index f0fc579..c0ded0b 100644
      /** MenuModel 만들 재료 */
      private MenuModel.Ctx lgmCtx(MenuModel.Prefs p, int[] ov, boolean started, RankCore.Me now) {
          MenuModel.Ctx c = new MenuModel.Ctx();
-@@ -3091,7 +3171,12 @@ public class EmuActivity extends Activity {
+@@ -3091,7 +3161,12 @@ public class EmuActivity extends Activity {
          try {
              ex.execute(() -> {
                  try { job.run(); }
@@ -217,7 +207,7 @@ index f0fc579..c0ded0b 100644
              });
          } catch (Exception e) { if (onFail != null) onFail.run(); }
      }
-@@ -3122,52 +3207,84 @@ public class EmuActivity extends Activity {
+@@ -3122,52 +3197,84 @@ public class EmuActivity extends Activity {
          }, null);
      }
  
@@ -319,7 +309,7 @@ index f0fc579..c0ded0b 100644
          final LeagueMenu mm = lgm;
          lgmReset();
          if (mm != null) gl.queueEvent(mm::close);
-@@ -3250,7 +3367,7 @@ public class EmuActivity extends Activity {
+@@ -3250,7 +3357,7 @@ public class EmuActivity extends Activity {
              MenuModel.Prefs p = League.menuPrefs();
              final MenuModel model = MenuModel.pause(EmuActivity.this, m, lgmCtx(p, v, leagueStarted, League.rankMe()));
              if (model == null || v == null || (v[Emu.OVS_FLAGS] & Emu.OVF_RECT_OK) == 0) {
@@ -328,7 +318,7 @@ index f0fc579..c0ded0b 100644
                  gl.queueEvent(mm::cancelPause);
                  h.post(() -> { if (!leaving && leagueId != null && !leagueDone) leagueLeave(); });   /* 옛 길 — 나가기 카드 */
                  return;
-@@ -3265,7 +3382,7 @@ public class EmuActivity extends Activity {
+@@ -3265,7 +3372,7 @@ public class EmuActivity extends Activity {
                      gl.queueEvent(() -> mm.openPause(model, a, c));
                      lgmOpenUi(true);
                  });
@@ -337,7 +327,7 @@ index f0fc579..c0ded0b 100644
          }
          @Override public void lgmWantDrawer(int tab) {
              lgmDrawerTab = tab;
-@@ -3279,11 +3396,14 @@ public class EmuActivity extends Activity {
+@@ -3279,11 +3386,14 @@ public class EmuActivity extends Activity {
              if (shown && lgmDrawerTab == MenuModel.Prefs.TAB_SETTINGS) lgmDrawer(MenuModel.Prefs.TAB_SETTINGS);
          }
          @Override public void lgmFallback(int why) {
@@ -354,7 +344,7 @@ index f0fc579..c0ded0b 100644
              else if (!leaving && leagueId != null && !leagueDone) leagueLeave();   /* 쉼이던 판 — 옛 나가기 카드 */
          }
      };
-@@ -3296,11 +3416,11 @@ public class EmuActivity extends Activity {
+@@ -3296,11 +3406,11 @@ public class EmuActivity extends Activity {
          final int gen = lgmGen;
          if (tab == MenuModel.Prefs.TAB_SETTINGS) {
              final MenuModel.Prefs p = League.menuPrefs();
@@ -368,7 +358,7 @@ index f0fc579..c0ded0b 100644
              return;
          }
          final RankCore.Me me = League.rankMe();
-@@ -3314,7 +3434,7 @@ public class EmuActivity extends Activity {
+@@ -3314,7 +3424,7 @@ public class EmuActivity extends Activity {
              BoardCache.Board a = lgmNicks(a0), t = lgmNicks(t0);          /* 단상(top3)도 같은 닉 */
              final LgmPages.Scene sc = lgmPages().board(model, me.placementLeft == 0 ? a : null, t);
              h.post(() -> lgmDrawerShow(gen, tab, sc));
@@ -616,3 +606,514 @@ index d135ee7..29df0a9 100644
 +| 서랍 순위표 무쌍 | 무쌍은 MR(다른 점수)로 매겨 늘 모든 LP 티어 위(RankCore.key — 그대로, 시험으로 확인). 무쌍 줄 값 칸 = 빨강 «MR» + 흰 숫자(칸 c12–19 티어 빛) · 내 줄도 · 무쌍 → LP 첫 경계에 금줄 나눔 줄 «▲ 무쌍 · MR 순 ▼ LP 순»(«…» 건너 있으면 그 뒤) · «…» 줄 = 건너뛴 순위 «… 101~916위 …» · 열 머리 «LP·MR»(무쌍이 있을 때) · 아래 줄 «무쌍은 MR 순 · 늘 LP 위 ▲▼ ◀▶ B» |
 +
 +시험: `u165/sim/run_sim.sh`(장면 ckpt · pausedrawer · skip · hub · hubfirst · settledrop — JOPTS 로 그림 지연·버림·실패·잔상·사람 입력·롬) · `u165/fuzz/BoardMrTest.java`(무쌍 줄 «MR»·나눔 줄·«…» 순위·열 머리·RankCore 순서) · `u165/fuzz/LgmFuzz.java` · `u165/tools/tagdiag.py`.
+diff --git a/tools/core_patches/zzzzzz_fg_walkstep.patch b/tools/core_patches/zzzzzz_fg_walkstep.patch
+new file mode 100644
+index 0000000..2b60c24
+--- /dev/null
++++ b/tools/core_patches/zzzzzz_fg_walkstep.patch
+@@ -0,0 +1,174 @@
++앱 방 코어 패치 zzzzzz_fg_walkstep — 걷는 상대 몸은 원작처럼 «디딤»(유저 10-18 「겐쥬로 미끄러져 오는데」·「쥬베이도」·「상대방 말야」·「ㅈㄴ 미끄러지는데」).
++사무쇼2 걷기는 한 포즈(12 프레임 안팎) 동안 그림 전체가 그대로 10~14px 를 간다 — 겐쥬로 걷기 포즈 6장을 세계 자리에 놓아 보면 발이 땅을 딛는 그림이 없다.
++원작은 2 프레임마다 3px 씩 툭툭 옮겨 종종걸음으로 읽히는데, 120Hz 로 몸을 매끄럽게 옮기면(99i ¼ px) 발이 얼음 위를 미는 것처럼 보였다.
++이제 상대 몸(1)이 걸을 때(서서 조작 가능 0x59C9·0x59CE, 세계 x 가 감)는 세계 자리를 게임이 옮길 때만 옮기고, 그 사이 장은 카메라(배경) 몫만 따라간다
++(화면 옮김 dx − 세계 옮김 dw). 몸과 같이 움직이는 발밑 그림자도 같이 디딘다. 다리 사이 그림(캐시)·배경·카메라·다른 동작·내 몸은 그대로 120Hz.
++호스트(겐쥬로 판): 상대 x 가 4장 동안 카메라만큼(+1) 가다 3px(4배 12) 디딤, 그림자도 같은 박자 · 내 몸 출력 0 장 다름 ·
++봇 20판 떨림 판정(상대) 563 → 1,613(디딤을 고르지 않음으로 셈 — 의도), 그 밖 판정·내 몸 같음 · ASan 2판(흔든 입력) 깨끗.
++SS2_WALKSTEP=0/1/2(끔·상대만·두 몸) 은 호스트 시험용 환경 변수(앱은 안 씀 = 1).
++
++diff --git a/src/libretro.c b/src/libretro.c
++index 21bc5e0..dfbdf1d 100644
++--- a/src/libretro.c
+++++ b/src/libretro.c
++@@ -1,4 +1,5 @@
++ #include <libretro.h>
+++#include <stdlib.h>
++ #include <string.h>
++ #include <string/stdstring.h>
++ #include <streams/file_stream.h>
++@@ -748,6 +749,22 @@ static int body_pos_differs(const ss2fg_frame *a, const ss2fg_frame *b, int p)
++    return a->ob_x[p] != b->ob_x[p] || a->ob_y[p] != b->ob_y[p];
++ }
++ static int fg_no_next = 0;                       /* 60Hz 사이 그림 — τ=D 만 그리고 τ=D+½(fg_next)는 건너뛴다 */
+++/* zzzzzz_fg_walkstep: 걷는 몸은 원작처럼 «디딤» — 세계 자리는 게임이 옮길 때(2 프레임마다 2~3px)만 옮기고, 그 사이는 카메라(배경)만 따라간다.
+++   사무쇼2 걷기는 한 포즈(12 프레임 안팎) 동안 그림 전체가 그대로 10~14px 를 간다(겐쥬로 실측 — 발이 땅을 딛는 그림이 없다). 원작은 3px 씩 툭툭
+++   움직여 종종걸음으로 읽히는데, 120Hz 로 몸을 매끄럽게 옮기면 발이 얼음 위를 미는 것처럼 보였다(유저 10-18 「겐쥬로 미끄러져 오는데」·「쥬베이도」·
+++   「상대방 말야」·「ㅈㄴ 미끄러지는데」). 사이 그림(다리 포즈)·배경·카메라·다른 동작은 그대로 120Hz.
+++   1 = 상대 몸(1)만(유저 「난 되는데 상대방만」) · 2 = 두 몸 · 0 = 끔. 호스트 시험은 환경 변수 SS2_WALKSTEP */
+++static int walkstep_mode = 1;
+++static int fg_walkstep(const ss2fg_frame *a, const ss2fg_frame *b, int p)
+++{
+++   int dw;
+++   if (!walkstep_mode || (walkstep_mode == 1 && p != 1)) return 0;
+++   if (!a || !b || !a->fight || !a->body_ok || !b->body_ok) return 0;
+++   if ((a->st[p] & 0xE0) != 0x20 || a->ct[p] != 0 || (b->st[p] & 0xE0) != 0x20 || b->ct[p] != 0) return 0;   /* 서서 조작 가능(걷기) — 대시·맞음·가드 밀림은 아님 */
+++   if (a->ob_y[p] != b->ob_y[p]) return 0;
+++   dw = (int8_t)(uint8_t)(b->wx[p] - a->wx[p]);
+++   return dw != 0 && dw >= -8 && dw <= 8;
+++}
++ /* 서기 사이 그림(코어 패치 100) — 켜면 화면을 4배(640×608)로 내보낸다. idle_out_slot = 이번 출력의 사이 그림 칸(0 τD · 1 τD+½ · -1 없음) */
++ static int idle_opt = 0, idle_out_slot = -1;
++ /* 99l: 번쩍임 줄이기 — 사무쇼2 는 큰 타격 때 창을 접어 화면 전체를 1 프레임 하얗게(또는 까맣게) 칠한다. 그 프레임은 바로 앞 화면 위에
++@@ -912,7 +929,7 @@ static int fg_predict4(int ra)
++ {
++    int k, mp0, m01, m12, Ks, Ls, Kb, Lb, rel, extra = 0, p;
++    int ts0, ts1, tb0, tb1;
++-   int ov[2] = { 0, 0 }, ovx0[2], ovy0[2], ovx1[2], ovy1[2], id0 = 0, id1 = 0, spm = 0;
+++   int ov[2] = { 0, 0 }, ws[2] = { 0, 0 }, ovx0[2], ovy0[2], ovx1[2], ovy1[2], id0 = 0, id1 = 0, spm = 0;
++    const ss2fg_frame *f0, *f1, *f2, *fp, *tos, *tob, *fk[5], *fx3 = 0, *fx4 = 0;
++ 
++    if (!ss2fg_hist(0)) return 0;
++@@ -985,9 +1002,17 @@ static int fg_predict4(int ra)
++       /* L: 지난 바뀜이 K-4..K-3 이면 느린 박자가 이어지는 중 — 그 간격 그대로. 아니면(쉬다가 움직임) 전체와 같은 K-2 */
++       Lp = (lrel >= Kp - 4 && lrel <= Kp - 3) ? lrel : (lrel > Kp - 2 ? lrel : Kp - 2);
++       if (Lp > 0) continue;                               /* 미끄러짐이 아직 시작 전(쉬던 몸이 D+3 이후에 움직임) — 지금은 제자리 */
++-      if (Kp == Ks && Lp == Ls) continue;                 /* 전체 박자와 같으면 하던 대로 */
++       dx = (int8_t)(uint8_t)(fk[Kp]->ob_x[p] - f0->ob_x[p]);
++       dy = (int8_t)(uint8_t)(fk[Kp]->ob_y[p] - f0->ob_y[p]);
+++      if (fg_walkstep(f0, fk[Kp], p) && dx <= 24 && dx >= -24)
+++      {  /* zzzzzz_fg_walkstep: 화면 옮김 dx = 세계 옮김 dw − 카메라 옮김 → 사이 장은 카메라 몫(dx − dw)만 t 만큼, 세계 몫은 Kp 프레임에 한 번에 */
+++         int dw = (int8_t)(uint8_t)(fk[Kp]->wx[p] - f0->wx[p]), cxm = dx - dw;
+++         ov[p] = 1; ws[p] = 1;
+++         ovx0[p] = cxm * fg_tpos(Kp, Lp, 0); ovy0[p] = 0;
+++         ovx1[p] = cxm * fg_tpos(Kp, Lp, 1); ovy1[p] = 0;
+++         continue;
+++      }
+++      if (Kp == Ks && Lp == Ls) continue;                 /* 전체 박자와 같으면 하던 대로 */
++       if (dx > 24 || dx < -24 || dy > 24 || dy < -24) continue;
++       ov[p] = 1;
++       ovx0[p] = dx * fg_tpos(Kp, Lp, 0); ovy0[p] = dy * fg_tpos(Kp, Lp, 0);
++@@ -995,17 +1020,18 @@ static int fg_predict4(int ra)
++    }
++ 
++    /* τ=D — 둘 다 0 이면 실제 D 그대로 (fg_real = D 의 그림) */
++-   for (p = 0; p < 2; p++) if (ov[p]) ss2fg_body_override(p, 1, ovx0[p], ovy0[p]);
+++   for (p = 0; p < 2; p++) if (ov[p]) { ss2fg_body_override(p, 1, ovx0[p], ovy0[p]); ss2fg_body_walkstep(p, ws[p]); }
++    ss2fg_idle_slot(idle_opt ? 0 : -1);                 /* 99i: 사이 그림이 없어도 — 움직이는 몸을 ¼ px 자리로 그리는 조각 */
++    if (!(ts0 || tb0 || ov[0] || ov[1] || id0 || (spm & 1)) || !f0 || !ss2fg_render2(f0, tos, ts0, tob, tb0, surf->pixels, FB_WIDTH, 2, NGPGfx->ColorMap))
++       memcpy(surf->pixels, fg_real, sizeof fg_real);
++    /* τ=D+½ */
++-   for (p = 0; p < 2 && !fg_no_next; p++) if (ov[p]) ss2fg_body_override(p, 1, ovx1[p], ovy1[p]);
+++   for (p = 0; p < 2 && !fg_no_next; p++) if (ov[p]) { ss2fg_body_override(p, 1, ovx1[p], ovy1[p]); ss2fg_body_walkstep(p, ws[p]); }
++    ss2fg_idle_slot(idle_opt ? 1 : -1);
++    if (!fg_no_next && (!(ts1 || tb1 || ov[0] || ov[1] || id1 || (spm & 2)) || !f0 || !ss2fg_render2(f0, tos, ts1, tob, tb1, fg_next, FB_WIDTH, 2, NGPGfx->ColorMap)))
++       memcpy(fg_next, fg_real, sizeof fg_real);
++    ss2fg_idle_slot(-1);
++    ss2fg_body_override(0, 0, 0, 0); ss2fg_body_override(1, 0, 0, 0);
+++   ss2fg_body_walkstep(0, 0); ss2fg_body_walkstep(1, 0);
++    idle_out_slot = 0;                                  /* 이번 실제 호출은 τD(조각 칸 0) */
++ 
++    if (idle_opt && ss2comm_rom_is_ss2()) fg_probe_step(f0, f1, f2, extra);   /* 99v */
++@@ -1337,6 +1363,7 @@ void retro_init(void)
++ {
++    struct retro_log_callback log;
++    char *dir = NULL;
+++   if (getenv("SS2_WALKSTEP")) walkstep_mode = atoi(getenv("SS2_WALKSTEP"));   /* zzzzzz_fg_walkstep: 호스트 시험용 */
++ 
++    {  /* 링크 케이블 — 여기서 잡아 둔다. 한 프로세스에 코어 두 벌을 올리는 하네스가
++          인스턴스마다 다른 파이프를 주려면, 각자 초기화하는 그 순간의 환경변수를 봐야 한다. */
++diff --git a/src/ss2fg.c b/src/ss2fg.c
++index 236a7b4..48eda0d 100644
++--- a/src/ss2fg.c
+++++ b/src/ss2fg.c
++@@ -523,6 +523,12 @@ void ss2fg_body_override(int p, int on, int x256, int y256)
++    if (p < 0 || p > 1) return;
++    fg_ov_on[p] = on; fg_ov_x[p] = x256; fg_ov_y[p] = y256;
++ }
+++static int fg_ws_on[2];   /* zzzzzz_fg_walkstep */
+++void ss2fg_body_walkstep(int p, int on)
+++{
+++   if (p < 0 || p > 1) return;
+++   fg_ws_on[p] = on;
+++}
++ static int body_vec(const ss2fg_frame *base, const ss2fg_frame *to, int gstart, int g, int *vx, int *vy)
++ {
++    const ss2fg_regs *rb = &base->line[0];
++@@ -3772,6 +3778,37 @@ int ss2fg_render2(const ss2fg_frame *base, const ss2fg_frame *to_spr, int t_spr,
++             { fg_ex_x[p3] = mv[k3].dx * t_spr; fg_ex_y[p3] = mv[k3].dy * t_spr; fg_ex_on[p3] = 1; break; }
++       }
++    }
+++   {  /* zzzzzz_fg_walkstep: 디디는 몸(libretro.c — 세계 자리는 게임이 옮길 때만)의 그림자도 같이 디딘다. 그림자는 몸 팔레트가 아니라
+++         몸 덮어쓰기(fg_ov)를 안 받아 매끄럽게 미끄러지며 발밑에서 1~2px 씩 앞뒤로 흔들렸다. 이 칸 옮김이 몸과 똑같고 발밑(몸 자리 ±40·
+++         위 8 ~ 아래 12)이며 다른 몸보다 이 몸에 가까운 조각만 */
+++      int p4, k4;
+++      for (p4 = 0; p4 < 2; p4++)
+++      {
+++         int bdx, bdy, ox, oy;
+++         if (!fg_ws_on[p4] || !fg_ov_on[p4] || !to_spr || !(base->ob_act & to_spr->ob_act & (1u << p4))) continue;
+++         bdx = (int8_t)(uint8_t)(to_spr->ob_x[p4] - base->ob_x[p4]);
+++         bdy = (int8_t)(uint8_t)(to_spr->ob_y[p4] - base->ob_y[p4]);
+++         ox = fg_ov_x[p4] >= 0 ? (fg_ov_x[p4] + 128) >> 8 : -((-fg_ov_x[p4] + 127) >> 8);
+++         oy = fg_ov_y[p4] >= 0 ? (fg_ov_y[p4] + 128) >> 8 : -((-fg_ov_y[p4] + 127) >> 8);
+++         for (k4 = 0; k4 < 64; k4++)
+++         {
+++            int sx, sy;
+++            if (fg_body_of[k4] >= 0 || !mv[k4].has || mv[k4].dx != bdx || mv[k4].dy != bdy) continue;
+++            if (!(ld16(base->spr + k4 * 4) & 0x1800)) continue;
+++            sx = (int8_t)(uint8_t)(base->ax[k4] + base->line[0].spx - base->ob_x[p4]);
+++            sy = (int8_t)(uint8_t)(base->ay[k4] + base->line[0].spy - base->ob_y[p4]);
+++            if (sx < -40 || sx > 40 || sy < -8 || sy > 12) continue;
+++            if (base->ob_act & (1u << (1 - p4)))
+++            {
+++               int so = (int8_t)(uint8_t)(base->ax[k4] + base->line[0].spx - base->ob_x[1 - p4]);
+++               if (abs(so) < abs(sx)) continue;
+++            }
+++            offx[k4] = (int16_t)ox; offy[k4] = (int16_t)oy;
+++            fg_spe_x[k4] = fg_ov_x[p4]; fg_spe_y[k4] = fg_ov_y[p4];
+++            have_off = 1;
+++         }
+++      }
+++   }
++    if (to_spr && fx_mode == 2)
++    {
++       /* 나타날 to 이펙트 = 몸·그림자 팔레트가 아니고, base 의 «정해진(옮겨 그려지는)» 이펙트 조각이 도착할 자리(8px)에
++@@ -3940,6 +3977,7 @@ int ss2fg_render2(const ss2fg_frame *base, const ss2fg_frame *to_spr, int t_spr,
++    }
++    if (bpp == 2) id_build(base, to_scr, t_scr, have_off ? offx : 0, offy, colormap);   /* 서기 사이 그림 조각(패치 100) */
++    fg_ov_on[0] = fg_ov_on[1] = 0;                              /* 몸 따로 박자는 한 번 그리기용 */
+++   fg_ws_on[0] = fg_ws_on[1] = 0;                              /* zzzzzz_fg_walkstep */
++    pp_on = 0;
++    return 1;
++ }
++diff --git a/src/ss2fg.h b/src/ss2fg.h
++index eba6b2c..7ee530c 100644
++--- a/src/ss2fg.h
+++++ b/src/ss2fg.h
++@@ -106,6 +106,7 @@ void ss2fg_set_pose(int on);
++ void ss2fg_pose_stats(int *out4);  /* 시험용 계기 */
++ /* 몸 p(0·1)를 이번 합성에서 x256/256, y256/256 px 옮긴다(on=0 이면 끔). 몸 박자가 다른 조각과 어긋날 때 libretro.c 가 넣는다 */
++ void ss2fg_body_override(int p, int on, int x256, int y256);
+++void ss2fg_body_walkstep(int p, int on);   /* zzzzzz_fg_walkstep: 이 몸은 «디딤» 중 — 몸과 같이 움직이는 그림자도 같은 자리로 */
++ /* 서기 사이 그림(코어 패치 100) — 서 있는 몸의 앞뒤 포즈 사이를 ¼픽셀 격자(4배)로 옮겨 그린다 */
++ void ss2fg_set_idle(int on);
++ int  ss2fg_idle_on(void);
+diff --git a/tools/core_patches/zzzzzz_fg_walkstep2.patch b/tools/core_patches/zzzzzz_fg_walkstep2.patch
+new file mode 100644
+index 0000000..279c015
+--- /dev/null
++++ b/tools/core_patches/zzzzzz_fg_walkstep2.patch
+@@ -0,0 +1,151 @@
++앱 방 코어 패치 zzzzzz_fg_walkstep2 — 걷는 상대 몸은 화면 자리도 원작 그대로(유저 10-19 「도대체 고쳐진 적은 없는데」·「나랑 적이 같이 움직일 때만 안 되는 거냐」).
++① 165(zzzzzz_fg_walkstep)는 디딤 사이 장에 몸을 «카메라 몫»만큼 매끄럽게 옮겨 땅에 붙였다. 카메라가 움직이면(나와 상대가 같이 움직일 때 — 봇 판 상대 걷기의 절반)
++  걷는 몸이 화면에서 뒤로 스르륵 갔다가 앞으로 툭 — 문워크가 됐다(봇 20판 상대 걷는 출력의 24% 가 뒤로 미끄러짐).
++  원작은 몸 자리를 2 프레임에 한 번 화면에서 툭툭 옮긴다(걸음 사이 4 프레임 쉼엔 카메라만큼 뒤로 1px 도 툭). 이제 걷는 동안(걷기 자세, 세계 x 가 6 프레임 안에
++  바뀌었거나 미리 돌린 4 프레임 안에 바뀜)은 사이 장에 옮기지 않아 화면 자리가 원작 그대로다 — 쉬는 프레임 포함. 몸과 같이 가는 붙은 조각(그림자·매 등
++  몸 팔레트 밖)도 몸 높이 전체(±48, 위 96 ~ 아래 12)에서 같이.
++② 상대 몸의 멀리 미리 보기가 이 머묾을 보는 중인데 순환(배운 것·캐시 표)이 말한 바뀔 때를 2 프레임 넘게 지나도록 안 바뀌었거나, 미리 본 걸음이 끊겼으면
++  (공격·서기로 넘어감) 순환대로 다음 걸음 포즈로 펴지 않는다 — 한 포즈로 미끄러져 다가오는 걸음(나코루루 47 프레임)·걷다 멈추는 걸음에서 다리가 ½ 까지 갔다
++  앞 포즈로 툭 돌아오던 것. 내 몸은 그대로.
++배경·카메라·다리 사이 그림(캐시)·내 몸은 그대로 120Hz.
++호스트(15차 캐시): 봇 20판 165 ↔ 이것 — 내 몸 줄 96,000 중 다름 0, 상대 다른 줄 2,915 모두 걷는 중. 상대 걷는 출력의 원작 화면 자리 69.7 → 99.2%,
++뒤로 미끄러짐 24.0 → 1.1%, 빗나간 사이 그림 걷기 머묾 118 → 99(1,347 → 1,062 출력), 걷기→걷기 사이 그림 박자 같음.
++내가 계속 걷는 8판: 뒤로 미끄러짐 21.5 → 1.2%, 빗나간 머묾 56 → 39. ASan 6판(흔든 입력) 깨끗.
++
++diff --git a/src/libretro.c b/src/libretro.c
++index dfbdf1d..d4a1a5a 100644
++--- a/src/libretro.c
+++++ b/src/libretro.c
++@@ -755,15 +755,43 @@ static int fg_no_next = 0;                       /* 60Hz 사이 그림 — τ=D
++    「상대방 말야」·「ㅈㄴ 미끄러지는데」). 사이 그림(다리 포즈)·배경·카메라·다른 동작은 그대로 120Hz.
++    1 = 상대 몸(1)만(유저 「난 되는데 상대방만」) · 2 = 두 몸 · 0 = 끔. 호스트 시험은 환경 변수 SS2_WALKSTEP */
++ static int walkstep_mode = 1;
++-static int fg_walkstep(const ss2fg_frame *a, const ss2fg_frame *b, int p)
+++/* zzzzzz_fg_walkstep2: 165 는 디딤 사이 장에 «카메라 몫»만큼 몸을 매끄럽게 옮겼다(땅에 붙임). 카메라가 움직이면(나와 상대가 같이 움직일 때 —
+++   봇 판 상대 걷기의 절반) 걷는 몸이 화면에서 뒤로 스르륵 갔다가 앞으로 툭 — 문워크처럼 보였다(유저 10-19 「나랑 적이 같이 움직일 때만 안 되는 거냐」).
+++   원작은 몸 자리를 2 프레임에 한 번 «화면에서» 툭툭 옮긴다(걸음 사이 4 프레임 쉼에 카메라만큼 뒤로 1px 도 툭). 이제 걷는 동안은 화면 자리를
+++   원작 그대로(사이 장에 안 옮김) — 걸음 사이 쉬는 프레임도. 배경·카메라·다리 사이 그림·내 몸은 그대로 120Hz */
+++static unsigned fg_last_walk[2];                 /* 걷기 자세로 세계 x 가 마지막으로 바뀐 실제 프레임(0 = 없음) */
+++static int fg_walkpose(const ss2fg_frame *f, int p)
++ {
++-   int dw;
+++   return f && f->valid && f->fight && f->body_ok && (f->st[p] & 0xE0) == 0x20 && f->ct[p] == 0;   /* 서서 조작 가능(걷기) — 대시·맞음·가드 밀림은 아님 */
+++}
+++static void fg_walk_note(const ss2fg_frame *fp, const ss2fg_frame *f0)
+++{
+++   int p, dw;
+++   for (p = 0; p < 2; p++)
+++   {
+++      if (!fg_walkpose(fp, p) || !fg_walkpose(f0, p) || fp->ob_y[p] != f0->ob_y[p]) continue;
+++      dw = (int8_t)(uint8_t)(f0->wx[p] - fp->wx[p]);
+++      if (dw && dw >= -8 && dw <= 8) fg_last_walk[p] = fg_realn;
+++   }
+++}
+++/* 걷는 중 — 지금 걷기 자세이고 세계 x 가 6 프레임 안에 바뀌었거나(걸음 사이 쉼 4 프레임) 미리 돌린 프레임에서 바뀐다 */
+++static int fg_walkstep(const ss2fg_frame *const *fk, int p)
+++{
+++   const ss2fg_frame *a = fk[0];
+++   int k, rel;
++    if (!walkstep_mode || (walkstep_mode == 1 && p != 1)) return 0;
++-   if (!a || !b || !a->fight || !a->body_ok || !b->body_ok) return 0;
++-   if ((a->st[p] & 0xE0) != 0x20 || a->ct[p] != 0 || (b->st[p] & 0xE0) != 0x20 || b->ct[p] != 0) return 0;   /* 서서 조작 가능(걷기) — 대시·맞음·가드 밀림은 아님 */
++-   if (a->ob_y[p] != b->ob_y[p]) return 0;
++-   dw = (int8_t)(uint8_t)(b->wx[p] - a->wx[p]);
++-   return dw != 0 && dw >= -8 && dw <= 8;
+++   if (!fg_walkpose(a, p)) return 0;
+++   rel = (int)(fg_realn - fg_last_walk[p]);
+++   if (fg_last_walk[p] && rel >= 0 && rel <= 6) return 1;
+++   for (k = 1; k <= 4; k++)
+++   {
+++      const ss2fg_frame *b = fk[k];
+++      int dw;
+++      if (!fg_walkpose(b, p) || b->ob_y[p] != a->ob_y[p]) break;
+++      dw = (int8_t)(uint8_t)(b->wx[p] - a->wx[p]);
+++      if (dw && dw >= -8 && dw <= 8) return 1;
+++   }
+++   return 0;
++ }
++ /* 서기 사이 그림(코어 패치 100) — 켜면 화면을 4배(640×608)로 내보낸다. idle_out_slot = 이번 출력의 사이 그림 칸(0 τD · 1 τD+½ · -1 없음) */
++ static int idle_opt = 0, idle_out_slot = -1;
++@@ -943,6 +971,7 @@ static int fg_predict4(int ra)
++    if (mp0 & 1) fg_last_spr = fg_realn;
++    if (mp0 & 2) fg_last_scr = fg_realn;
++    for (p = 0; p < 2; p++) if (body_pos_differs(fp, f0, p)) fg_last_body[p] = fg_realn;
+++   fg_walk_note(fp, f0);                               /* zzzzzz_fg_walkstep2 */
++    m01 = ss2fg_motion(f0, f1);
++    m12 = ss2fg_motion(f1, f2);
++    (void)k;
++@@ -1004,12 +1033,10 @@ static int fg_predict4(int ra)
++       if (Lp > 0) continue;                               /* 미끄러짐이 아직 시작 전(쉬던 몸이 D+3 이후에 움직임) — 지금은 제자리 */
++       dx = (int8_t)(uint8_t)(fk[Kp]->ob_x[p] - f0->ob_x[p]);
++       dy = (int8_t)(uint8_t)(fk[Kp]->ob_y[p] - f0->ob_y[p]);
++-      if (fg_walkstep(f0, fk[Kp], p) && dx <= 24 && dx >= -24)
++-      {  /* zzzzzz_fg_walkstep: 화면 옮김 dx = 세계 옮김 dw − 카메라 옮김 → 사이 장은 카메라 몫(dx − dw)만 t 만큼, 세계 몫은 Kp 프레임에 한 번에 */
++-         int dw = (int8_t)(uint8_t)(fk[Kp]->wx[p] - f0->wx[p]), cxm = dx - dw;
+++      if (fg_walkstep(fk, p) && dy == 0 && dx <= 24 && dx >= -24)
+++      {  /* zzzzzz_fg_walkstep2: 걷는 몸은 화면 자리도 원작 그대로 — 사이 장엔 옮기지 않고 게임이 옮길 때 툭(카메라 몫도) */
++          ov[p] = 1; ws[p] = 1;
++-         ovx0[p] = cxm * fg_tpos(Kp, Lp, 0); ovy0[p] = 0;
++-         ovx1[p] = cxm * fg_tpos(Kp, Lp, 1); ovy1[p] = 0;
+++         ovx0[p] = ovy0[p] = ovx1[p] = ovy1[p] = 0;
++          continue;
++       }
++       if (Kp == Ks && Lp == Ls) continue;                 /* 전체 박자와 같으면 하던 대로 */
++diff --git a/src/ss2fg.c b/src/ss2fg.c
++index 48eda0d..438481d 100644
++--- a/src/ss2fg.c
+++++ b/src/ss2fg.c
++@@ -1501,6 +1501,7 @@ typedef struct {
++    unsigned start, at;            /* 머무는 포즈 시작 · 뒤 포즈가 처음 나온 프레임(실제 프레임 번호) */
++    int ax, ay;
++    uint8_t ch, lwx;               /* 캐릭터 · 미리 본 마지막 세계 x(걷는 몸) */
+++   unsigned brk;                  /* zzzzzz_fg_walkstep2 ②: 걷는 몸 미리 보기에서 걷기가 끊긴 프레임(0 = 아직) — 다음이 걸음 포즈가 아니다 */
++    ss2fg_frame fk;                /* 뒤 포즈가 나온 캡처 */
++ } pb_w_t;
++ static struct {                   /* 99v: 멀리 미리 보기 */
++@@ -2204,6 +2205,13 @@ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_fra
++          에서 120 이 제대로 안 되는 듯」: 미리보기·소개는 처음 보는 포즈가 많다). 그럴 땐 순환이 아닌 바뀜처럼 바뀌기 직전 2 프레임에 ¼·½·¾ */
++       if (loop && K && !seen34 && (id_sp_at[p] != id_start[p] + 1u || id_sp_b[p] != sb))
++          loop = 0;
+++      /* zzzzzz_fg_walkstep2 ②: 걷는 몸의 멀리 미리 보기가 이 머묾을 보는 중인데, 순환(배운 것·캐시 표)이 말한 바뀔 때를 2 프레임 넘게 지나도록
+++         미리 본 프레임에서 안 바뀜 — 한 포즈를 붙잡은 채 미끄러져 오는 걸음(나코루루가 한 포즈로 47 프레임 다가옴 등). 순환대로 다음 걸음 포즈로 펴면
+++         다리가 ½ 까지 갔다가 앞 포즈로 툭 돌아왔다(봇 20판 상대 걷기 머묾의 9%). 미리 돌린 D+1·D+2 에 바뀜이 보이면 위(K)대로.
+++         상대 몸(1)만 — 내 몸은 유저 「난 되는데」 그대로(내 입력이 바뀌면 미리 본 걸음이 실제와 달라 맞는 사이 그림을 잃을 수 있다) */
+++      if (loop && p == 1 && f0->fight && !K && !seen34 && !pb.w[p].found && pb.w[p].walk && pb.w[p].from == id_cur[p] && pb.w[p].start == id_start[p]
+++          && (pb.w[p].on ? pb.pos >= id_start[p] + hold + 2u : pb.w[p].brk != 0))
+++         loop = 0;   /* 미리 본 걸음이 끊겼으면(공격·서기·가드로 넘어감 — 상대 걷기 머묾 빗나감의 대부분) 다음 포즈는 걸음 포즈가 아니다 */
++       if (!K && !loop) return 0;
++       if (loop)
++       {
++@@ -2298,10 +2306,10 @@ static void probe_check(const ss2fg_frame *f)
++       uint8_t mm[64];
++       uint64_t s;
++       if (!w->on) continue;
++-      if (!f->valid || f->mono || !f->body_ok || !body_mask(f, p, mm)) { w->on = 0; continue; }      /* 몸이 없어짐 */
+++      if (!f->valid || f->mono || !f->body_ok || !body_mask(f, p, mm)) { w->on = 0; if (w->walk) w->brk = pb.pos; continue; }      /* 몸이 없어짐 */
++       if (w->walk)
++       {  /* zzz_fg_walk: 걷는 몸 — 자리는 가도 되지만 땅·선 자세·조작 가능·같은 캐릭터, 세계 x 는 한 프레임 4 안 */
++-         if (f->ob_y[p] != w->ay || f->ch[p] != w->ch || !walk_ok(f, p) || wx_step(w->lwx, f->wx[p]) > 4) { w->on = 0; continue; }
+++         if (f->ob_y[p] != w->ay || f->ch[p] != w->ch || !walk_ok(f, p) || wx_step(w->lwx, f->wx[p]) > 4) { w->on = 0; w->brk = pb.pos; continue; }
++          w->lwx = f->wx[p];
++       }
++       else if (f->ob_x[p] != w->ax || f->ob_y[p] != w->ay || f->ch[p] != w->ch) { w->on = 0; continue; }   /* 움직이기 시작·캐릭터 바뀜 */
++@@ -2381,7 +2389,7 @@ int ss2fg_probe_want(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_f
++          pb_w_t *w = &pb.w[p];
++          w->walk = walk; w->lwx = walk ? f2->wx[p] : 0;
++          w->from = id_cur[p]; w->start = id_start[p]; w->ax = id_ax[p]; w->ay = id_ay[p]; w->ch = f0->ch[p];
++-         w->on = 1; w->found = 0;
+++         w->on = 1; w->found = 0; w->brk = 0;
++       }
++       pb.done_from[p] = id_cur[p]; pb.done_start[p] = id_start[p];
++       any = 1;
++@@ -3797,7 +3805,8 @@ int ss2fg_render2(const ss2fg_frame *base, const ss2fg_frame *to_spr, int t_spr,
++             if (!(ld16(base->spr + k4 * 4) & 0x1800)) continue;
++             sx = (int8_t)(uint8_t)(base->ax[k4] + base->line[0].spx - base->ob_x[p4]);
++             sy = (int8_t)(uint8_t)(base->ay[k4] + base->line[0].spy - base->ob_y[p4]);
++-            if (sx < -40 || sx > 40 || sy < -8 || sy > 12) continue;
+++            /* zzzzzz_fg_walkstep2: 걷는 동안 몸을 사이 장에 안 옮기니 몸과 같이 가는 «붙은» 조각(무기·소매 등 몸 팔레트 밖)도 몸 높이 전체에서 */
+++            if (sx < -48 || sx > 48 || sy < -96 || sy > 12) continue;
++             if (base->ob_act & (1u << (1 - p4)))
++             {
++                int so = (int8_t)(uint8_t)(base->ax[k4] + base->line[0].spx - base->ob_x[1 - p4]);
+diff --git a/tools/core_patches/zzzzzzz_fg_dashstep.patch b/tools/core_patches/zzzzzzz_fg_dashstep.patch
+new file mode 100644
+index 0000000..5b796d2
+--- /dev/null
++++ b/tools/core_patches/zzzzzzz_fg_dashstep.patch
+@@ -0,0 +1,25 @@
++앱 방 코어 패치 zzzzzzz_fg_dashstep — 상대 대시도 화면 자리를 원작 그대로(유저 10-19 「나에게 다가올 때 문제인데」·「나코루루 시키 등」).
++164~166 은 걷기(서서 조작 가능, ct 0)만 다뤘다. 그런데 상대가 «다가올 때»의 큰 몫은 대시(ct 4)였다 — 봇·걷기 24판에서 상대가 나를 향해 간 거리의 25~35%,
++대시 거리의 72~87% 가 한 포즈로 6 프레임에 30px 를 간다(시키 78% · 나코루루 76% · 겐쥬로 77% · 우쿄 86% · 주베이 87%).
++원작은 2 프레임마다 6~8px 씩 툭툭인데, 120Hz 로 매끄럽게 옮기면 한 포즈가 얼음 위를 미끄러져 다가왔다 — 지금까지 한 번도 안 고쳐진 «미끄러져 다가옴».
++이제 대시(ct 4·6, 땅)도 걷기(zzzzzz_fg_walkstep2)와 같이 사이 장에 옮기지 않아 화면 자리가 원작 그대로. 상대 몸만 — 내 몸은 그대로.
++호스트(16차 캐시): 봇 20판 166 ↔ 이것 — 내 몸 줄 96,000 중 다름 0, 상대 다른 줄 1,553 모두 걷기·대시 중. 상대 대시 출력의 매끄러운 미끄러짐 43.7 → 0.4%
++(다가오기 24판 49.7 → 0.2%), 걷기는 같음. 시키 대시(fight_16): 166 은 1.5~2px 씩 매끄럽게 31px, 이것은 원작처럼 2 프레임마다 6~8px. ASan 3판(흔든 입력) 깨끗.
++
++diff --git a/src/libretro.c b/src/libretro.c
++index d4a1a5a..6624793 100644
++--- a/src/libretro.c
+++++ b/src/libretro.c
++@@ -762,7 +762,11 @@ static int walkstep_mode = 1;
++ static unsigned fg_last_walk[2];                 /* 걷기 자세로 세계 x 가 마지막으로 바뀐 실제 프레임(0 = 없음) */
++ static int fg_walkpose(const ss2fg_frame *f, int p)
++ {
++-   return f && f->valid && f->fight && f->body_ok && (f->st[p] & 0xE0) == 0x20 && f->ct[p] == 0;   /* 서서 조작 가능(걷기) — 대시·맞음·가드 밀림은 아님 */
+++   /* 서서 조작 가능(걷기, ct 0) · 대시(ct 4·6) — 맞음·가드 밀림·공격은 아님.
+++      zzzzzzz_fg_dashstep: 대시도 — 상대가 «다가올 때»(유저 10-19 「나에게 다가올 때 문제」·「나코루루 시키 등」) 의 큰 몫은 걷기가 아니라 대시였다
+++      (봇·걷기 24판 상대가 나를 향해 간 거리의 25~35%, 대시 거리의 72~87% 가 한 포즈로 6 프레임에 30px 를 감). 원작은 2 프레임마다 8px 씩 툭툭인데
+++      120Hz 로 매끄럽게 옮기면 한 포즈가 얼음 위를 미끄러져 다가왔다. 걷기와 같이 화면 자리를 원작 그대로 */
+++   return f && f->valid && f->fight && f->body_ok && (f->st[p] & 0xE0) == 0x20 && (f->ct[p] == 0 || f->ct[p] == 4 || f->ct[p] == 6);
++ }
++ static void fg_walk_note(const ss2fg_frame *fp, const ss2fg_frame *f0)
++ {
+diff --git a/tools/core_patches/zzzzzzzz_fg_glide.patch b/tools/core_patches/zzzzzzzz_fg_glide.patch
+new file mode 100644
+index 0000000..3bcea6d
+--- /dev/null
++++ b/tools/core_patches/zzzzzzzz_fg_glide.patch
+@@ -0,0 +1,137 @@
++앱 방 코어 패치 zzzzzzzz_fg_glide — 한 포즈 걸음 그림(유저 10-19 「다시 그리는 방법이 있나」·「어떻게 덜 어색하게 하는 방법이라도」).
++사무쇼2 는 많은 캐릭터가 걸을 때 다리 그림이 아예 없다 — 서기 자세 한 장이 그대로 땅 위를 밀려간다(봇 35판: 한 번에 리무루루 87px · 샬럿 72 ·
++겐쥬로 60 · 나코루루 53 · 주베이 47). 158~167 의 위치·박자 고침으로는 안 없어지는 «미끄러져 다가옴»의 뿌리.
++캐시에 «같은 포즈 → 같은 포즈»(P, P) 항목(그 포즈의 다리 세 장)이 있으면, 몸이 그 포즈로 땅 위(서서 조작 가능·대시)를 간 거리로 돌려 그린다:
++8px 마다 ① → ② → ③ → ④ → ①(첫 바꿈은 4px), 상대에게서 멀어지면 거꾸로. 멈추고 6 프레임 뒤 ①. 곧 다른 포즈가 보이면 하던 대로 바뀜 사이 그림.
++(P, P) 는 옛 코어가 찾지 않아 팩에 넣어도 옛 판엔 영향 없음. 그림은 지금 자동 다리(허리 아래만 기울여 내딛고 끌어옴, 17차 팩) → GPT 손 그림이 오면 바꿈.
++호스트: 16차(자기 쌍 없음) 10판 출력 해시 167 과 같음. 임시 그림 8판: 걸음 장 ①②③ 이 거리대로, 움직이지 않을 때·공중·다른 포즈에 나온 것 0. ASan 4판 깨끗.
++
++diff --git a/src/libretro.c b/src/libretro.c
++index 6624793..e07772d 100644
++--- a/src/libretro.c
+++++ b/src/libretro.c
++@@ -1395,6 +1395,7 @@ void retro_init(void)
++    struct retro_log_callback log;
++    char *dir = NULL;
++    if (getenv("SS2_WALKSTEP")) walkstep_mode = atoi(getenv("SS2_WALKSTEP"));   /* zzzzzz_fg_walkstep: 호스트 시험용 */
+++   if (getenv("SS2_GLIDE")) ss2fg_set_glide(atoi(getenv("SS2_GLIDE")));       /* zzzzzzzz_fg_glide: 호스트 시험용 */
++ 
++    {  /* 링크 케이블 — 여기서 잡아 둔다. 한 프로세스에 코어 두 벌을 올리는 하네스가
++          인스턴스마다 다른 파이프를 주려면, 각자 초기화하는 그 순간의 환경변수를 봐야 한다. */
++diff --git a/src/ss2fg.c b/src/ss2fg.c
++index 438481d..b6e8251 100644
++--- a/src/ss2fg.c
+++++ b/src/ss2fg.c
++@@ -2285,6 +2285,77 @@ static int mc_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_fra
++    return 1;
++ }
++ 
+++/* zzzzzzzz_fg_glide: 한 포즈 걸음 그림 — 사무쇼2 는 걷기·뒷걸음·대시의 상당수가 «포즈 하나로 땅을 감»이다(서기 자세 그대로 다가옴:
+++   샬럿 72px · 리무루루 87px · 나코루루 53px 등, 대시는 거의 모두 한 포즈로 22px — 봇 35판). 120Hz 로 몸을 옮기든 원작처럼 디디든
+++   다리가 안 움직여 미끄러져 다가온다(유저 10-19 「나에게 다가올 때 문제」·「나코루루 시키 등」·「다시 그리는 방법이 있나」).
+++   캐시에 «같은 포즈 → 같은 포즈»(P, P) 항목이 있으면 그 세 장(새로 그린 걸음 그림)을 간 거리로 돌려 그린다:
+++   P → ① → ② → ③ → P … 한 장에 GL_STEP px. 포즈가 바뀔 게 보이면(미리 돌린 D+1·D+2) 바뀜 사이 그림(mc_plan)에 맡긴다.
+++   세 장은 «앞으로(상대 쪽으로) 걷는» 차례로 그린다 — 상대에게서 멀어지면(뒷걸음) 거꾸로(P → ③ → ② → ① …) 돌려 뒤로 걷게.
+++   첫 걸음은 반 장(GL_STEP/2) 만에 — 짧게 다가와도(샬럿 한 번에 15px 등) 다리가 한 번은 움직이게.
+++   (P, P) 항목이 없으면 아무 일도 안 한다 */
+++#define GL_STEP 8
+++static int      gl_mode = 1;                 /* 0 끔 · 1 켬(호스트 시험 SS2_GLIDE) */
+++static uint64_t gl_sig[2];                   /* 거리를 재는 포즈 */
+++static int      gl_dist[2];                  /* 그 포즈로 땅 위에서 간 거리(px) — 상대 쪽 +, 멀어지는 쪽 − */
+++static unsigned gl_mv[2];                    /* 마지막으로 움직인 실제 프레임 */
+++static uint8_t  gl_wx[2], gl_ct[2];
+++static int      gl_stats[4];                 /* 장마다 그린 수(0 = 원래 포즈) */
+++void ss2fg_set_glide(int m) { gl_mode = m; }
+++void ss2fg_glide_stats(int *o4) { int i; for (i = 0; i < 4; i++) o4[i] = gl_stats[i]; }
+++static int gl_ctok(uint8_t ct) { return ct == 0 || ct == 4 || ct == 6; }
+++static void gl_observe(const ss2fg_frame *f, int p, uint64_t sg, unsigned realn)
+++{
+++   int d;
+++   if (!sg || !f->fight || (f->st[p] & 0xE0) != 0x20 || !gl_ctok(f->ct[p]) || sg != gl_sig[p] || f->ct[p] != gl_ct[p])
+++   { gl_sig[p] = sg; gl_ct[p] = f->ct[p]; gl_dist[p] = 0; gl_mv[p] = 0; gl_wx[p] = f->wx[p]; return; }
+++   d = (int8_t)(uint8_t)(f->wx[p] - gl_wx[p]);
+++   if (d && d >= -12 && d <= 12)
+++   {
+++      int to = (int8_t)(uint8_t)(f->wx[1 - p] - f->wx[p]);    /* 상대가 있는 쪽 */
+++      gl_dist[p] += (to && (d > 0) != (to > 0)) ? -(d < 0 ? -d : d) : (d < 0 ? -d : d);
+++      gl_mv[p] = realn;
+++   }
+++   gl_wx[p] = f->wx[p];
+++}
+++/* 반환: 1 = 걸음 그림을 계획함 · -1 = 걷는 중이지만 이번 장은 원래 포즈(다른 사이 그림도 안 씀) · 0 = 해당 없음 */
+++static int gl_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_frame *f2, unsigned realn, int slot, int p)
+++{
+++   uint8_t mm[64];
+++   int k, ph, moving = 0, ax0, ay0;
+++   mc_ent *e;
+++   id_pose *A;
+++   id_req_t *rq = &id_rq[slot][p];
+++   if (!gl_mode || !mc_on || !mc_f || !id_cur[p] || !f0->fight || f0->pick || gl_sig[p] != id_cur[p]) return 0;
+++   if ((f0->st[p] & 0xE0) != 0x20 || !gl_ctok(f0->ct[p]) || f0->ct[p] != gl_ct[p]) return 0;
+++   if (!mc_has(id_cur[p], id_cur[p])) return 0;
+++   for (k = 1; k <= 2; k++)
+++   {
+++      const ss2fg_frame *g = k == 1 ? f1 : f2;
+++      if (!g || !g->valid || g->mono || !g->body_ok || !body_mask(g, p, mm)) break;
+++      if (body_sig(g, mm) != id_cur[p]) return 0;             /* 곧 다른 포즈 — 바뀜 사이 그림으로 */
+++      if (g->wx[p] != f0->wx[p] && (g->st[p] & 0xE0) == 0x20) moving = 1;
+++   }
+++   if (gl_mv[p] && realn - gl_mv[p] <= 6u) moving = 1;      /* 걸음 사이 쉼(4 프레임)도 걷는 중 */
+++   if (!moving) return 0;
+++   {
+++      int q = gl_dist[p] + GL_STEP / 2;
+++      ph = (q >= 0 ? q / GL_STEP : -((-q + GL_STEP - 1) / GL_STEP)) & 3;   /* 내림 나눗셈 — 뒷걸음은 ③ ② ① */
+++   }
+++   if (!ph) { if (slot == 0) gl_stats[0]++; return -1; }
+++   if (!(e = mc_get(id_cur[p], id_cur[p]))) return 0;
+++   A = id_find_pose(p, id_cur[p]);
+++   if (!A || A->w != e->aw || A->h != e->ah || A->w != e->bw || A->h != e->bh || e->bdx || e->bdy) { mc_stats[3]++; return 0; }
+++   if (!mc_top_left(f0, p, &ax0, &ay0)) { ax0 = A->ox; ay0 = A->oy; }
+++   rq->on = 1; rq->kind = 1; rq->pr = 0; rq->t256 = 64 * ph;
+++   rq->e = e; rq->ti = ph - 1; rq->A = A; rq->B = A;
+++   rq->gx = ax0 + e->cx; rq->gy = ay0 + e->cy; rq->sx4 = rq->sy4 = 0;
+++   rq->ax = f0->ob_x[p]; rq->ay = f0->ob_y[p];
+++   rq->gw = e->w; rq->gh = e->h;
+++   rq->depth = A->depth; rq->first = A->first;
+++   if (slot == 0) gl_stats[ph]++;
+++   return 1;
+++}
+++
++ /* 99v: 멀리 미리 보기 */
++ static void probe_stop(void) { pb.run = 0; pb.w[0].on = pb.w[0].found = pb.w[1].on = pb.w[1].found = 0; }
++ static void probe_clear(void) { probe_stop(); pb.done_from[0] = pb.done_from[1] = 0; }
++@@ -2519,8 +2590,9 @@ void ss2fg_idle_observe(const ss2fg_frame *f, unsigned realn)
++       uint64_t sg;
++       int ax, ay;
++       int sw, chg = 0;
++-      if (!body_mask(f, p, m)) { id_cur[p] = id_prev[p] = 0; continue; }
+++      if (!body_mask(f, p, m)) { id_cur[p] = id_prev[p] = 0; gl_sig[p] = 0; continue; }
++       sg = body_sig(f, m);
+++      gl_observe(f, p, sg, realn);                       /* zzzzzzzz_fg_glide */
++       ax = f->ob_x[p]; ay = f->ob_y[p];
++       if (!id_find_pose(p, sg)) id_capture(f, p, m, sg);
++       else id_realign(f, p, sg);
++@@ -2767,7 +2839,9 @@ int ss2fg_idle_plan(const ss2fg_frame *f0, const ss2fg_frame *f1, const ss2fg_fr
++    if (!id_on || !f0 || !f0->body_ok) { fx_reset_slot(slot); return 0; }
++    for (p = 0; p < 2; p++)
++    {
++-      if (id_plan_learned(f0, f1, f2, realn, h, slot, p) || mc_plan(f0, f1, f2, realn, h, slot, p)) any = 1;
+++      int g = gl_plan(f0, f1, f2, realn, slot, p);       /* zzzzzzzz_fg_glide: 한 포즈로 땅을 가는 몸의 걸음 그림 */
+++      if (g > 0) any = 1;
+++      else if (!g && (id_plan_learned(f0, f1, f2, realn, h, slot, p) || mc_plan(f0, f1, f2, realn, h, slot, p))) any = 1;
++    }
++    if (fx_plan(f0, f1, f2, realn, h, slot)) any = 1;   /* 99w */
++    return any;
++diff --git a/src/ss2fg.h b/src/ss2fg.h
++index 7ee530c..cc82b78 100644
++--- a/src/ss2fg.h
+++++ b/src/ss2fg.h
++@@ -145,6 +145,8 @@ int  ss2fg_motion_open(const char *path);
++ void ss2fg_motion_close(void);
++ int  ss2fg_motion_count(void);
++ void ss2fg_set_motion(int on);
+++void ss2fg_set_glide(int m);              /* zzzzzzzz_fg_glide: 한 포즈 걸음 그림 0 끔 · 1 켬 */
+++void ss2fg_glide_stats(int *o4);
++ void ss2fg_motion_stats(int *out4);
++ 
++ int ss2fg_render2(const ss2fg_frame *base, const ss2fg_frame *to_spr, int t_spr,

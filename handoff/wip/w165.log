@@ -1,1 +1,12 @@
+d26ea11 내부 169: 결판이 옛 카드로 가던 길 고침(그림이 늦으면 걸쇠에서 기다림·한 번 다시 그려 열기·글꼴 미리 읽기) · 이름표 꺼지면 다시 걺 · 순위표 무쌍 «MR»·구분선·빈 구간 줄 · 까닭은 logcat 에만 — 다른 세션의 164~168 위
+d5ac6c8 Merge commit 'dee71a2' into w165-ship
+48c90b4 165 고침: 덧판 못 쓴 까닭은 logcat 에만 — 시험판도 디버그 판이라 토스트가 유저에게 보이던 것
+dee71a2 내부 168: 동봉 사무쇼2 코어 = ci-core e4c657d (1cb33c9 + 패치 10~99zc + zz_* + zzz_fg_phase·skipdraw·walk·walk2 + zzzz_fg_posebuild + zzzzz_fg_landing·walk3 + zzzzzz_fg_walkstep·walkstep2 + zzzzzzz_fg_dashstep + zzzzzzzz_fg_glide)
+e4c657d 한 포즈 걸음 그림: 서기 자세 한 장으로 미끄러지는 걷기에 캐시의 (P, P) 다리 세 장을 간 거리로 돌려 그림 — 8px 마다 ①②③④, 뒷걸음은 거꾸로 (코어 zzzzzzzz_fg_glide)
 df1f509 내부 165: 결판이 옛 카드로 가던 길 고침(그림이 늦으면 걸쇠에서 기다림 · 한 번 다시 그려 열기) · 덧판 못 쓴 까닭 남김(logcat · 디버그 토스트) · 이름표 살핌 · 순위표 무쌍 «MR» 표시
+6c1c52d 내부 167: 동봉 사무쇼2 코어 = ci-core c1a889f (1cb33c9 + 패치 10~99zc + zz_* + zzz_fg_phase·skipdraw·walk·walk2 + zzzz_fg_posebuild + zzzzz_fg_landing·walk3 + zzzzzz_fg_walkstep·walkstep2 + zzzzzzz_fg_dashstep)
+c1a889f 상대가 다가올 때 미끄러짐: 상대 대시(한 포즈로 6 프레임에 30px)도 걷기처럼 화면 자리를 원작 그대로 (코어 zzzzzzz_fg_dashstep)
+a5147bd 내부 166: 동봉 사무쇼2 코어 = ci-core d24cc76 (1cb33c9 + 패치 10~99zc + zz_* + zzz_fg_phase·skipdraw·walk·walk2 + zzzz_fg_posebuild + zzzzz_fg_landing·walk3 + zzzzzz_fg_walkstep·walkstep2)
+d24cc76 상대 걷기: 카메라가 움직일 때(나와 같이 움직일 때) 걷는 상대가 뒤로 스르륵 가던 문워크 — 걷는 동안 화면 자리는 원작 그대로 + 빗나간 순환 사이 그림 줄임 (코어 zzzzzz_fg_walkstep2)
+e1c7f48 내부 165: 동봉 사무쇼2 코어 = ci-core f9e935d (1cb33c9 + 패치 10~99zc + zz_* + zzz_fg_phase·skipdraw·walk·walk2 + zzzz_fg_posebuild + zzzzz_fg_landing·walk3 + zzzzzz_fg_walkstep)
+f9e935d 상대 걷기 미끄러짐: 걷는 상대 몸은 원작처럼 디딤 — 세계 자리는 게임이 옮길 때만, 사이 장은 카메라만 따라감 + 발밑 그림자도 같이 (코어 zzzzzz_fg_walkstep)
