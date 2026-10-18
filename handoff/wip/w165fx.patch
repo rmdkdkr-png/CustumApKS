@@ -1634,3 +1634,391 @@ index 5c852a8..5099154 100644
 +int  vpanel_on(void);                           /* 이름 칸이나 아이콘을 빌리고 있나 */
 +int  vpanel_icon_pal(void);                     /* 아이콘이 빌린 둘째 판 팔레트(−1 없음) — 시험·상태 */
  int  vpanel_menu_kind(void);                    /* 타이틀 메뉴가 떠 있나 — 1 한글판 · 2 순정판 · 0 아님 */
+diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
+index d92e45d..280e29a 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Emu.java
++++ b/app/src/main/java/com/dudu/pocketcore/Emu.java
+@@ -77,11 +77,11 @@ public final class Emu {
+     /* 153 랭크 «내 캐릭터 한 번만»·VS 띠(league.c · vsband.c) — 옛 native 엔 없다: 부르는 쪽이 UnsatisfiedLinkError 를 받아 152 흐름(매 판 직접 고르기·띠 없음)으로.
+        league_hub_status(15칸)는 늘리지 않는다 — 고정 크기로 받는 곳이 있어 상태는 따로 */
+     public static final int AUTO_TAIL = 2, AUTO_FF = 4;
+-    /** 내 캐릭터 대신 고르기 — cell 0~13 · 15 가운데 무작위 칸, sty 0 수라 · 1 나찰, b2p 2P색, k −1..3 카드 칸.
++    /** 내 캐릭터 대신 고르기 — cell 0~13 · 15 가운데 무작위 칸, sty 0 수라 · 1 나찰, b2p 안 씀(165 — 옛 2P색 자리, 늘 false), k −1..3 카드 칸.
+      *  flags AUTO_TAIL = 직접 고르는 판(이야기부터 자동 · 고른 것은 nativeHubMyPick) · AUTO_FF = 자동 단계 1~5 동안 4배속·소리 끔.
+      *  다음 go(hub_go_fixed)부터. on false 이고 TAIL 아니면 예전처럼 손으로 */
+     public static native boolean nativeHubAutoPick(boolean on, int cell, int sty, boolean b2p, int k1, int k2, int flags);
+-    /** [있음, 칸, 캐릭터, 검질, 2P색, 카드 1, 2, 컬러 0~17] — 직접 고른 판의 이야기가 시작되면 있음(무작위 칸은 1라운드에 뽑힌 캐릭터로 다시) */
++    /** [있음, 칸, 캐릭터, 검질, 늘 0(옛 2P색), 카드 1, 2, 컬러 0·2~17] — 직접 고른 판의 이야기가 시작되면 있음(무작위 칸은 1라운드에 뽑힌 캐릭터로 다시) */
+     public static native int[] nativeHubMyPick();
+     /** [단계 0 꺼짐·1 부팅·2 캐릭터·3 검질·4 카드·5 이야기·6 무대 인트로(겹창을 내릴 때)·7 라운드·8 막힘, go 뒤 프레임, go→인트로, go→라운드, 막힌 단계].
+      *  돌려보내기(nativeLeagueHubReturn)가 코어에 닿기 전(허브 상태 v[8] 가 늘기 전)엔 지난 판 값 */
+@@ -108,19 +108,22 @@ public final class Emu {
+     /** 연습 대전 프레임 미터 — cells[160](나 80칸 · 상대 80칸) · sum[40](practice.h PRACTICE_FD_NSUM). 돌려줌: 바뀔 때마다 오르는 판 번호 */
+     public static native int nativePracticeFrames(byte[] cells, int[] sum);
+ 
+-    /* 모든 모드 컬러(look.c) — 사무쇼2 확인한 판에서 캐릭터·검질 고르기 OPTION = 다음 컬러(길게 = 만들기 요청) · B = 2P색으로 결정.
+-       번호 0 기본 · 1 2P색 · 2~15 프리셋 · 16·17 내 색 1·2(Look.NAMES). 기억 칸 16개 = 캐릭터 0~13 · 14 안 씀 · 15 무작위 칸 */
++    /* 모든 모드 컬러(look.c) — 사무쇼2 확인한 판에서 캐릭터·검질 고르기 OPTION = 다음 컬러(길게 = 만들기 요청) · A+B = 베기 색 다음 것 · A·B = 결정(보통 색).
++       번호 0 기본 · 1 (옛 2P색 — 안 고름, 옛 기록 이름용) · 2~15 프리셋 · 16·17 내 색 1·2(Look.NAMES). 기억 칸 16개 = 캐릭터 0~13 · 14 안 씀 · 15 무작위 칸 */
+     public static native void   nativeLookEnable(boolean on);
+     public static native void   nativeLookSetMem(byte[] mem16);
+     public static native byte[] nativeLookGetMem();
+     /** 내 색 k(0·1) — 캐릭터마다, 두 검질 같이. c1 < 0 = 지움. 12비트 0x0BGR */
+     public static native void   nativeLookSetCustom(int ch, int k, int c1, int c2, int c3);
+-    /** 이 경기 컬러(리그 체크포인트 이어 하기) — −1·0 = 정하지 않음(고르기 화면에서 정함) */
++    /** 베기 색 0~6(Look.FX_NAMES — 하나로 기억). 경기 베기 색은 고르기 화면에서 이 값을 따라간다(165 — 옛 native 엔 없다) */
++    public static native void   nativeLookSetFx(int fx);
++    /** 이 경기 컬러(리그 체크포인트 이어 하기) — 2~17 만, 그 밖(−1·0·1) = 정하지 않음(고르기 화면에서 정함) */
+     public static native void   nativeLookSetMatch(int idx);
+     /** 컬러 만들기 창 — 고르기 화면 미리보기를 이 세 색으로(off = 끝). 열린 동안 게임 입력은 모두 막는다 */
+     public static native void   nativeLookEdit(boolean on, int c1, int c2, int c3);
+-    /** [켜짐, 고르기 화면을 쥠, 기억 바뀐 횟수, 보이는 컬러, 경기 컬러(−1), 경기 캐릭터(−1), 2P색 결정 중, 만들기 요청 횟수,
+-     *   검질 고르기 검질(−1 = 캐릭터 고르기), 경기 컬러 바뀐 횟수, 만드는 중, 프레임, 만들 캐릭터(−1 = 안 됨), 미리보기 검질] (look.h) */
++    /** [켜짐, 고르기 화면을 쥠, 기억 바뀐 횟수, 보이는 컬러, 경기 컬러(−1), 경기 캐릭터(−1), 늘 0(옛 2P색), 만들기 요청 횟수,
++     *   검질 고르기 검질(−1 = 캐릭터 고르기), 경기 컬러 바뀐 횟수, 만드는 중, 프레임, 만들 캐릭터(−1 = 안 됨), 미리보기 검질,
++     *   베기 색 0~6, A+B 로 바뀐 횟수, 결정 횟수, 경기 베기 색] (look.h — 165 부터 18칸, 옛 native 는 14칸) */
+     public static native int[]  nativeLookStatus();
+     /** 컬러 만들기 창의 시작 색 — 그 캐릭터·검질의 18색 × 세 색(없는 내 색 = 기본) */
+     public static native int[]  nativeLookTriples(int ch, int sty);
+diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+index f0fc579..e376c10 100644
+--- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+@@ -2278,7 +2278,7 @@ public class EmuActivity extends Activity {
+     /* 겹창 — Q_SEARCH = 허브 찾기(6)에서 go 를 기다림(로고·메뉴가 도는 동안 포함) · Q_RUN = go 보냄(−4 포함): 인트로(대신 고름)·고르기 화면(직접)을 기다림 */
+     private static final int Q_SEARCH = 1, Q_RUN = 2;
+     private static final long Q_FLASH = 500, Q_GO_LOST = 2500, Q_TAIL_MAX = 6000, Q_AUTO_HARD = 60000;   /* 자동이 6·8 어느 쪽에도 안 닿는 마지막 안전망 */
+-    private static final long Q_FLASH_TAIL = 1100;  /* 직접 고르는 판 — «상대 발견! · B 그만두기»를 읽을 틈(내려가면 B 는 게임의 2P색 고르기) */
++    private static final long Q_FLASH_TAIL = 1100;  /* 직접 고르는 판 — «상대 발견! · B 그만두기»를 읽을 틈(내려가면 B 는 고르기 화면의 결정 — 겹창 B 는 뗄 때까지 막음) */
+     private RankUi.Quick rankQ;
+     private RankUi.Quick rankQFading;               /* 내려가며 사라지는 겹창(160ms) — 그동안도 입력 0 · B = 그만(아직 «B 그만두기»가 보인다) */
+     private int rankQMode;
+@@ -2326,7 +2326,7 @@ public class EmuActivity extends Activity {
+         }
+         if (!natAuto || !loaded) { rankAuto = 0; return; }
+         League.Main mn = League.main();
+-        if (mn != null && autoPick(true, mn.cell, mn.sty, mn.b2p, mn.k1, mn.k2, Emu.AUTO_FF)) { rankAuto = 2; return; }
++        if (mn != null && autoPick(true, mn.cell, mn.sty, false, mn.k1, mn.k2, Emu.AUTO_FF)) { rankAuto = 2; return; }   /* 165: 2P색 없음(옛 b2p 는 무시) */
+         rankAuto = autoPick(false, 0, 0, false, -1, -1, Emu.AUTO_TAIL) ? 1 : 0;
+     }
+ 
+@@ -3531,11 +3531,11 @@ public class EmuActivity extends Activity {
+ 
+     /** 띠 안내 — 버튼만(허브 상태 7 내 캐릭터 먼저 · 2 상대 선택 · 3 내 캐릭터 확정 뒤 · 4 경기). 타이틀은 셋째 줄에 커서가 있을 때만(◀▶ 고르기), 그 밖·돌아가는 중엔 숨긴다.
+      *  버튼 이름은 패드 글자 그대로(A · B · OPTION) — 레퍼런스: 철권8 «[BACK]+[←] 벽을 등지고», KOF XV «왼쪽 = 화면 왼쪽 끝» 처럼 방향마다 결과를 적는다 */
+-    /** 내 캐릭터 쪽 버튼 안내 — 화면마다(캐릭터: B = 2P색으로 결정 · 검질: B 는 게임의 «뒤로» · 카드: 게임 그대로). 그 밖(이야기·라운드 연출)은 빈 줄/숨김 */
+-    private static String myPickKeys(int scr, boolean league) {
+-        if (!lookKeys && (scr == 2 || scr == 4)) return "A 결정";      /* 설정 «컬러 고르기» 끔 — OPTION·B 는 게임 그대로(아무 일 없음) */
+-        if (scr == 2) return "A 결정  ·  B 2P색  ·  OPTION 컬러";
+-        if (scr == 4) return "A 결정  ·  OPTION 컬러";
++    /** 내 캐릭터 쪽 버튼 안내 — 화면마다(캐릭터·검질: A 결정 · OPTION 몸 컬러 · A+B 베기 색 — B 도 결정(검질은 «뒤로»)이지만 안내엔 안 씀 · 카드: 게임 그대로).
++     *  그 밖(이야기·라운드 연출)은 빈 줄/숨김 */
++    static String myPickKeys(int scr, boolean league) {
++        if (!lookKeys && (scr == 2 || scr == 4)) return "A 결정";      /* 설정 «컬러 고르기» 끔 — OPTION·B·A+B 는 게임 그대로(아무 일 없음) */
++        if (scr == 2 || scr == 4) return "A 결정  ·  OPTION 컬러  ·  A+B 베기 색";
+         if (scr == 6) return league ? "카드 고르기 (전부 열림)" : "카드 고르기";
+         return league ? "곧 시작" : null;
+     }
+@@ -3547,7 +3547,7 @@ public class EmuActivity extends Activity {
+                 return "◀▶ 연습 대전 / 리그 대전  ·  A 시작" + (dv[1] == 0 ? "\n리그는 따로 세이브 판에서 해요" : "");
+             return null;
+         case 2: return "A 수라 · B 나찰 · OPTION 스테이지";   /* 고르는 캐릭터 = 더미(검질은 A·B) — 머리말이 이미 «상대 선택». «상대 ·» 를 붙이면 세로 화면에서 두 줄로 꺾인다(153 에뮬 확인) */
+-        case 7:   /* 내 캐릭터 먼저(캐릭터 선택 — A 결정 · B 2P색 · OPTION 컬러), 그다음 상대(2) */
++        case 7:   /* 내 캐릭터 먼저(캐릭터 선택 — A 결정 · OPTION 컬러 · A+B 베기 색), 그다음 상대(2) */
+         case 3: return myPickKeys(dv != null && dv.length >= 6 ? dv[5] : 2, false);
+         case 4:   /* 좁은 띠(버튼 사이)에서도 줄이 접히지 않게 두 줄로 */
+             if (ps.length > 1 && ps[1] != 0) return "↑↓ 고르기 · ←→ 바꾸기\nA 실행 · B 닫기";
+@@ -3558,12 +3558,12 @@ public class EmuActivity extends Activity {
+ 
+     /* ── 모든 모드 컬러(look.c) ─────────────────────────────────────────
+        사무쇼2 확인한 판(일반 판 practiceRomOk · 리그 판 hubVersionProblem 없음)이고 설정 «컬러 고르기»가 켬이면 1인·무한·연습·리그 어디서나
+-       캐릭터·검질 고르기에서 OPTION = 다음 컬러(길게 = 컬러 만들기) · B = 2P색으로 결정. 기억(캐릭터마다)·내 색은 앱 설정(Look) —
+-       native 가 바꾼 기억은 폴(200ms)이 받아 남긴다. 띠 안내는 허브 띠가 없는 화면(일반 1인·무한 대전)의 고르기 화면에서만. */
++       캐릭터·검질 고르기에서 OPTION = 다음 컬러(길게 = 컬러 만들기) · A+B = 베기 색 다음 것 · A·B = 결정(보통 색). 기억(캐릭터마다)·내 색·베기 색은
++       앱 설정(Look) — native 가 바꾼 기억·베기 색은 폴(200ms)이 받아 남긴다. 띠 안내는 허브 띠가 없는 화면(일반 1인·무한 대전)의 고르기 화면에서만. */
+     private boolean lookOn = false;
+-    private static volatile boolean lookKeys = true;   /* 띠의 «B 2P색 · OPTION 컬러» 안내를 보일지(컬러가 켜진 판) — 연습·리그 띠(myPickKeys)도 본다 */
++    private static volatile boolean lookKeys = true;   /* 띠의 «OPTION 컬러 · A+B 베기 색» 안내를 보일지(컬러가 켜진 판) — 연습·리그 띠(myPickKeys)도 본다 */
+     private int[] lookV;                         /* 마지막 nativeLookStatus */
+-    private int lookMemGen = 0, lookEditReq = 0, lookLost = 0, lookRecColor = -9;
++    private int lookMemGen = 0, lookEditReq = 0, lookLost = 0, lookRecColor = -9, lookFxGen = 0;
+     private int[][][] lookCus = new int[Look.NCH][2][];
+     private android.view.View lookEditor;        /* 컬러 만들기 창(스크롤 틀) — 떠 있으면 게임 입력은 look 이 모두 막는다 */
+ 
+@@ -3578,6 +3578,7 @@ public class EmuActivity extends Activity {
+             lookCus = Look.loadCustom();
+             int[] v = Emu.nativeLookStatus();                            /* native 셈은 프로세스 내내 이어진다 — 지난 판의 요청·바뀜으로 창이 뜨지 않게 지금 값부터 */
+             if (v != null && v.length >= 14) { lookMemGen = v[2]; lookEditReq = v[7]; }
++            if (v != null && v.length >= 18) lookFxGen = v[15];             /* 165 베기 색 — A+B 로 바뀐 횟수(옛 native 는 14칸) */
+         }
+         h.post(new Runnable() { @Override public void run() {
+             h.removeCallbacks(lookPoll);
+@@ -3606,6 +3607,7 @@ public class EmuActivity extends Activity {
+     private void lookTick(int[] v) {
+         lookV = v;
+         if (v[2] != lookMemGen) lookSaveMem();                           /* OPTION 으로 바꾼 컬러 — 캐릭터마다 기억(다음에도 그 색) */
++        if (v.length >= 18 && v[15] != lookFxGen) { lookFxGen = v[15]; Look.saveFx(v[14]); }   /* A+B 로 바꾼 베기 색 — 하나로 기억 */
+         if (v[7] != lookEditReq) {                                       /* OPTION 길게 — 컬러 만들기 */
+             lookEditReq = v[7];
+             if (v[1] == 1) openLookEditor(v[12], v[13]);
+@@ -3631,7 +3633,7 @@ public class EmuActivity extends Activity {
+         }
+     }
+ 
+-    /** 일반 1인·무한 대전 고르기 화면의 띠 — 캐릭터: «A 결정 · B 2P색 · OPTION 컬러» / «OPTION 길게 = 컬러 만들기», 검질: «A 결정 · OPTION 컬러». 그 밖 null */
++    /** 일반 1인·무한 대전 고르기 화면의 띠 — 캐릭터: «A 결정 · OPTION 컬러 · A+B 베기 색» / «OPTION 길게 = 컬러 만들기», 검질: 첫 줄만. 그 밖 null */
+     private String lookHint() {
+         int[] v = lookV;
+         if (!lookOn || v == null || v.length < 14 || v[1] != 1 || lookEditor != null) return null;
+diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
+index 45b8405..e6c7119 100644
+--- a/app/src/main/java/com/dudu/pocketcore/League.java
++++ b/app/src/main/java/com/dudu/pocketcore/League.java
+@@ -35,7 +35,7 @@ final class League {
+     static final String[] DIFF  = { "쉬움", "보통", "어려움" };
+     /** 배경(스테이지) 0~7 — 1인 대전에서 배경은 «몇 번째 판»(0x5827)을 따른다(league.c R_BOUT). 실측한 여덟 개 */
+     static final String[] STAGES = { "후지산 마을", "숲속 호숫가", "산 위 신사", "화염 사원", "폐허 사원", "불꽃 동굴", "마계 제단", "수정 신전" };
+-    /** 컬러 이름 — 0 게임 기본 · 1 2P색(같은 캐릭터 미러전에서 게임이 P2 에 쓰는 색) · 2~15 프리셋 · 16·17 내 색(Look — 모든 모드 컬러).
++    /** 컬러 이름 — 0 게임 기본 · 1 2P색(옛 기록 이름 — 165 부터 플레이어는 안 고름) · 2~15 프리셋 · 16·17 내 색(Look — 모든 모드 컬러).
+      *  옛 기록(cv 없음)의 2·3 은 «컬러 3·4» — 이름은 Look.name(idx, cv) */
+     static final String[] COLORS = Look.NAMES;
+     /** 가상 상대마다 기본 배경(«상대 기본» 일 때) — 명단(ROSTER)과 따로 둬서 옛 기록을 안 고친다 */
+@@ -343,9 +343,10 @@ final class League {
+         } catch (Exception ignored) { }
+     }
+     /* ── 153 랭크 «내 캐릭터»(pref.main) — 랭크에 처음 들어와 게임 고르기 화면에서 한 번 고른 것(nativeHubMyPick).
+-       {v:1, cell 0~13 · 15 가운데 무작위 칸, ch 실제 캐릭터(무작위면 마지막에 뽑힌 것), sty, b2p, k1, k2(카드 칸 0~3 · −1 없음), colour 0~17(Look.NAMES), at}.
++       {v:1, cell 0~13 · 15 가운데 무작위 칸, ch 실제 캐릭터(무작위면 마지막에 뽑힌 것), sty, b2p(165 부터 늘 false · 읽을 때 무시 — 옛 판이 읽어도 깨지지 않게 칸만),
++        k1, k2(카드 칸 0~3 · −1 없음), colour 0~17(Look.NAMES), at}. 베기 색은 여기 없다(Look 전역 값 하나가 출처).
+        pref 칸에 더한다 — league.json v 1 그대로(147/148/152 는 모르는 칸을 읽고 다시 써도 남긴다). 다음 판부터 native 가 이걸로 대신 고른다 ── */
+-    static final class Main { int cell, ch, sty, k1 = -1, k2 = -1, colour; boolean b2p; long at; }
++    static final class Main { int cell, ch, sty, k1 = -1, k2 = -1, colour; long at; }
+     /** 저장된 내 캐릭터 — 없거나 값이 깨졌으면 null(첫 판처럼 직접 고른다) */
+     static synchronized Main main() {
+         JSONObject p = db().optJSONObject("pref"), j = p != null ? p.optJSONObject("main") : null;
+@@ -354,26 +355,28 @@ final class League {
+     static Main mainOf(JSONObject j) {
+         if (j == null || j.optInt("v") != 1) return null;
+         Main m = new Main();
+-        m.cell = j.optInt("cell", -1); m.ch = j.optInt("ch", -1); m.sty = j.optInt("sty", -1); m.b2p = j.optBoolean("b2p");
++        m.cell = j.optInt("cell", -1); m.ch = j.optInt("ch", -1); m.sty = j.optInt("sty", -1);   /* b2p 는 안 읽는다(옛 true = 보통 색) */
+         m.k1 = j.optInt("k1", -1); m.k2 = j.optInt("k2", -1); m.colour = j.optInt("colour", 0); m.at = j.optLong("at");
+         if (!(m.cell >= 0 && m.cell <= 13 || m.cell == 15) || (m.sty != 0 && m.sty != 1)) return null;
+         if (m.cell == 15) { if (m.ch < 0 || m.ch > 14) m.ch = -1; }        /* 무작위 칸 — 뽑힌 캐릭터는 아직 모를 수 있다(1라운드에 다시) */
+         else if (m.ch != m.cell) return null;
+         if (m.k1 < -1 || m.k1 > 3 || m.k2 < -1 || m.k2 > 3) { m.k1 = -1; m.k2 = -1; }
+-        if (m.colour < 0 || m.colour >= Look.NIDX) m.colour = 0;
++        if (m.colour < 0 || m.colour >= Look.NIDX || m.colour == 1) m.colour = 0;
+         return m;
+     }
+-    /** nativeHubMyPick [있음, 칸, 캐릭터, 검질, 2P색, 카드 1, 2, 컬러] → pref.main. 같으면 파일을 안 건드린다. 저장 실패면 false(메모리 값은 남아 다음 저장 때 같이) */
++    /** nativeHubMyPick [있음, 칸, 캐릭터, 검질, (늘 0), 카드 1, 2, 컬러] → pref.main(b2p 는 늘 false). 같으면 파일을 안 건드린다. 저장 실패면 false(메모리 값은 남아 다음 저장 때 같이) */
+     static synchronized boolean setMain(int[] mp) {
+         if (mp == null || mp.length < 8 || mp[0] != 1) return false;
+         try {
+-            JSONObject j = new JSONObject().put("v", 1).put("cell", mp[1]).put("ch", mp[2]).put("sty", mp[3]).put("b2p", mp[4] != 0)
++            JSONObject j = new JSONObject().put("v", 1).put("cell", mp[1]).put("ch", mp[2]).put("sty", mp[3])
+                     .put("k1", mp[5]).put("k2", mp[6]).put("colour", mp[7]);
+             Main m = mainOf(j);
+             if (m == null) return false;
+             Main old = main();
+-            if (old != null && old.cell == m.cell && old.ch == m.ch && old.sty == m.sty && old.b2p == m.b2p && old.k1 == m.k1 && old.k2 == m.k2 && old.colour == m.colour) return true;
+-            pref().put("main", new JSONObject().put("v", 1).put("cell", m.cell).put("ch", m.ch).put("sty", m.sty).put("b2p", m.b2p)
++            JSONObject oj = pref().optJSONObject("main");
++            if (old != null && old.cell == m.cell && old.ch == m.ch && old.sty == m.sty && old.k1 == m.k1 && old.k2 == m.k2 && old.colour == m.colour
++                    && oj != null && !oj.optBoolean("b2p")) return true;   /* 옛 b2p true 가 남아 있으면 한 번 false 로 고쳐 쓴다 */
++            pref().put("main", new JSONObject().put("v", 1).put("cell", m.cell).put("ch", m.ch).put("sty", m.sty).put("b2p", false)
+                     .put("k1", m.k1).put("k2", m.k2).put("colour", m.colour).put("at", System.currentTimeMillis()));   /* 고른 값(범위 밖은 없음·기본으로) */
+             return save();
+         } catch (Exception e) { return false; }
+@@ -385,7 +388,7 @@ final class League {
+         p.remove("main");
+         return save();
+     }
+-    /** «샬럿 나찰 · 다홍» — colour 는 지금 보일 컬러(Look 캐릭터 기억 · 2P색), 모르면 −1(빼고) */
++    /** «샬럿 나찰 · 다홍» — colour 는 지금 보일 컬러(Look 캐릭터 기억), 모르면 −1(빼고) */
+     static String mainLabel(Main m, int colour) {
+         if (m == null) return "";
+         String s = m.cell == 15 ? "무작위 칸" : CHAR[m.ch] + " " + STYLE[m.sty];
+diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+index 4297289..4484013 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+@@ -315,14 +315,14 @@ public class LeagueActivity extends Activity {
+     }
+ 
+     /** 153 내 캐릭터 줄 — «내 캐릭터 · 샬럿 나찰 · 다홍 [바꾸기]». 랭크에 처음 들어와 게임 고르기 화면에서 한 번 고른 것(League.main) —
+-     *  다음 판부터 앱이 대신 고른다. [바꾸기] = 지우기(다음 판에 다시 직접 고르고 그걸 남긴다). 컬러는 지금 보일 것(2P색 · 캐릭터별 컬러 기억) */
++     *  다음 판부터 앱이 대신 고른다. [바꾸기] = 지우기(다음 판에 다시 직접 고르고 그걸 남긴다). 컬러는 지금 보일 것(캐릭터별 컬러 기억) · 베기 색이 있으면 «· 베기 청염» */
+     private View mainRow() {
+         LinearLayout r = new LinearLayout(this);
+         r.setOrientation(LinearLayout.HORIZONTAL);
+         r.setGravity(Gravity.CENTER_VERTICAL);
+         r.setPadding(dp(4), dp(10), 0, 0);
+         League.Main mn = League.main();
+-        TextView t = text(mn == null ? "내 캐릭터 · 첫 판에서 한 번 골라요" : "내 캐릭터 · " + League.mainLabel(mn, mainColour(mn)), 13, mn == null ? DIM : TXT, mn != null);
++        TextView t = text(mn == null ? "내 캐릭터 · 첫 판에서 한 번 골라요" : "내 캐릭터 · " + League.mainLabel(mn, mainColour(mn)) + mainFx(), 13, mn == null ? DIM : TXT, mn != null);
+         r.addView(t, new LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f));
+         if (mn != null) {
+             TextView b = pill("바꾸기", BTN2, TXT);
+@@ -337,15 +337,22 @@ public class LeagueActivity extends Activity {
+         }
+         return r;
+     }
+-    /** 지금 보일 컬러 번호 — 2P색이면 1, 아니면 컬러 기억(캐릭터 칸 · 무작위 칸 15). 컬러 고르기 끔이면 기본 */
+-    private static int mainColour(League.Main mn) {
+-        if (mn.b2p) return 1;
++    /** 지금 보일 컬러 번호 — 컬러 기억(캐릭터 칸 · 무작위 칸 15). 컬러 고르기 끔이면 기본 · 옛 1(2P색)도 기본 */
++    static int mainColour(League.Main mn) {
+         try {
+             if (!Look.on()) return 0;
+             byte[] m = Look.loadMem();
+             int i = mn.cell == 15 ? 15 : mn.cell;
+-            return m != null && i < m.length ? m[i] : mn.colour;
+-        } catch (Exception e) { return mn.colour; }
++            int c = m != null && i < m.length ? m[i] : mn.colour;
++            return c == 1 ? 0 : c;
++        } catch (Exception e) { return mn.colour == 1 ? 0 : mn.colour; }
++    }
++    /** « · 베기 청염» — 베기 색이 원래 색이 아니고 컬러 고르기가 켜져 있을 때만 */
++    private static String mainFx() {
++        try {
++            int fx = Look.on() ? Look.loadFx() : 0;
++            return fx > 0 ? " · 베기 " + Look.fxName(fx) : "";
++        } catch (Exception e) { return ""; }
+     }
+ 
+     /** 잡힌 상대 한 줄 — «기다리는 상대 · 칼끝노인 (검호 ★1) — 내일 21:04 까지»(잡은 때 + 24시간, 한국 시각 — League.today 와 같은 기준). 없으면 null */
+diff --git a/app/src/main/java/com/dudu/pocketcore/Look.java b/app/src/main/java/com/dudu/pocketcore/Look.java
+index 3e89859..8d062a6 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Look.java
++++ b/app/src/main/java/com/dudu/pocketcore/Look.java
+@@ -9,13 +9,15 @@ import java.util.Iterator;
+ /**
+  * 사무쇼2 모든 모드 컬러(native look.c)의 앱 쪽 — 이름 · 캐릭터마다 기억한 컬러 · 내 색(캐릭터마다 2칸) 저장, native 에 넣기.
+  *
+- * 1인 대전·무한 대전·연습 대전·리그 대전 어디서나 캐릭터·검질 고르기에서 OPTION = 다음 컬러(길게 = 컬러 만들기), B = 2P색으로 결정.
++ * 1인 대전·무한 대전·연습 대전·리그 대전 어디서나 캐릭터·검질 고르기에서 OPTION = 다음 몸 컬러(길게 = 컬러 만들기), A+B = 내 베기 색 다음 것,
++ * A·B = 결정(보통 색 — 165 부터 플레이어 2P색은 없다).
+  * 값은 앱 설정(options.txt — 리그 세이브와 따로)에 남는다:
+  *   pocketcore_ss2_look      enabled / disabled (설정 «컬러 고르기», 기본 켬)
+- *   pocketcore_ss2_look_mem  16개 정수 "0,1,0,9,…" — 칸 0~13 캐릭터 · 14 안 씀(유가) · 15 가운데 무작위 칸, 값 0~17
++ *   pocketcore_ss2_look_mem  16개 정수 "0,2,0,9,…" — 칸 0~13 캐릭터 · 14 안 씀(유가) · 15 가운데 무작위 칸, 값 0·2~17(옛 1 = 2P색은 0 으로 읽음)
+  *   pocketcore_ss2_look_cus  JSON {"v":1,"c":{"11":[[3039,744,65],null], …}} — 캐릭터 → [내 색 1, 내 색 2], 각 [밝은 색, 옷 색, 테 색] 12비트 0x0BGR 또는 null
+- * 번호(기록·기억에 남는 값) = NAMES 순서 = native look_tab.h LOOK_NAME = 세로 칸 글자 LOOK_VLAB 순서.
+- * 캐릭터마다 기억하는 것은 스파6·길티기어식 — 16가지면 캐릭터마다 어울리는 색이 다르다. B(2P색)는 그 판만(기억 안 바꿈).
++ *   pocketcore_ss2_slash     "0"~"6" — 베기 색(칼 궤적·필살 이펙트·내가 벤 섬광, native slash.c) 하나로 기억(캐릭터마다 아님). 그 밖·없음 = 0(원래 색)
++ * 번호(기록·기억에 남는 값) = NAMES 순서 = native look_tab.h LOOK_NAME = 세로 칸 글자 LOOK_VLAB 순서. 베기 색 번호 = FX_NAMES = slash.h SLASH_NAME.
++ * 몸 컬러를 캐릭터마다 기억하는 것은 스파6·길티기어식 — 16가지면 캐릭터마다 어울리는 색이 다르다. 베기 색은 밝기 순서로 맞춰 넣어 어느 캐릭터나 같은 «내 색»이라 하나.
+  */
+ final class Look {
+     private Look() { }
+@@ -25,6 +27,10 @@ final class Look {
+     static final String[] OLD = { "기본", "2P색", "컬러 3", "컬러 4" };
+     static final int NPRE = 16, NIDX = 18, NSLOT = 16, NCH = 14;
+     static final String K_ON = "pocketcore_ss2_look", K_MEM = "pocketcore_ss2_look_mem", K_CUS = "pocketcore_ss2_look_cus";
++    /** 베기 색 — 0 원래 색 · 1 청염 · 2 핏빛 · 3 비취 · 4 벚꽃 · 5 흑염 · 6 서리 (저장 값 = A+B 로 돌리는 순서 = native slash.h SLASH_NAME) */
++    static final String K_FX = "pocketcore_ss2_slash";
++    static final String[] FX_NAMES = { "원래 색", "청염", "핏빛", "비취", "벚꽃", "흑염", "서리" };
++    static final int NFX = 7;
+ 
+     /** 기록에 남은 컬러 번호의 이름 — cv(기록 판) 2 부터 16가지, 그 전(없음)은 옛 4가지 */
+     static String name(int idx, int cv) {
+@@ -34,14 +40,14 @@ final class Look {
+ 
+     /* ── 글자 ↔ 값(앱 설정 없이도 — JVM 시험이 바로 본다) ─────────────── */
+ 
+-    /** "0,1,0,9,…" 16개 → 기억 칸. 개수가 모자라거나 깨졌으면 null(처음 = 옛 리그 값에서 옮긴다) */
++    /** "0,2,0,9,…" 16개 → 기억 칸. 개수가 모자라거나 깨졌으면 null(처음 = 옛 리그 값에서 옮긴다). 옛 1(2P색 — 165 부터 안 고름)은 0 */
+     static byte[] parseMem(String s) {
+         if (s == null) return null;
+         String[] a = s.split(",");
+         if (a.length < NSLOT) return null;
+         byte[] m = new byte[NSLOT];
+         try {
+-            for (int i = 0; i < NSLOT; i++) { int v = Integer.parseInt(a[i].trim()); m[i] = (byte) (v >= 0 && v < NIDX ? v : 0); }
++            for (int i = 0; i < NSLOT; i++) { int v = Integer.parseInt(a[i].trim()); m[i] = (byte) (v >= 0 && v < NIDX && v != 1 ? v : 0); }
+         } catch (NumberFormatException e) { return null; }
+         return m;
+     }
+@@ -50,12 +56,18 @@ final class Look {
+         for (int i = 0; i < NSLOT; i++) { if (i > 0) sb.append(','); sb.append(m != null && i < m.length && m[i] >= 0 && m[i] < NIDX ? m[i] : 0); }
+         return sb.toString();
+     }
+-    /** 옛 리그 «내 컬러» 하나(0~3) → 16칸 모두 그 값(2·3 은 같은 번호 = 쪽빛·비취로 넘어간다) */
++    /** 옛 리그 «내 컬러» 하나(0~3) → 16칸 모두 그 값(2·3 은 같은 번호 = 쪽빛·비취로 넘어간다 · 1 2P색은 기본) */
+     static byte[] memFromOld(int prefColor) {
+         byte[] m = new byte[NSLOT];
+-        java.util.Arrays.fill(m, (byte) (prefColor >= 0 && prefColor < OLD.length ? prefColor : 0));
++        java.util.Arrays.fill(m, (byte) (prefColor >= 0 && prefColor < OLD.length && prefColor != 1 ? prefColor : 0));
+         return m;
+     }
++    /** 베기 색 글자 → 0~6(그 밖·깨짐·없음 = 0) */
++    static int parseFx(String s) {
++        if (s == null) return 0;
++        try { int v = Integer.parseInt(s.trim()); return v >= 0 && v < NFX ? v : 0; } catch (NumberFormatException e) { return 0; }
++    }
++    static String fxName(int fx) { return FX_NAMES[fx >= 0 && fx < NFX ? fx : 0]; }
+     /** 내 색 JSON → [14][2] 세 색(없는 칸 null) */
+     static int[][][] parseCus(String s) {
+         int[][][] c = new int[NCH][2][];
+@@ -107,6 +119,12 @@ final class Look {
+         if (!s.equals(Settings.load().get(K_MEM))) Settings.put(K_MEM, s);
+     }
+     static int[][][] loadCustom() { return parseCus(Settings.load().get(K_CUS)); }
++    static int loadFx() { return parseFx(Settings.load().get(K_FX)); }
++    /** A+B 로 바꾼 베기 색 — 범위 밖은 0. 같으면 파일을 안 건드린다 */
++    static void saveFx(int fx) {
++        String s = String.valueOf(fx >= 0 && fx < NFX ? fx : 0);
++        if (!s.equals(Settings.load().get(K_FX))) Settings.put(K_FX, s);
++    }
+     /** 내 색 k(0·1) 저장 — c3 null = 지움 */
+     static void saveCustom(int ch, int k, int[] c3) {
+         if (ch < 0 || ch >= NCH || k < 0 || k > 1) return;
+@@ -126,7 +144,7 @@ final class Look {
+         return m;
+     }
+ 
+-    /** native 에 기억·내 색을 모두 넣는다(판을 올릴 때 — 내 색은 두 검질 같이) */
++    /** native 에 기억·내 색·베기 색을 모두 넣는다(판을 올릴 때 — 내 색은 두 검질 같이) */
+     static void push() {
+         Emu.nativeLookSetMem(loadMem());
+         int[][][] c = loadCustom();
+@@ -135,6 +153,7 @@ final class Look {
+                 int[] t = c[ch][k];
+                 Emu.nativeLookSetCustom(ch, k, t != null ? t[0] : -1, t != null ? t[1] : 0, t != null ? t[2] : 0);
+             }
++        try { Emu.nativeLookSetFx(loadFx()); } catch (UnsatisfiedLinkError ignored) { }   /* 옛 native(베기 색 없음) — 몸 컬러만 */
+     }
+ 
+     /** 12비트 0x0BGR → 안드로이드 색(0xAARRGGBB) — 채널 0~15 를 0~255 로(×17) */
+diff --git a/app/src/main/java/com/dudu/pocketcore/LookEditor.java b/app/src/main/java/com/dudu/pocketcore/LookEditor.java
+index 70a755b..03b543d 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LookEditor.java
++++ b/app/src/main/java/com/dudu/pocketcore/LookEditor.java
+@@ -50,6 +50,7 @@ final class LookEditor extends LinearLayout {
+         this.host = host; this.font = font; this.tri = tri;
+         dp = c.getResources().getDisplayMetrics().density;
+         for (int i = 0; i < Look.NIDX; i++) usable[i] = i < Look.NPRE || (cus != null && cus[i - Look.NPRE] != null);
++        usable[1] = false;                                        /* 165: 옛 2P색은 시작 색으로도 안 보인다(플레이어가 안 고르는 번호) */
+         start = startIdx >= 0 && startIdx < Look.NIDX && usable[startIdx] ? startIdx : 0;
+         setOrientation(VERTICAL);
+         GradientDrawable g = new GradientDrawable();
+diff --git a/app/src/main/java/com/dudu/pocketcore/Settings.java b/app/src/main/java/com/dudu/pocketcore/Settings.java
+index 7b30227..a131d36 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Settings.java
++++ b/app/src/main/java/com/dudu/pocketcore/Settings.java
+@@ -252,10 +252,10 @@ public final class Settings {
+                 new String[]{ "ss1", "same", "off", "mute" },
+                 new String[]{ "SS1 음악", "같은 곡만", "SS2 원래", "끔" }, "ss1").g("ss2").l(),
+             /* 컬러 고르기(look.c) — 게임에 없던 컬러 고르기를 원래 고르기 화면에 얹는다(유저 «컬러 선택 어느 모드든 되게» · «컬러 추가 확충»).
+-               게임이 고르기 화면에서 안 쓰던 버튼(OPTION·B)만 써서 기본 켬. 사쇼2 확인한 롬 판에서만 돈다(조작·수동 패치 사본은 꺼짐) */
++               게임이 고르기 화면에서 안 쓰던 버튼(OPTION)과 A+B(베기 색 — 165)를 써서 기본 켬. 사쇼2 확인한 롬 판에서만 돈다(조작·수동 패치 사본은 꺼짐) */
+             new Item(Look.K_ON, "컬러 고르기",
+-                "켬 = 캐릭터 고르기에서 OPTION 으로 컬러(16가지 + 내 색 2), B = 2P색으로 결정. 1인·무한·연습·리그 모두."
+-                + " OPTION 길게 = 컬러 만들기. 캐릭터마다 기억해요.",
++                "켬 = 캐릭터 고르기에서 OPTION 몸 컬러(15가지 + 내 색 2) · A+B 베기 색(7가지). 1인·무한·연습·리그 모두."
++                + " OPTION 길게 = 컬러 만들기. 컬러는 캐릭터마다, 베기 색은 하나로 기억해요.",
+                 ONOFF, ONOFF_K, "enabled").g("ss2").l(),
+             /* 리그·연습 — 켜면 타이틀 셋째 줄(원래 2인 대전)이 «◀ 연습 대전 ▶», ←→ 로 «리그 대전». 둘 다 된다(유저 2026-10-15
+                「리그 연습 모드는 옵션만 넣고 되는 걸로 해 줘, 둘 중 택일 말고 둘 다 되게」). 리그는 따로 세이브·순정 판이라 고르면 판을 갈아 끼운다 */
