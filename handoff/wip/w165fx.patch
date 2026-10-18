@@ -412,7 +412,7 @@ index b10da7e..18b6e0d 100644
  void league_hub_autostatus(int v[LEAGUE_NAUTO]);   /* [단계 0~8(6 무대 인트로 · 8 막힘), go 뒤 프레임, go→장면, go→첫 라운드, 막힌 단계] */
  /* 153: native.c 가 프레임마다(잠금 없이) — 1 = 코어 4배속(pace 배속) · 1 = 게임 소리를 버린다(자동 진행 단계 1~5 · −4 리셋부터, autopick flags 4) */
 diff --git a/app/src/main/cpp/look.c b/app/src/main/cpp/look.c
-index 45dfb57..c8dfb19 100644
+index 45dfb57..49d249e 100644
 --- a/app/src/main/cpp/look.c
 +++ b/app/src/main/cpp/look.c
 @@ -1,26 +1,34 @@
@@ -710,7 +710,7 @@ index 45dfb57..c8dfb19 100644
     }
     int sel_scr = md == 240 && (scr == 2 || scr == 4) && vpanel_layout();
     int owned = sel_scr && ctx != LOOK_CTX_BUSY;
-@@ -203,36 +301,37 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -203,36 +301,39 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
        if (scr == 2) K.rand_pick = h == 15;
        int slot = (scr == 4 && K.rand_pick) || h == 15 || (K.rand_pin && h == K.rand_pin - 1) ? 15 : h < 14 ? h : -1;   /* 무작위로 골랐으면 돌아가는 캐릭터와 상관없이 무작위 칸의 기억 */
        int row = h < 14 ? h : h == 15 ? LOOK_ROW_KUROKO : -1;
@@ -740,6 +740,8 @@ index 45dfb57..c8dfb19 100644
 -               block |= IN_B;
 -               if (b_edge && was2 && !K.hold_b) { K.b2p = 1; K.hold_b = 1; if (ctx != LOOK_CTX_HOLD) { K.inj = 1; K.inj_f = (int)K.f; } }   /* HOLD: 표시만(결정은 허브) */
 -            }
++            if (!K.owned) a_dn = b_dn = ab_dn = 0;                    /* 쥔 첫 프레임의 누름은 앞 주인(허브의 상대 선택 A 등 — 같은 프레임에 BUSY → FREE)의 것 —
++                                                                         새 누름으로 안 본다(쥔 단추는 가장자리가 없어 그 뒤에도 안 잡힘 · 게임엔 막음) */
 +            gate_step(input, a_dn, b_dn, ab_dn, scr, ctx);
 +            if (K.g_st == G_WAIT) block |= IN_DPAD;                   /* 결정 전에 커서가 옮겨 가지 않게 */
           }
@@ -762,7 +764,7 @@ index 45dfb57..c8dfb19 100644
           if (K.cur > 0 || K.edit)
              for (int k = 0; k < 2; k++) {                             /* 두 자리 — 검질 고르기에서 ←→ 로 검질을 바꿔도 바로 그 검질의 그 컬러 · 보이는 검질이 자리 0 */
                 int sty = k ^ K.psty;
-@@ -246,43 +345,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -246,43 +347,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
                 if (K.edit) memcpy(t, K.edit_c, 6); else tri(row, sty, K.cur, t);
                 if (!k || memcmp(b, t, 6)) rm_want(want, 0, k, b, t);
              }
@@ -817,7 +819,7 @@ index 45dfb57..c8dfb19 100644
     look_in_block = block; look_in_or = orr;
     pthread_mutex_unlock(&K_mu);
  }
-@@ -291,13 +371,13 @@ void look_enable(int on)
+@@ -291,13 +373,13 @@ void look_enable(int on)
  {
     pthread_mutex_lock(&K_mu);
     K.on = on ? 1 : 0; rm_init = 0;
@@ -833,7 +835,7 @@ index 45dfb57..c8dfb19 100644
     pthread_mutex_unlock(&K_mu);
  }
  int look_get_mem(signed char *mem, int n)
-@@ -316,16 +396,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
+@@ -316,16 +398,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
     if (c1 >= 0) { K.cus[ch][k][0] = (uint16_t)(c1 & 0xFFF); K.cus[ch][k][1] = (uint16_t)(c2 & 0xFFF); K.cus[ch][k][2] = (uint16_t)(c3 & 0xFFF); }
     pthread_mutex_unlock(&K_mu);
  }
@@ -859,7 +861,7 @@ index 45dfb57..c8dfb19 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_edit(int on, int c1, int c2, int c3)
-@@ -335,12 +421,20 @@ void look_edit(int on, int c1, int c2, int c3)
+@@ -335,12 +423,20 @@ void look_edit(int on, int c1, int c2, int c3)
     K.edit_c[0] = (uint16_t)(c1 & 0xFFF); K.edit_c[1] = (uint16_t)(c2 & 0xFFF); K.edit_c[2] = (uint16_t)(c3 & 0xFFF);
     pthread_mutex_unlock(&K_mu);
  }
@@ -881,7 +883,7 @@ index 45dfb57..c8dfb19 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
-@@ -351,8 +445,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
+@@ -351,8 +447,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
     for (int i = 0; i < LOOK_NIDX; i++) { tri(row, sty & 1, i, t); for (int j = 0; j < 3; j++) out[i * 3 + j] = t[j]; }
     pthread_mutex_unlock(&K_mu);
  }
@@ -906,7 +908,7 @@ index 45dfb57..c8dfb19 100644
     캐릭터·검질은 알고 되돌린다 — 황금·은빛·그림자처럼 캐릭터가 달라도 같은 세 색인 프리셋(밝기 순위로)이 있어 색만으론 못 가린다.
     검질: 전투 중이고 P1 블록이 그 캐릭터면 블록의 검질, 아니면 검질 고르기 커서(0x574C — 확정 뒤에도 남음). 그 검질의 색이 아니면 다른 검질도 본다 */
  void look_before_save(void)
-@@ -361,57 +469,90 @@ void look_before_save(void)
+@@ -361,57 +471,90 @@ void look_before_save(void)
     pthread_mutex_lock(&K_mu);
     if (K.owned) vpanel_restore();
     if (g_pal && K.on && K.ram) {
@@ -1020,7 +1022,7 @@ index 45dfb57..c8dfb19 100644
     rm_init = 0; vpanel_forget();
     look_in_block = 0; look_in_or = 0;
     pthread_mutex_unlock(&K_mu);
-@@ -433,6 +574,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
+@@ -433,6 +576,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
     return a;
  }
  JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1, jint c2, jint c3) { (void)env; (void)cls; look_set_custom(ch, k, c1, c2, c3); }
