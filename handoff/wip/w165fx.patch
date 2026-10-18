@@ -412,10 +412,10 @@ index b10da7e..18b6e0d 100644
  void league_hub_autostatus(int v[LEAGUE_NAUTO]);   /* [단계 0~8(6 무대 인트로 · 8 막힘), go 뒤 프레임, go→장면, go→첫 라운드, 막힌 단계] */
  /* 153: native.c 가 프레임마다(잠금 없이) — 1 = 코어 4배속(pace 배속) · 1 = 게임 소리를 버린다(자동 진행 단계 1~5 · −4 리셋부터, autopick flags 4) */
 diff --git a/app/src/main/cpp/look.c b/app/src/main/cpp/look.c
-index 45dfb57..85517f9 100644
+index 45dfb57..56356ee 100644
 --- a/app/src/main/cpp/look.c
 +++ b/app/src/main/cpp/look.c
-@@ -1,26 +1,34 @@
+@@ -1,26 +1,35 @@
  /* 모든 모드 컬러 — look.h 참고. 리그 허브(league.c)에 있던 컬러 코드(PAL1·look_apply·look_preview·코어 바꿔 쓰기 표)를 떼어 와
 -   허브와 상관없이 매 프레임 돈다. 표는 look_gen.py 가 만든 look_tab.h(프리셋 16 × 캐릭터 14 + 쿠로코 × 검질 2), 세로 글자는
 -   hub_glyphs.py 가 만든 hub_glyphs.h 의 LOOK_VLAB.
@@ -431,6 +431,7 @@ index 45dfb57..85517f9 100644
 -               고른 색을 안 잃는다). B 는 뗄 때까지 게임에 안 준다(검질 고르기 B = 뒤로).
 -     A         게임 그대로 — 보이는 색으로 결정.
 +     A·B·A+B   165: 쥔 동안 플레이어의 A·B·A+B(·SP 접기) 는 게임에 안 준다. 누른 프레임부터 LOOK_AB_WIN(4) 프레임 창 안에 다른 쪽이 눌리기 시작하면
++               (창 밖부터 쥐고 있던 단추 — 앞 화면 결정에 쓴 것·오래 쥔 것 — 는 A+B 의 한쪽으로 안 셈)
 +               A+B = 내 베기 색 다음 것(결정 아님 — 아이콘·세로 칸 이름 1.2초), 아니면 창 끝에 결정: 다음 프레임부터 4프레임 A 를 대신 누른다
 +               (B 도 A 와 같은 보통 색 결정 — 게임은 플레이어의 B 결정을 못 받는다. 검질 고르기의 B 만 게임의 «뒤로»라 B 를 대신 누름).
 +               패드 «A+B»(비트 1 Y)·물리 X(비트 10 L)는 기다리지 않고 바로 A+B. 결정·A+B 뒤엔 셋 다 뗄 때까지 먹는다(쥐어도 되풀이 안 함 ·
@@ -463,7 +464,7 @@ index 45dfb57..85517f9 100644
  #include <jni.h>
  #include <pthread.h>
  #include <string.h>
-@@ -29,6 +37,7 @@
+@@ -29,6 +38,7 @@
  #define HUB_WANT_LOOK
  #include "hub_glyphs.h"
  #include "vpanel.h"
@@ -471,7 +472,7 @@ index 45dfb57..85517f9 100644
  
  #define RAM_BASE 0x4000
  #define A(x) ((x) - RAM_BASE)
-@@ -38,14 +47,15 @@
+@@ -38,14 +48,15 @@
  #define R_P1CH  A(0x57D5)   /* P1 캐릭터 — 검질 확정 뒤 약 160프레임에 씀(그 전 255). 다음 판에서 다시 쓸 때까지 옛 값이 남는다 */
  #define R_STYC  A(0x574C)   /* 검질 고르기 커서 0 수라 · 1 나찰(확정 뒤에도 남음) — 실측: 이 바이트만 미리보기 팔레트의 검질과 늘 같다 */
  #define R_P1BLK A(0x5B51)   /* (캐릭터<<4)|(검질<<3)|(미러 0x04) — 전투 로드 때 선다 */
@@ -488,7 +489,7 @@ index 45dfb57..85517f9 100644
  
  volatile int look_in_block = 0, look_in_or = 0;
  static pthread_mutex_t K_mu = PTHREAD_MUTEX_INITIALIZER;
-@@ -54,33 +64,41 @@ static uint8_t *g_pal;                /* 코어 팔레트 램(0x8200~, 스프라
+@@ -54,33 +65,42 @@ static uint8_t *g_pal;                /* 코어 팔레트 램(0x8200~, 스프라
     순간 셋 다 to 로, 옛 판(1249a9e — 150 까지 동봉·바깥 코어)은 칸마다 따로(자리 0 부터, 맞는 자리에서 멈춤). 어느 판이든 맞게: 보일 검질을
     자리 0 에(같은 색이어도 적는다), 미리보기는 옛 표로 섞인 세 색도 알아본다(preview_fix). 게임은 몸 팔레트를 롬에서
     자주 다시 쓴다(대전 중 1초에 한 번꼴, 실측) — 프레임 뒤에 고쳐 쓰기만 하면 그때마다 원래 색이 1~3 프레임 보인다. 표는 상태 저장에 안 들어가서
@@ -518,6 +519,7 @@ index 45dfb57..85517f9 100644
 +   int prev_in, owned, inj, inj_f, inj_bit, last_scr;
 +   int g_st, g_first, g_scr0; unsigned g_f0;   /* A·B·A+B 가르기 — 상태 · 먼저 누른 단추 · 그때 화면 · 그때 프레임 */
 +   int hold;                          /* 결정·A+B 뒤 뗄 때까지 막는 단추(A·B·A+B) — 쥠이 풀려도 */
++   int a_age, b_age;                  /* A·B 를 누르기 시작한 뒤 지난 프레임(255 에서 멈춤 — 쥠 밖의 누름도 센다). A+B 의 «다른 쪽»은 창 안에 눌린 것만 */
 +   int conf_pend, conf_n;             /* HOLD: 허브가 가져갈 결정 · 결정 횟수 */
 +   int toast_f;                       /* 이 프레임까지 세로 칸에 «베기 + 이름» */
     int opt_f, opt_own;                /* OPTION 누른 프레임 · 그 누름이 고르기 화면을 쥔 채 시작했나(밖에서 누른 채 들어온 것은 안 센다) */
@@ -532,14 +534,15 @@ index 45dfb57..85517f9 100644
 -   int mem_gen, sel_gen, edit_req;    /* Java 가 보는 바뀜 셈 */
 +   int mem_gen, sel_gen, edit_req, fx_gen;    /* Java 가 보는 바뀜 셈 */
     unsigned f;
- } K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1 };
+-} K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1 };
++} K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1, .a_age = 255, .b_age = 255 };
  
 -void look_vram(void *chr, void *scr, void *pal) { vpanel_vram(chr, scr); g_pal = (uint8_t *)pal; }
 +void look_vram(void *chr, void *scr, void *pal) { vpanel_vram(chr, scr); vpanel_pal(pal); g_pal = (uint8_t *)pal; }
  void look_palremap_fn(void *fn) { if ((void *)g_remap != fn) rm_init = 0; *(void **)&g_remap = fn; }
  
  /* 표의 세 색 — 16·17 은 그 캐릭터의 내 색(없으면 기본). 쿠로코 줄(14)엔 내 색이 없다 */
-@@ -91,7 +109,7 @@ static void tri(int row, int sty, int idx, uint16_t o[3])
+@@ -91,7 +111,7 @@ static void tri(int row, int sty, int idx, uint16_t o[3])
     else if (idx >= LOOK_NPRE && idx < LOOK_NIDX && row < 14 && K.cus_ok[row][idx - LOOK_NPRE]) t = K.cus[row][idx - LOOK_NPRE];
     memcpy(o, t, 6);
  }
@@ -548,7 +551,7 @@ index 45dfb57..85517f9 100644
  static int idx_ok(int row, int idx, int sty)
  {
     if (idx < 0 || idx >= LOOK_NIDX) return 0;
-@@ -106,25 +124,29 @@ static void pal_wr(int p, const uint16_t c[3]) { for (int j = 0; j < 3; j++) { u
+@@ -106,25 +126,29 @@ static void pal_wr(int p, const uint16_t c[3]) { for (int j = 0; j < 3; j++) { u
  /* 세 색이 모두 같을 때만 «그 색» — 맞을 때 번쩍임·분노처럼 게임이 잠깐 쓴 다른 세 색은 그대로 둔다(0966bed 코어도 세 칸을 함께 본다) */
  static int pal_is(int p, const uint16_t c[3]) { return pal_rd(p, 0) == c[0] && pal_rd(p, 1) == c[1] && pal_rd(p, 2) == c[2]; }
  
@@ -586,7 +589,7 @@ index 45dfb57..85517f9 100644
  }
  static int next_idx(int row, int cur, int sty)
  {
-@@ -140,7 +162,7 @@ static int pal_was(const uint16_t c[3])
+@@ -140,7 +164,7 @@ static int pal_was(const uint16_t c[3])
  {
     for (int j = 0; j < 3; j++) {
        uint16_t v = pal_rd(0, j); int ok = v == c[j];
@@ -595,7 +598,7 @@ index 45dfb57..85517f9 100644
        if (!ok) return 0;
     }
     return 1;
-@@ -170,30 +192,106 @@ static int preview_fix(int row, int sty, int idx, int any)
+@@ -170,30 +194,111 @@ static int preview_fix(int row, int sty, int idx, int any)
     return sty;
  }
  
@@ -616,10 +619,13 @@ index 45dfb57..85517f9 100644
 +   K.hold = input & (IN_A | IN_B | IN_ABK);
 +   K.g_st = G_SWALLOW;
 +}
-+/* 쥔 고르기 화면에서 한 프레임 — a_dn·b_dn·ab_dn = 이번 프레임에 누르기 시작함 */
++/* 쥔 고르기 화면에서 한 프레임 — a_dn·b_dn·ab_dn = 이번 프레임에 누르기 시작함.
++   a·b = A+B 의 «다른 쪽»으로 칠 쥔 단추 — 창(LOOK_AB_WIN) 안에 누르기 시작했고 앞 결정·A+B 에 쓴 단추(K.hold)가 아닐 때만.
++   (165 리뷰: 결정에 쓴 A 를 쥔 채 화면이 바뀌면 gate_reset 이 G_IDLE 로 돌려, 다음 화면에서 누른 B 가 그 A 와 A+B 가 되어 «뒤로»·결정이 먹혔다) */
 +static void gate_step(int input, int a_dn, int b_dn, int ab_dn, int scr, int ctx)
 +{
-+   int a = input & IN_A, b = input & IN_B;
++   int a = (input & IN_A) && !(K.hold & IN_A) && K.a_age < LOOK_AB_WIN;
++   int b = (input & IN_B) && !(K.hold & IN_B) && K.b_age < LOOK_AB_WIN;
 +   switch (K.g_st) {
 +   case G_IDLE:
 +      if (ab_dn || (a_dn && b) || (b_dn && a)) gate_chord(input);
@@ -698,6 +704,8 @@ index 45dfb57..85517f9 100644
     int o_dn = (input & IN_OPT) && !(K.prev_in & IN_OPT), o_up = !(input & IN_OPT) && (K.prev_in & IN_OPT);
     K.prev_in = input;
 -   if (K.hold_b && !(input & IN_B)) K.hold_b = 0;
++   if (a_dn) K.a_age = 0; else if (K.a_age < 255) K.a_age++;          /* 누른 뒤 지난 프레임(쥔 첫 프레임에 a_dn 을 지우기 전 — 그 누름도 창 안이면 A+B 의 한쪽) */
++   if (b_dn) K.b_age = 0; else if (K.b_age < 255) K.b_age++;
 +   K.hold &= input;                                                   /* 뗀 단추는 놓는다 */
     int md = ram[R_MODE], scr = ram[R_SCR];
 -   if (md == 240 && scr == 0 && vpanel_menu_kind()) {                 /* 타이틀 메뉴 — 경기 컬러를 잊는다(SCR 0 만으론 안 됨: 이어하기 뒤 8프레임 SCR 0) */
@@ -709,7 +717,7 @@ index 45dfb57..85517f9 100644
     }
     int sel_scr = md == 240 && (scr == 2 || scr == 4) && vpanel_layout();
     int owned = sel_scr && ctx != LOOK_CTX_BUSY;
-@@ -203,36 +301,41 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -203,36 +308,41 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
        if (scr == 2) K.rand_pick = h == 15;
        int slot = (scr == 4 && K.rand_pick) || h == 15 || (K.rand_pin && h == K.rand_pin - 1) ? 15 : h < 14 ? h : -1;   /* 무작위로 골랐으면 돌아가는 캐릭터와 상관없이 무작위 칸의 기억 */
        int row = h < 14 ? h : h == 15 ? LOOK_ROW_KUROKO : -1;
@@ -764,7 +772,7 @@ index 45dfb57..85517f9 100644
           if (K.cur > 0 || K.edit)
              for (int k = 0; k < 2; k++) {                             /* 두 자리 — 검질 고르기에서 ←→ 로 검질을 바꿔도 바로 그 검질의 그 컬러 · 보이는 검질이 자리 0 */
                 int sty = k ^ K.psty;
-@@ -246,43 +349,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -246,43 +356,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
                 if (K.edit) memcpy(t, K.edit_c, 6); else tri(row, sty, K.cur, t);
                 if (!k || memcmp(b, t, 6)) rm_want(want, 0, k, b, t);
              }
@@ -819,7 +827,7 @@ index 45dfb57..85517f9 100644
     look_in_block = block; look_in_or = orr;
     pthread_mutex_unlock(&K_mu);
  }
-@@ -291,13 +375,13 @@ void look_enable(int on)
+@@ -291,13 +382,13 @@ void look_enable(int on)
  {
     pthread_mutex_lock(&K_mu);
     K.on = on ? 1 : 0; rm_init = 0;
@@ -835,7 +843,7 @@ index 45dfb57..85517f9 100644
     pthread_mutex_unlock(&K_mu);
  }
  int look_get_mem(signed char *mem, int n)
-@@ -316,16 +400,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
+@@ -316,16 +407,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
     if (c1 >= 0) { K.cus[ch][k][0] = (uint16_t)(c1 & 0xFFF); K.cus[ch][k][1] = (uint16_t)(c2 & 0xFFF); K.cus[ch][k][2] = (uint16_t)(c3 & 0xFFF); }
     pthread_mutex_unlock(&K_mu);
  }
@@ -861,7 +869,7 @@ index 45dfb57..85517f9 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_edit(int on, int c1, int c2, int c3)
-@@ -335,12 +425,20 @@ void look_edit(int on, int c1, int c2, int c3)
+@@ -335,12 +432,20 @@ void look_edit(int on, int c1, int c2, int c3)
     K.edit_c[0] = (uint16_t)(c1 & 0xFFF); K.edit_c[1] = (uint16_t)(c2 & 0xFFF); K.edit_c[2] = (uint16_t)(c3 & 0xFFF);
     pthread_mutex_unlock(&K_mu);
  }
@@ -883,7 +891,7 @@ index 45dfb57..85517f9 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
-@@ -351,8 +449,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
+@@ -351,8 +456,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
     for (int i = 0; i < LOOK_NIDX; i++) { tri(row, sty & 1, i, t); for (int j = 0; j < 3; j++) out[i * 3 + j] = t[j]; }
     pthread_mutex_unlock(&K_mu);
  }
@@ -908,7 +916,7 @@ index 45dfb57..85517f9 100644
     캐릭터·검질은 알고 되돌린다 — 황금·은빛·그림자처럼 캐릭터가 달라도 같은 세 색인 프리셋(밝기 순위로)이 있어 색만으론 못 가린다.
     검질: 전투 중이고 P1 블록이 그 캐릭터면 블록의 검질, 아니면 검질 고르기 커서(0x574C — 확정 뒤에도 남음). 그 검질의 색이 아니면 다른 검질도 본다 */
  void look_before_save(void)
-@@ -361,57 +473,90 @@ void look_before_save(void)
+@@ -361,57 +480,91 @@ void look_before_save(void)
     pthread_mutex_lock(&K_mu);
     if (K.owned) vpanel_restore();
     if (g_pal && K.on && K.ram) {
@@ -1018,11 +1026,12 @@ index 45dfb57..85517f9 100644
 -   K.rand_pin = 0;
 +   K.sel = -1; K.sel_ch = -1; K.cur = 0; K.fx_sel = 0; K.edit = 0; K.owned = 0; K.inj = 0; K.hold = 0; K.prow = -1; K.opt_own = 0; K.pv_has = 0;
 +   K.rand_pin = 0; K.toast_f = (int)K.f; K.vp_lab = NULL; K.last_scr = -1; gate_reset();
++   K.ram = NULL;                      /* 165 고침: 코어를 내리면(load/unload_locked) 그 램도 없다 — 저장 직전 되돌리기가 옛 램을 안 읽게(다음 look_tick·look_after_load 가 다시) */
 +   slash_clear(&SW);
     rm_init = 0; vpanel_forget();
     look_in_block = 0; look_in_or = 0;
     pthread_mutex_unlock(&K_mu);
-@@ -433,6 +578,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
+@@ -433,6 +586,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
     return a;
  }
  JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1, jint c2, jint c3) { (void)env; (void)cls; look_set_custom(ch, k, c1, c2, c3); }
@@ -1117,7 +1126,7 @@ index abda2ab..7090003 100644
  /* 이름(앱 띠·기록과 같은 순서 — Java Look.NAMES) */
  static const char *const LOOK_NAME[LOOK_NPRE + 2] = { "기본", "2P색", "쪽빛", "비취", "보라", "다홍", "분홍", "먹빛", "흰옷", "황금", "은빛", "청동", "흑백", "그림자", "핏빛", "유령", "내 색 1", "내 색 2" };
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index 90663bb..66b86de 100644
+index 90663bb..bc4c00f 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
 @@ -439,7 +439,7 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
@@ -1129,7 +1138,47 @@ index 90663bb..66b86de 100644
     /* 157 덧판: 메뉴가 보이거나 멈춤(ov_hold) 중이면 게임 비트 전부(0xFFF — A·B·OPTION·방향·SELECT·SP 접기 1·9·10·11)를 막는 백스톱 */
     int in = g_input, blk = league_in_block | practice_in_block | look_in_block | ov_in_block();
     if (in & (1 << RETRO_DEVICE_ID_JOYPAD_START)) blk |= practice_opt_mask;   /* Option 과 같은 프레임의 방향·A·B(연습 경기 중) */
-@@ -1112,7 +1112,8 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+@@ -940,9 +940,23 @@ JNI(void, nativeSetOption)(JNIEnv *env, jclass cls, jstring jkey, jstring jval)
+    CORE_UNLOCK();
+ }
+ 
++/* 165 고침: 코어 안 화면·팔레트·스프라이트 램과 팔레트 바꿔 쓰기 함수를 허브·컬러(look·vpanel)·연습·VS 띠에 — 코어를 올린 직후와 상태 불러오기 앞(live 1),
++   올리기 시작할 때·내릴 때 dlclose 전(live 0 = NULL). 예전엔 nativeFrame 에서만 넣어서, 코어를 내리고 다시 올린 뒤 첫 프레임 전 nativeLoadState
++   (이어하기·옵션 적용·랭크 체크포인트)의 look_after_load 가 내린 코어의 retro_ngp_palremap 을 부르고 풀린 NGPGfx 를 읽었다(리뷰 — SIGSEGV) */
++static void core_ptrs(int live)
++{
++   void *chr = live && c_charram ? c_charram() : NULL, *scr = live && c_scrollram ? c_scrollram() : NULL;
++   void *pal = live && c_palram ? c_palram() : NULL, *spr = live && c_spriteram ? c_spriteram() : NULL;
++   league_vram(chr, scr, pal);           /* look_vram(vpanel 칸·아이콘 · 컬러 팔레트)까지 */
++   league_spr(spr);
++   league_palremap_fn(live ? c_palremap : NULL);
++   practice_vram(chr, scr, pal, spr);
++}
++
+ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
+                         jstring jsys, jstring jsave, jstring jopts)
+ {
++   core_ptrs(0);                         /* 165 고침: 아래 무엇도 앞 코어(내렸으면 dlclose 된)의 램·함수를 만지지 않게 — 올린 뒤 core_ptrs(1) */
+    league_disarm();                      /* 새 게임은 무장 없이 시작 — 랭크전이면 Java 가 로드 뒤에 다시 무장한다 */
+    ov_clear(OV_CLR_ALL);                 /* 157 덧판: 코어 상태가 통째로 바뀜 — 메뉴·대본·멈춤·막기 모두(상태용 램 포인터는 올린 뒤 새로) */
+    ov_tag_clear();                       /* 157 post: HUD 이름표도(메뉴 닫기는 안 지움 — 여기 다섯 곳만) */
+@@ -999,6 +1013,7 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
+    c_set_controller_port_device(0, RETRO_DEVICE_JOYPAD);
+    sram_load();
+    g_loaded = 1;
++   core_ptrs(1);                         /* 165 고침: 첫 프레임 전 불러오기·저장(이어하기 · 옵션 적용 · 체크포인트 · onPause 오토세이브)도 이 코어의 램으로 */
+    if (c_get_memory_data && c_get_memory_size)   /* 157 덧판 상태(게임 PAUSE 0x61D4 · 라운드 승수)용 시스템 램 — 포인터만(코어가 내려갈 때 거둠) */
+       ov_game_ram((const uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM), c_get_memory_size(RETRO_MEMORY_SYSTEM_RAM));
+ 
+@@ -1030,6 +1045,7 @@ static void unload_locked(void)
+    practice_forget();
+    look_enable(0); look_forget();
+    cheat_reset_all();                    /* 앞 세션의 치트 값·보관한 카드가 다음 게임으로 새지 않게 */
++   core_ptrs(0);                         /* 165 고침: dlclose 뒤 내린 코어의 바꿔 쓰기 함수·풀린 화면 램을 아무도 안 부르게(다음 코어를 올리기 전 불러오기·저장 포함) */
+    if (!g_loaded) return;
+    sram_save();
+    audio_stop();
+@@ -1112,7 +1128,8 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
              league_palremap_fn(c_palremap);
              league_tick_hub(ram, ramsz, in);
              /* 컬러(모든 모드) — 허브가 고르기 화면 입력을 쓰는 동안(상대 선택·대신 누르기)엔 «바쁨»: 컬러는 손대지 않는다. 연습 «내 캐릭터 먼저»는
@@ -1139,7 +1188,7 @@ index 90663bb..66b86de 100644
              look_tick(ram, ramsz, in, league_hub_look_ctx());
              /* 연습 대전(허브가 연습 경기일 때만 일함) — 같은 잠금·같은 순서. 메뉴에서 나가기를 고르면 여기서 리셋하고 허브를 돌려보낸다 */
              practice_vram(chr, scr, pal, c_spriteram ? c_spriteram() : NULL);
-@@ -1255,7 +1256,7 @@ static void prac_side_apply(const uint8_t *side, size_t sn)
+@@ -1255,7 +1272,7 @@ static void prac_side_apply(const uint8_t *side, size_t sn)
     league_practice_resume(side + 20, v[0]);
  }
  
@@ -1148,7 +1197,7 @@ index 90663bb..66b86de 100644
     불러올 때 크기·지문이 맞아야 쓴다(.prac 와 같은 규칙) — .look 없이 불러온 상태는 원래 색(저장 직전에 look_before_save 가 팔레트를 되돌려 둠) */
  #define LOOK_SIDE_MAX 64
  static size_t look_side_make(uint8_t *side, const void *state, size_t sz)
-@@ -1296,11 +1297,12 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
+@@ -1296,11 +1313,12 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
     if (!g_loaded || !c_serialize_size) { CORE_UNLOCK(); return -1; }
     practice_before_save();               /* 연습 메뉴 창·대미지 숫자·«2P» 그림, 허브 머리말·세로 칸을 원래대로 — 저장된 상태에 우리 그림이 안 섞이게(다음 프레임에 다시 그린다) */
     league_hub_before_save();
@@ -1162,9 +1211,15 @@ index 90663bb..66b86de 100644
     if (c_get_memory_data) cheat_after_save((uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM));   /* before_save 가 돌려 둔 치트 값을 되씀 */
     uint8_t side[PRAC_SIDE_MAX];          /* 연습 경기 중이면 허브·설정 — 같은 잠금 안에서(상태와 한 순간) */
     size_t sn = ok ? prac_side_make(side, buf, sz) : 0;
-@@ -1342,6 +1344,8 @@ JNI(jint, nativeLoadState)(JNIEnv *env, jclass cls, jstring jpath)
+@@ -1338,10 +1356,13 @@ JNI(jint, nativeLoadState)(JNIEnv *env, jclass cls, jstring jpath)
+    CORE_LOCK();
+    int ok = g_loaded && c_unserialize(buf, (size_t)sz);
+    if (ok) {
++      core_ptrs(1);                                  /* 165 고침: 아래 look_after_load 가 쓰는 화면 램·팔레트·바꿔 쓰기 함수 = 지금 코어 것(첫 프레임 전이어도) */
+       practice_forget(); league_practice_title();   /* 연습 대전: 램·화면이 통째로 바뀜 — 지금 것은 되돌리지 않고 잊는다 */
        prac_side_apply(side, sn);                     /* 연습 경기 중에 저장한 상태면 그 연습 경기로(아니면 기다리던 것도 버림) */
-       look_forget();                                 /* 컬러: 화면 칸은 잊고, 경기 컬러는 .look 이 맞을 때만(아니면 버림) */
+-      look_forget();                                 /* 컬러: 화면 칸은 잊고, 경기 컬러는 .look 이 맞을 때만(아니면 버림) */
++      look_forget();                                /* 컬러: 화면 칸은 잊고, 경기 컬러는 .look 이 맞을 때만(아니면 버림) */
        look_resume(lsn ? lside + 12 : NULL, lsn ? lsn - 12 : 0);
 +      if (c_get_memory_data && c_get_memory_size)    /* 컬러: 불러온 램으로 바꿔 쓰기 표를 새로 넣고 지금 팔레트도(첫 프레임부터 경기 컬러·베기 색 — 끈 판이면 원래 색) */
 +         look_after_load((const uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM), c_get_memory_size(RETRO_MEMORY_SYSTEM_RAM));
@@ -1173,10 +1228,10 @@ index 90663bb..66b86de 100644
        ov_tag_clear();
 diff --git a/app/src/main/cpp/slash.c b/app/src/main/cpp/slash.c
 new file mode 100644
-index 0000000..8e275b9
+index 0000000..56b5e15
 --- /dev/null
 +++ b/app/src/main/cpp/slash.c
-@@ -0,0 +1,168 @@
+@@ -0,0 +1,177 @@
 +/* 베기 색 — slash.h 참고. 표는 slash_gen.py 가 만든 slash_tab.h(롬 색 번호만), 프리셋은 아래 손 표.
 +   색 대응(tmap): 원래 세 색을 밝기(정수 299R+587G+114B) 큰 순으로(같으면 앞 칸 먼저) — 000(검정 테)인 칸은 000 그대로, 나머지 칸에
 +   차례로 core·mid·edge. 검정 테를 남기면 밝은 무대에서도 효과 모양이 잡히고, 동봉 코어의 «색 3 = 000» 저장 순서 함정이 겉으로 안 나온다(to3 = from3).
@@ -1277,15 +1332,24 @@ index 0000000..8e275b9
 +   add(w, side ? 10 : 11, SLASH_BA, PRE_H[preset]); /* 내가 벤 섬광 = 맞은 쪽 공용 칸(«때린 사람 색») */
 +}
 +
++/* 원래 색 아이콘 — +2(대부분의 칼 궤적)부터 +1·+3 순으로, 가장 밝은 색이 ICON_MIN_LUMA 이상인 첫 세트(검은 판 위에서 보이게).
++   165 리뷰: 아수라 +2 는 D02/701/000(남색·검정 테 — 판 바탕과 같아 거의 안 보임, 1인 대전 처음 커서) → +1 FBF/E6E/C0C. 다 어두우면 보통 금빛 */
++#define ICON_MIN_LUMA 6000          /* luma() 최대 15000 의 0.4 — 아수라 +2 core 2080 · 다른 캐릭터 +2 core 는 가장 어두운 것도 11744(시키 나찰) */
 +void slash_icon(int preset, int look_row, int sty, uint16_t out[3])
 +{
++   static const int TRY[3] = { 1, 0, 2 };
 +   if (preset > 0 && preset < SLASH_N) { memcpy(out, PRE_T[preset], 6); return; }
 +   if (look_row < 0 || look_row >= 14) { memcpy(out, ICON_GENERIC, 6); return; }
-+   const uint16_t *s = SLASH_SET[(look_row << 2) | ((sty & 1) << 1)][1];   /* +2 = 대부분의 칼 궤적 */
-+   if (s[0] == SLASH_NONE) { memcpy(out, ICON_GENERIC, 6); return; }
-+   int ord[3];
-+   rank3(s, ord);
-+   for (int r = 0; r < 3; r++) out[r] = s[ord[r]];
++   for (int i = 0; i < 3; i++) {
++      const uint16_t *s = SLASH_SET[(look_row << 2) | ((sty & 1) << 1)][TRY[i]];
++      if (s[0] == SLASH_NONE) continue;
++      int ord[3];
++      rank3(s, ord);
++      if (luma(s[ord[0]]) < ICON_MIN_LUMA) continue;
++      for (int r = 0; r < 3; r++) out[r] = s[ord[r]];
++      return;
++   }
++   memcpy(out, ICON_GENERIC, 6);
 +}
 +
 +static void pget(const uint8_t *pal, int p, uint16_t c[3]) { for (int j = 0; j < 3; j++) { const uint8_t *e = pal + p * 8 + (j + 1) * 2; c[j] = (uint16_t)((e[0] | (e[1] << 8)) & 0xFFF); } }
@@ -1347,10 +1411,10 @@ index 0000000..8e275b9
 +}
 diff --git a/app/src/main/cpp/slash.h b/app/src/main/cpp/slash.h
 new file mode 100644
-index 0000000..a1669dc
+index 0000000..b64f731
 --- /dev/null
 +++ b/app/src/main/cpp/slash.h
-@@ -0,0 +1,28 @@
+@@ -0,0 +1,29 @@
 +/* 베기 색(slash.c) — 칼 궤적·필살 이펙트·내가 벤 섬광의 색을 프리셋으로. look.c 가 코어 팔레트 바꿔 쓰기 표의 유일한 주인이고,
 +   여기는 순수 함수(잠금 없음 — look 의 K_mu 안에서만 불린다): 표 만들기 · 프레임 뒤 보정 · 저장 앞뒤 되돌림/다시 씀 · 아이콘 색.
 +   스프라이트 팔레트(u162 census 실측): 0 P1 몸 · 1~4 P1 효과(+1~+4) · 5 P2 몸 · 6~9 P2 효과 · 10 P1 이 맞은 쪽 공용(P2 가 벤 섬광) ·
@@ -1371,7 +1435,8 @@ index 0000000..a1669dc
 +/* side 0 = P1(키 0x5B51 → 팔레트 1~4 · 내가 벤 섬광 11) · 1 = P2(키 0x5D51 → 6~9 · 10 — 상대 커스텀 컬러 때. 이번엔 안 부름).
 +   preset 0 이나 범위 밖이면 그 쪽은 비움. w 의 다른 쪽 칸은 건드리지 않는다(두 쪽을 한 표에 — 부르는 쪽이 먼저 slash_clear) */
 +void slash_build(const uint8_t *ram, int side, int preset, slash_want *w);
-+/* 고르기 화면 아이콘 세 색(core · mid · edge) — 프리셋 1~6 = 그 T, 0 = 그 캐릭터·검질의 원래 +2 궤적을 밝기 순으로(look_row 14·범위 밖 = 보통 금빛) */
++/* 고르기 화면 아이콘 세 색(core · mid · edge) — 프리셋 1~6 = 그 T, 0 = 그 캐릭터·검질의 원래 +2 궤적을 밝기 순으로(+2 가 어두우면 +1·+3 —
++   아수라 · look_row 14·범위 밖·모두 어두움 = 보통 금빛) */
 +void slash_icon(int preset, int look_row, int sty, uint16_t out[3]);
 +/* 프레임 뒤 보정 — 자리마다 지금 세 색이 그 자리의 from/to 로만 되어 있고 from 이 하나라도 있으면 to 를 쓴다(동봉 코어의 «윗바이트마다 판정»이
 +   표가 늦게 오거나 같은 값으로 다시 쓰일 때 to1/from2/from3 으로 굳는 것 · 불러온 상태 · 켠 순간). 돌려줌 = 고친 팔레트 수 */
@@ -1683,10 +1748,37 @@ index d92e45d..280e29a 100644
      /** 컬러 만들기 창의 시작 색 — 그 캐릭터·검질의 18색 × 세 색(없는 내 색 = 기본) */
      public static native int[]  nativeLookTriples(int ch, int sty);
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index f0fc579..e376c10 100644
+index f0fc579..6b52eea 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-@@ -2278,7 +2278,7 @@ public class EmuActivity extends Activity {
+@@ -410,6 +410,9 @@ public class EmuActivity extends Activity {
+         snapCoreOpts();
+         romMtime = new File(romPath).lastModified();
+         toast(loaded ? coreLabel : "코어/롬 로드 실패 (code " + rc + ")");
++        /* 컬러(look)는 이어하기 «앞»에 켠다 — 그래야 불러오기(look_after_load)가 경기 컬러·베기 색을 첫 프레임부터 넣는다(165 리뷰: 뒤에 켜면
++           불러온 첫 프레임이 원래 색으로 한 번 보였다). lookSetup 은 resumed·연습·리그 칸 설정과 상관없다 */
++        lookSetup();
+         /* 이어하기 — 옵션 바꾸고 다시 연 경우는 그 직전 상태(resume), 아니면 나갈 때 자동 저장해 둔 자리. 로드와 같은 스레드라 안전하다. */
+         String resume = getIntent().getStringExtra("resume");
+         boolean resumed = false;
+@@ -424,7 +427,6 @@ public class EmuActivity extends Activity {
+         }
+         practiceSetup(resumed);
+         leagueCellSetup();
+-        lookSetup();
+         cheatSetup();
+         /* 사무쇼2 배경음악(SS1) 결과를 알려 준다 — 「넣었는데 안 바뀐다」를 눈으로 가릴 수 있게(유저 2026-10-10).
+            이어하기면 지금 울리는 곡은 저장 당시 것이라(소리칩 램에 이미 올라가 있다) 다음 장면부터 바뀐다. */
+@@ -1002,7 +1004,7 @@ public class EmuActivity extends Activity {
+         releasePhysical();
+         try { ((android.hardware.input.InputManager) getSystemService(INPUT_SERVICE))
+                 .unregisterInputDeviceListener(devListener); } catch (Exception ignored) { }
+-        if (lookOn) lookSaveMem();               /* 컬러 기억 — 폴(200ms)이 아직 못 남긴 마지막 바뀜도(다시 굽기·갈아타기로 창이 닫히기 전에).
++        if (lookOn) { lookSaveMem(); lookSaveFx(); }   /* 컬러 기억·베기 색 — 폴(200ms)이 아직 못 남긴 마지막 바뀜도(다시 굽기·갈아타기·목록으로 창이 닫히기 전에).
+                                                     loaded 는 안 본다: 갈아타기·다시 굽기는 GL 스레드에서 먼저 내려 이미 거짓이고, native 기억은 코어 없이도 남는다 */
+         if (loaded) {
+             Emu.nativeSaveSram();
+@@ -2278,7 +2280,7 @@ public class EmuActivity extends Activity {
      /* 겹창 — Q_SEARCH = 허브 찾기(6)에서 go 를 기다림(로고·메뉴가 도는 동안 포함) · Q_RUN = go 보냄(−4 포함): 인트로(대신 고름)·고르기 화면(직접)을 기다림 */
      private static final int Q_SEARCH = 1, Q_RUN = 2;
      private static final long Q_FLASH = 500, Q_GO_LOST = 2500, Q_TAIL_MAX = 6000, Q_AUTO_HARD = 60000;   /* 자동이 6·8 어느 쪽에도 안 닿는 마지막 안전망 */
@@ -1695,7 +1787,7 @@ index f0fc579..e376c10 100644
      private RankUi.Quick rankQ;
      private RankUi.Quick rankQFading;               /* 내려가며 사라지는 겹창(160ms) — 그동안도 입력 0 · B = 그만(아직 «B 그만두기»가 보인다) */
      private int rankQMode;
-@@ -2326,7 +2326,7 @@ public class EmuActivity extends Activity {
+@@ -2326,7 +2328,7 @@ public class EmuActivity extends Activity {
          }
          if (!natAuto || !loaded) { rankAuto = 0; return; }
          League.Main mn = League.main();
@@ -1704,7 +1796,7 @@ index f0fc579..e376c10 100644
          rankAuto = autoPick(false, 0, 0, false, -1, -1, Emu.AUTO_TAIL) ? 1 : 0;
      }
  
-@@ -3531,11 +3531,11 @@ public class EmuActivity extends Activity {
+@@ -3531,11 +3533,11 @@ public class EmuActivity extends Activity {
  
      /** 띠 안내 — 버튼만(허브 상태 7 내 캐릭터 먼저 · 2 상대 선택 · 3 내 캐릭터 확정 뒤 · 4 경기). 타이틀은 셋째 줄에 커서가 있을 때만(◀▶ 고르기), 그 밖·돌아가는 중엔 숨긴다.
       *  버튼 이름은 패드 글자 그대로(A · B · OPTION) — 레퍼런스: 철권8 «[BACK]+[←] 벽을 등지고», KOF XV «왼쪽 = 화면 왼쪽 끝» 처럼 방향마다 결과를 적는다 */
@@ -1721,7 +1813,7 @@ index f0fc579..e376c10 100644
          if (scr == 6) return league ? "카드 고르기 (전부 열림)" : "카드 고르기";
          return league ? "곧 시작" : null;
      }
-@@ -3547,7 +3547,7 @@ public class EmuActivity extends Activity {
+@@ -3547,7 +3549,7 @@ public class EmuActivity extends Activity {
                  return "◀▶ 연습 대전 / 리그 대전  ·  A 시작" + (dv[1] == 0 ? "\n리그는 따로 세이브 판에서 해요" : "");
              return null;
          case 2: return "A 수라 · B 나찰 · OPTION 스테이지";   /* 고르는 캐릭터 = 더미(검질은 A·B) — 머리말이 이미 «상대 선택». «상대 ·» 를 붙이면 세로 화면에서 두 줄로 꺾인다(153 에뮬 확인) */
@@ -1730,7 +1822,7 @@ index f0fc579..e376c10 100644
          case 3: return myPickKeys(dv != null && dv.length >= 6 ? dv[5] : 2, false);
          case 4:   /* 좁은 띠(버튼 사이)에서도 줄이 접히지 않게 두 줄로 */
              if (ps.length > 1 && ps[1] != 0) return "↑↓ 고르기 · ←→ 바꾸기\nA 실행 · B 닫기";
-@@ -3558,12 +3558,12 @@ public class EmuActivity extends Activity {
+@@ -3558,12 +3560,12 @@ public class EmuActivity extends Activity {
  
      /* ── 모든 모드 컬러(look.c) ─────────────────────────────────────────
         사무쇼2 확인한 판(일반 판 practiceRomOk · 리그 판 hubVersionProblem 없음)이고 설정 «컬러 고르기»가 켬이면 1인·무한·연습·리그 어디서나
@@ -1747,7 +1839,7 @@ index f0fc579..e376c10 100644
      private int[][][] lookCus = new int[Look.NCH][2][];
      private android.view.View lookEditor;        /* 컬러 만들기 창(스크롤 틀) — 떠 있으면 게임 입력은 look 이 모두 막는다 */
  
-@@ -3578,6 +3578,7 @@ public class EmuActivity extends Activity {
+@@ -3578,6 +3580,7 @@ public class EmuActivity extends Activity {
              lookCus = Look.loadCustom();
              int[] v = Emu.nativeLookStatus();                            /* native 셈은 프로세스 내내 이어진다 — 지난 판의 요청·바뀜으로 창이 뜨지 않게 지금 값부터 */
              if (v != null && v.length >= 14) { lookMemGen = v[2]; lookEditReq = v[7]; }
@@ -1755,15 +1847,24 @@ index f0fc579..e376c10 100644
          }
          h.post(new Runnable() { @Override public void run() {
              h.removeCallbacks(lookPoll);
-@@ -3606,6 +3607,7 @@ public class EmuActivity extends Activity {
+@@ -3603,9 +3606,16 @@ public class EmuActivity extends Activity {
+         if (m != null) Look.saveMem(m);
+     }
+ 
++    /** A+B 로 바꾼 베기 색 — 하나로 기억(폴 · onPause: 떠나기 200ms 안에 바꾼 것도 — 165 리뷰) */
++    private void lookSaveFx() { lookSaveFx(Emu.nativeLookStatus()); }
++    private void lookSaveFx(int[] v) {
++        if (v != null && v.length >= 18 && v[15] != lookFxGen) { lookFxGen = v[15]; Look.saveFx(v[14]); }
++    }
++
      private void lookTick(int[] v) {
          lookV = v;
          if (v[2] != lookMemGen) lookSaveMem();                           /* OPTION 으로 바꾼 컬러 — 캐릭터마다 기억(다음에도 그 색) */
-+        if (v.length >= 18 && v[15] != lookFxGen) { lookFxGen = v[15]; Look.saveFx(v[14]); }   /* A+B 로 바꾼 베기 색 — 하나로 기억 */
++        lookSaveFx(v);                                                   /* A+B 로 바꾼 베기 색 */
          if (v[7] != lookEditReq) {                                       /* OPTION 길게 — 컬러 만들기 */
              lookEditReq = v[7];
              if (v[1] == 1) openLookEditor(v[12], v[13]);
-@@ -3631,7 +3633,7 @@ public class EmuActivity extends Activity {
+@@ -3631,7 +3641,7 @@ public class EmuActivity extends Activity {
          }
      }
  
