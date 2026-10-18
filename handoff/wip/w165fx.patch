@@ -412,7 +412,7 @@ index b10da7e..18b6e0d 100644
  void league_hub_autostatus(int v[LEAGUE_NAUTO]);   /* [단계 0~8(6 무대 인트로 · 8 막힘), go 뒤 프레임, go→장면, go→첫 라운드, 막힌 단계] */
  /* 153: native.c 가 프레임마다(잠금 없이) — 1 = 코어 4배속(pace 배속) · 1 = 게임 소리를 버린다(자동 진행 단계 1~5 · −4 리셋부터, autopick flags 4) */
 diff --git a/app/src/main/cpp/look.c b/app/src/main/cpp/look.c
-index 45dfb57..49d249e 100644
+index 45dfb57..85517f9 100644
 --- a/app/src/main/cpp/look.c
 +++ b/app/src/main/cpp/look.c
 @@ -1,26 +1,34 @@
@@ -515,7 +515,7 @@ index 45dfb57..49d249e 100644
 -   int b2p;                           /* B 로 2P색 결정 중(그 판만 — 기억은 안 바꿈) */
 -   int prev_in, last_scr, owned, hold_b, inj, inj_f;
 +   int fx, fx_sel, fx_p2;             /* 내 베기 색(0~6, 하나로 기억) · 경기 베기 색(고르기 화면에서 fx 를 따라감) · 상대 베기 색(나중 — 늘 0) */
-+   int prev_in, owned, inj, inj_f, inj_bit;
++   int prev_in, owned, inj, inj_f, inj_bit, last_scr;
 +   int g_st, g_first, g_scr0; unsigned g_f0;   /* A·B·A+B 가르기 — 상태 · 먼저 누른 단추 · 그때 화면 · 그때 프레임 */
 +   int hold;                          /* 결정·A+B 뒤 뗄 때까지 막는 단추(A·B·A+B) — 쥠이 풀려도 */
 +   int conf_pend, conf_n;             /* HOLD: 허브가 가져갈 결정 · 결정 횟수 */
@@ -532,8 +532,7 @@ index 45dfb57..49d249e 100644
 -   int mem_gen, sel_gen, edit_req;    /* Java 가 보는 바뀜 셈 */
 +   int mem_gen, sel_gen, edit_req, fx_gen;    /* Java 가 보는 바뀜 셈 */
     unsigned f;
--} K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1 };
-+} K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1 };
+ } K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1 };
  
 -void look_vram(void *chr, void *scr, void *pal) { vpanel_vram(chr, scr); g_pal = (uint8_t *)pal; }
 +void look_vram(void *chr, void *scr, void *pal) { vpanel_vram(chr, scr); vpanel_pal(pal); g_pal = (uint8_t *)pal; }
@@ -710,7 +709,7 @@ index 45dfb57..49d249e 100644
     }
     int sel_scr = md == 240 && (scr == 2 || scr == 4) && vpanel_layout();
     int owned = sel_scr && ctx != LOOK_CTX_BUSY;
-@@ -203,36 +301,39 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -203,36 +301,41 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
        if (scr == 2) K.rand_pick = h == 15;
        int slot = (scr == 4 && K.rand_pick) || h == 15 || (K.rand_pin && h == K.rand_pin - 1) ? 15 : h < 14 ? h : -1;   /* 무작위로 골랐으면 돌아가는 캐릭터와 상관없이 무작위 칸의 기억 */
        int row = h < 14 ? h : h == 15 ? LOOK_ROW_KUROKO : -1;
@@ -720,7 +719,8 @@ index 45dfb57..49d249e 100644
 -                                                                         같은 프레임에 캐릭터 고르기로 넘어와 2P색 결정으로 또 잡히지 않게(실측) */
           int sty_now = scr == 4 ? (ram[R_STYC] & 1) : -1;
 -         if (scr == 2 && K.last_scr == 4) { K.b2p = 0; K.rand_pin = 0; }   /* 검질 고르기에서 뒤로 — 2P색 결정 풀림 */
--         K.last_scr = scr;
++         if (scr == 2 && K.last_scr == 4) K.rand_pin = 0;            /* 검질 고르기에서 뒤로 — 무작위 칸에서 뽑혔던 캐릭터 고정 풀림(다시 고르면 직접 고른 것) */
+          K.last_scr = scr;
 -         if (K.edit) block = IN_ALL;                                  /* 컬러 만들기 창 — 게임에 아무것도 안 준다(고르기 화면엔 시간 제한이 없다, 실측) */
 +         if (K.edit) { block = IN_ALL; gate_reset(); }                /* 컬러 만들기 창 — 게임에 아무것도 안 준다(고르기 화면엔 시간 제한이 없다, 실측) */
           else {
@@ -764,7 +764,7 @@ index 45dfb57..49d249e 100644
           if (K.cur > 0 || K.edit)
              for (int k = 0; k < 2; k++) {                             /* 두 자리 — 검질 고르기에서 ←→ 로 검질을 바꿔도 바로 그 검질의 그 컬러 · 보이는 검질이 자리 0 */
                 int sty = k ^ K.psty;
-@@ -246,43 +347,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -246,43 +349,24 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
                 if (K.edit) memcpy(t, K.edit_c, 6); else tri(row, sty, K.cur, t);
                 if (!k || memcmp(b, t, 6)) rm_want(want, 0, k, b, t);
              }
@@ -819,7 +819,7 @@ index 45dfb57..49d249e 100644
     look_in_block = block; look_in_or = orr;
     pthread_mutex_unlock(&K_mu);
  }
-@@ -291,13 +373,13 @@ void look_enable(int on)
+@@ -291,13 +375,13 @@ void look_enable(int on)
  {
     pthread_mutex_lock(&K_mu);
     K.on = on ? 1 : 0; rm_init = 0;
@@ -835,7 +835,7 @@ index 45dfb57..49d249e 100644
     pthread_mutex_unlock(&K_mu);
  }
  int look_get_mem(signed char *mem, int n)
-@@ -316,16 +398,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
+@@ -316,16 +400,22 @@ void look_set_custom(int ch, int k, int c1, int c2, int c3)
     if (c1 >= 0) { K.cus[ch][k][0] = (uint16_t)(c1 & 0xFFF); K.cus[ch][k][1] = (uint16_t)(c2 & 0xFFF); K.cus[ch][k][2] = (uint16_t)(c3 & 0xFFF); }
     pthread_mutex_unlock(&K_mu);
  }
@@ -861,7 +861,7 @@ index 45dfb57..49d249e 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_edit(int on, int c1, int c2, int c3)
-@@ -335,12 +423,20 @@ void look_edit(int on, int c1, int c2, int c3)
+@@ -335,12 +425,20 @@ void look_edit(int on, int c1, int c2, int c3)
     K.edit_c[0] = (uint16_t)(c1 & 0xFFF); K.edit_c[1] = (uint16_t)(c2 & 0xFFF); K.edit_c[2] = (uint16_t)(c3 & 0xFFF);
     pthread_mutex_unlock(&K_mu);
  }
@@ -883,7 +883,7 @@ index 45dfb57..49d249e 100644
     pthread_mutex_unlock(&K_mu);
  }
  void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
-@@ -351,8 +447,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
+@@ -351,8 +449,22 @@ void look_triples(int ch, int sty, int out[LOOK_NIDX * 3])
     for (int i = 0; i < LOOK_NIDX; i++) { tri(row, sty & 1, i, t); for (int j = 0; j < 3; j++) out[i * 3 + j] = t[j]; }
     pthread_mutex_unlock(&K_mu);
  }
@@ -908,7 +908,7 @@ index 45dfb57..49d249e 100644
     캐릭터·검질은 알고 되돌린다 — 황금·은빛·그림자처럼 캐릭터가 달라도 같은 세 색인 프리셋(밝기 순위로)이 있어 색만으론 못 가린다.
     검질: 전투 중이고 P1 블록이 그 캐릭터면 블록의 검질, 아니면 검질 고르기 커서(0x574C — 확정 뒤에도 남음). 그 검질의 색이 아니면 다른 검질도 본다 */
  void look_before_save(void)
-@@ -361,57 +471,90 @@ void look_before_save(void)
+@@ -361,57 +473,90 @@ void look_before_save(void)
     pthread_mutex_lock(&K_mu);
     if (K.owned) vpanel_restore();
     if (g_pal && K.on && K.ram) {
@@ -1017,12 +1017,12 @@ index 45dfb57..49d249e 100644
 -   K.sel = -1; K.sel_ch = -1; K.cur = 0; K.b2p = 0; K.edit = 0; K.owned = 0; K.hold_b = 0; K.inj = 0; K.last_scr = -1; K.prow = -1; K.opt_own = 0; K.pv_has = 0;
 -   K.rand_pin = 0;
 +   K.sel = -1; K.sel_ch = -1; K.cur = 0; K.fx_sel = 0; K.edit = 0; K.owned = 0; K.inj = 0; K.hold = 0; K.prow = -1; K.opt_own = 0; K.pv_has = 0;
-+   K.rand_pin = 0; K.toast_f = (int)K.f; K.vp_lab = NULL; gate_reset();
++   K.rand_pin = 0; K.toast_f = (int)K.f; K.vp_lab = NULL; K.last_scr = -1; gate_reset();
 +   slash_clear(&SW);
     rm_init = 0; vpanel_forget();
     look_in_block = 0; look_in_or = 0;
     pthread_mutex_unlock(&K_mu);
-@@ -433,6 +576,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
+@@ -433,6 +578,7 @@ JNI(jbyteArray, nativeLookGetMem)(JNIEnv *env, jclass cls)
     return a;
  }
  JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1, jint c2, jint c3) { (void)env; (void)cls; look_set_custom(ch, k, c1, c2, c3); }
