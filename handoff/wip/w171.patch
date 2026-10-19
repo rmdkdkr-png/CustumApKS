@@ -1748,7 +1748,7 @@ index d92e45d..280e29a 100644
      /** 컬러 만들기 창의 시작 색 — 그 캐릭터·검질의 18색 × 세 색(없는 내 색 = 기본) */
      public static native int[]  nativeLookTriples(int ch, int sty);
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 4583650..90f7608 100644
+index 4583650..e784d3e 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -410,6 +410,9 @@ public class EmuActivity extends Activity {
@@ -1778,7 +1778,56 @@ index 4583650..90f7608 100644
                                                      loaded 는 안 본다: 갈아타기·다시 굽기는 GL 스레드에서 먼저 내려 이미 거짓이고, native 기억은 코어 없이도 남는다 */
          if (loaded) {
              Emu.nativeSaveSram();
-@@ -2279,7 +2281,7 @@ public class EmuActivity extends Activity {
+@@ -1030,7 +1032,7 @@ public class EmuActivity extends Activity {
+     @Override protected void onResume() {
+         super.onResume(); Orient.apply(this); immersive(); gl.onResume();
+         resumedNow = true;
+-        if (leagueId != null && leagueArmed && !leagueDone) League.ckpt(leagueId).delete();   /* 다시 올라왔다 — 경기는 이어서 돈다 */
++        if (leagueId != null && leagueArmed && !leagueDone) League.ckptDelete(leagueId);   /* 다시 올라왔다 — 경기는 이어서 돈다(.look 도) */
+         if (leagueId != null && leagueArmed && leagueDone && !leaving) {                    /* 백그라운드에서 정산됐다 — 이제 결과 창으로 */
+             if (postState() == 1) { h.removeCallbacks(leaguePoll); h.post(leaguePoll); }      /* 153: 승리 대사 도중 내려갔다 — 대사를 마저 보고 */
+             else leagueExit(leagueId);
+@@ -1128,7 +1130,7 @@ public class EmuActivity extends Activity {
+         }
+         File ck = League.ckpt(leagueId);
+         boolean fromCk = false;
+-        if (fresh) ck.delete();
++        if (fresh) League.ckptDelete(leagueId);
+         else {
+             boolean had = ck.exists();
+             if (had) fromCk = Emu.nativeLoadState(ck.getAbsolutePath()) == 0;
+@@ -1138,7 +1140,7 @@ public class EmuActivity extends Activity {
+                 leagueBlocked(had ? BLK_BADCKPT : BLK_NOCKPT, null);
+                 return;
+             }
+-            ck.delete();                                      /* 한 번 쓰면 끝 */
++            League.ckptDelete(leagueId);                      /* 한 번 쓰면 끝(.look 은 불러오며 이미 읽었다) */
+         }
+         org.json.JSONObject rule = m.optJSONObject("rule");
+         {   /* 배경·컬러 — 경기에 적힌 값(이어 하기), 없으면 새 판만 고른 배경(게임 속 리그 OPTION 과 같은 설정)으로 정해 적는다.
+@@ -1227,12 +1229,17 @@ public class EmuActivity extends Activity {
+         return true;
+     }
+ 
+-    /** 체크포인트 — 임시 파일에 쓰고 이름을 바꿔 넣는다(쓰다 죽어도 반쪽 파일이 안 남는다). 실패하면 옛 것을 그대로 둔다. */
++    /** 체크포인트 — 임시 파일에 쓰고 이름을 바꿔 넣는다(쓰다 죽어도 반쪽 파일이 안 남는다). 실패하면 옛 것을 그대로 둔다.
++     *  171: 상태 옆 .look(nativeSaveState 가 씀)도 같이 옮긴다 — 경기 베기 색(fx_sel)은 경기 기록에 없고 .look 에만 있다(지우면 이어 한 판이
++     *  끝까지 원래 베기 색). 몸 경기 컬러는 그대로 기록이 정한다: leagueStart 가 불러온 바로 뒤 nativeLeagueLook 으로 덮는다(옛 기록이면 −1).
++     *  .look 은 상태 크기·지문이 맞을 때만 쓰이니(native look_side_read) 남은 옛 것이 다른 상태에 붙지 않는다 */
+     private boolean leagueSaveCkpt() {
+         File ck = League.ckpt(leagueId), tmp = new File(ck.getPath() + ".tmp");
+-        if (Emu.nativeSaveState(tmp.getAbsolutePath()) != 0) { tmp.delete(); return false; }
+-        new File(tmp.getPath() + ".look").delete();          /* 경기 컬러는 경기 기록(look)이 정한다(leagueStart → nativeLeagueLook) — 옆 파일을 남기지 않는다 */
+-        if (!tmp.renameTo(ck)) { tmp.delete(); return false; }
++        File tl = new File(tmp.getPath() + ".look"), cl = League.ckptLook(leagueId);
++        if (Emu.nativeSaveState(tmp.getAbsolutePath()) != 0) { tmp.delete(); tl.delete(); return false; }
++        if (!tmp.renameTo(ck)) { tmp.delete(); tl.delete(); return false; }
++        if (!tl.exists()) cl.delete();                      /* 컬러·베기 색 없는 판 — 지난 체크포인트의 .look 을 남기지 않는다 */
++        else if (!tl.renameTo(cl)) { tl.delete(); cl.delete(); }   /* 못 옮기면 .look 없는 체크포인트(원래 베기 색 — 예전과 같음) */
+         return true;
+     }
+ 
+@@ -2279,7 +2286,7 @@ public class EmuActivity extends Activity {
      /* 겹창 — Q_SEARCH = 허브 찾기(6)에서 go 를 기다림(로고·메뉴가 도는 동안 포함) · Q_RUN = go 보냄(−4 포함): 인트로(대신 고름)·고르기 화면(직접)을 기다림 */
      private static final int Q_SEARCH = 1, Q_RUN = 2;
      private static final long Q_FLASH = 500, Q_GO_LOST = 2500, Q_TAIL_MAX = 6000, Q_AUTO_HARD = 60000;   /* 자동이 6·8 어느 쪽에도 안 닿는 마지막 안전망 */
@@ -1787,7 +1836,7 @@ index 4583650..90f7608 100644
      private RankUi.Quick rankQ;
      private RankUi.Quick rankQFading;               /* 내려가며 사라지는 겹창(160ms) — 그동안도 입력 0 · B = 그만(아직 «B 그만두기»가 보인다) */
      private int rankQMode;
-@@ -2327,7 +2329,7 @@ public class EmuActivity extends Activity {
+@@ -2327,7 +2334,7 @@ public class EmuActivity extends Activity {
          }
          if (!natAuto || !loaded) { rankAuto = 0; return; }
          League.Main mn = League.main();
@@ -1796,7 +1845,7 @@ index 4583650..90f7608 100644
          rankAuto = autoPick(false, 0, 0, false, -1, -1, Emu.AUTO_TAIL) ? 1 : 0;
      }
  
-@@ -3641,11 +3643,11 @@ public class EmuActivity extends Activity {
+@@ -3641,11 +3648,11 @@ public class EmuActivity extends Activity {
  
      /** 띠 안내 — 버튼만(허브 상태 7 내 캐릭터 먼저 · 2 상대 선택 · 3 내 캐릭터 확정 뒤 · 4 경기). 타이틀은 셋째 줄에 커서가 있을 때만(◀▶ 고르기), 그 밖·돌아가는 중엔 숨긴다.
       *  버튼 이름은 패드 글자 그대로(A · B · OPTION) — 레퍼런스: 철권8 «[BACK]+[←] 벽을 등지고», KOF XV «왼쪽 = 화면 왼쪽 끝» 처럼 방향마다 결과를 적는다 */
@@ -1813,7 +1862,7 @@ index 4583650..90f7608 100644
          if (scr == 6) return league ? "카드 고르기 (전부 열림)" : "카드 고르기";
          return league ? "곧 시작" : null;
      }
-@@ -3657,7 +3659,7 @@ public class EmuActivity extends Activity {
+@@ -3657,7 +3664,7 @@ public class EmuActivity extends Activity {
                  return "◀▶ 연습 대전 / 리그 대전  ·  A 시작" + (dv[1] == 0 ? "\n리그는 따로 세이브 판에서 해요" : "");
              return null;
          case 2: return "A 수라 · B 나찰 · OPTION 스테이지";   /* 고르는 캐릭터 = 더미(검질은 A·B) — 머리말이 이미 «상대 선택». «상대 ·» 를 붙이면 세로 화면에서 두 줄로 꺾인다(153 에뮬 확인) */
@@ -1822,7 +1871,7 @@ index 4583650..90f7608 100644
          case 3: return myPickKeys(dv != null && dv.length >= 6 ? dv[5] : 2, false);
          case 4:   /* 좁은 띠(버튼 사이)에서도 줄이 접히지 않게 두 줄로 */
              if (ps.length > 1 && ps[1] != 0) return "↑↓ 고르기 · ←→ 바꾸기\nA 실행 · B 닫기";
-@@ -3668,12 +3670,12 @@ public class EmuActivity extends Activity {
+@@ -3668,12 +3675,12 @@ public class EmuActivity extends Activity {
  
      /* ── 모든 모드 컬러(look.c) ─────────────────────────────────────────
         사무쇼2 확인한 판(일반 판 practiceRomOk · 리그 판 hubVersionProblem 없음)이고 설정 «컬러 고르기»가 켬이면 1인·무한·연습·리그 어디서나
@@ -1839,7 +1888,7 @@ index 4583650..90f7608 100644
      private int[][][] lookCus = new int[Look.NCH][2][];
      private android.view.View lookEditor;        /* 컬러 만들기 창(스크롤 틀) — 떠 있으면 게임 입력은 look 이 모두 막는다 */
  
-@@ -3688,6 +3690,7 @@ public class EmuActivity extends Activity {
+@@ -3688,6 +3695,7 @@ public class EmuActivity extends Activity {
              lookCus = Look.loadCustom();
              int[] v = Emu.nativeLookStatus();                            /* native 셈은 프로세스 내내 이어진다 — 지난 판의 요청·바뀜으로 창이 뜨지 않게 지금 값부터 */
              if (v != null && v.length >= 14) { lookMemGen = v[2]; lookEditReq = v[7]; }
@@ -1847,7 +1896,7 @@ index 4583650..90f7608 100644
          }
          h.post(new Runnable() { @Override public void run() {
              h.removeCallbacks(lookPoll);
-@@ -3713,9 +3716,16 @@ public class EmuActivity extends Activity {
+@@ -3713,9 +3721,16 @@ public class EmuActivity extends Activity {
          if (m != null) Look.saveMem(m);
      }
  
@@ -1864,7 +1913,7 @@ index 4583650..90f7608 100644
          if (v[7] != lookEditReq) {                                       /* OPTION 길게 — 컬러 만들기 */
              lookEditReq = v[7];
              if (v[1] == 1) openLookEditor(v[12], v[13]);
-@@ -3741,7 +3751,7 @@ public class EmuActivity extends Activity {
+@@ -3741,7 +3756,7 @@ public class EmuActivity extends Activity {
          }
      }
  
@@ -1874,7 +1923,7 @@ index 4583650..90f7608 100644
          int[] v = lookV;
          if (!lookOn || v == null || v.length < 14 || v[1] != 1 || lookEditor != null) return null;
 diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
-index 45b8405..e6c7119 100644
+index 45b8405..6b38756 100644
 --- a/app/src/main/java/com/dudu/pocketcore/League.java
 +++ b/app/src/main/java/com/dudu/pocketcore/League.java
 @@ -35,7 +35,7 @@ final class League {
@@ -1886,7 +1935,18 @@ index 45b8405..e6c7119 100644
       *  옛 기록(cv 없음)의 2·3 은 «컬러 3·4» — 이름은 Look.name(idx, cv) */
      static final String[] COLORS = Look.NAMES;
      /** 가상 상대마다 기본 배경(«상대 기본» 일 때) — 명단(ROSTER)과 따로 둬서 옛 기록을 안 고친다 */
-@@ -343,9 +343,10 @@ final class League {
+@@ -99,6 +99,10 @@ final class League {
+     static File saveDir()  { File d = new File(dir(), "saves"); d.mkdirs(); return d; }
+     static File romDir()   { File d = new File(dir(), "rom"); d.mkdirs(); return d; }
+     static File ckpt(String id) { return new File(dir(), "ckpt_" + id + ".state"); }
++    /** 체크포인트 옆 .look(경기 컬러·경기 베기 색 — nativeSaveState 가 씀, 171 부터 체크포인트와 같이 옮김) */
++    static File ckptLook(String id) { return new File(ckpt(id).getPath() + ".look"); }
++    /** 체크포인트를 지운다 — 옆 .look 도(작은 파일이 경기마다 쌓이지 않게) */
++    static void ckptDelete(String id) { ckpt(id).delete(); ckptLook(id).delete(); }
+     private static File file() { return new File(dir(), "league.json"); }
+     private static File bak()  { return new File(dir(), "league.json.bak"); }
+ 
+@@ -343,9 +347,10 @@ final class League {
          } catch (Exception ignored) { }
      }
      /* ── 153 랭크 «내 캐릭터»(pref.main) — 랭크에 처음 들어와 게임 고르기 화면에서 한 번 고른 것(nativeHubMyPick).
@@ -1899,7 +1959,7 @@ index 45b8405..e6c7119 100644
      /** 저장된 내 캐릭터 — 없거나 값이 깨졌으면 null(첫 판처럼 직접 고른다) */
      static synchronized Main main() {
          JSONObject p = db().optJSONObject("pref"), j = p != null ? p.optJSONObject("main") : null;
-@@ -354,26 +355,28 @@ final class League {
+@@ -354,26 +359,28 @@ final class League {
      static Main mainOf(JSONObject j) {
          if (j == null || j.optInt("v") != 1) return null;
          Main m = new Main();
@@ -1934,7 +1994,7 @@ index 45b8405..e6c7119 100644
                      .put("k1", m.k1).put("k2", m.k2).put("colour", m.colour).put("at", System.currentTimeMillis()));   /* 고른 값(범위 밖은 없음·기본으로) */
              return save();
          } catch (Exception e) { return false; }
-@@ -385,7 +388,7 @@ final class League {
+@@ -385,7 +392,7 @@ final class League {
          p.remove("main");
          return save();
      }
@@ -1943,6 +2003,87 @@ index 45b8405..e6c7119 100644
      static String mainLabel(Main m, int colour) {
          if (m == null) return "";
          String s = m.cell == 15 ? "무작위 칸" : CHAR[m.ch] + " " + STYLE[m.sty];
+@@ -548,7 +555,7 @@ final class League {
+             m.put("updated", System.currentTimeMillis());
+             if (isRanked(m)) releasePending(m.optString("opp"));   /* 보류는 잡힌 상대를 푼다 — 같은 원인(손잡이 불일치 등)으로 같은 상대에게 되풀이해 막히지 않게 */
+             if (!save()) { db = new JSONObject(backup); return false; }
+-            ckpt(id).delete();
++            ckptDelete(id);
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -568,7 +575,7 @@ final class League {
+             m.put("status", "cancelled"); m.put("why", why); m.put("updated", System.currentTimeMillis());
+             if (stale && isRanked(m)) pendingMiss(m.optString("opp"));
+             if (!save()) { db = new JSONObject(backup); return false; }
+-            ckpt(id).delete();
++            ckptDelete(id);
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -625,7 +632,7 @@ final class League {
+             m.put("updated", System.currentTimeMillis());
+             if (isRanked(m)) pendingMiss(m.optString("opp"));
+             if (!save()) { db = new JSONObject(backup); return false; }
+-            ckpt(id).delete(); new File(ckpt(id).getPath() + ".tmp").delete();
++            ckptDelete(id); new File(ckpt(id).getPath() + ".tmp").delete(); new File(ckpt(id).getPath() + ".tmp.look").delete();
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -738,7 +745,7 @@ final class League {
+                 m.put("fix", "점수는 그대로입니다. 새로 도전하면 1인 대전 캐릭터 고르기로 자동으로 들어갑니다.");
+                 if (rk) releasePending(m.optString("opp"));   /* 보류는 잡힌 상대를 푼다(hold 와 같게) */
+                 if (!save()) throw new IOException("save");
+-                ckpt(matchId).delete();
++                ckptDelete(matchId);
+                 return m;
+             }
+             /* 결판 비트와 승수가 서로 맞을 때만 정산한다(0단계 «결과 감지 규칙»: 승자 = 낮은 비트, 무승부 결판 = 0x90 3:3).
+@@ -758,7 +765,7 @@ final class League {
+                 m.put("fix", "점수는 그대로입니다. 같은 상대에게 다시 도전하면 새 경기로 기록됩니다.");
+                 if (rk) releasePending(m.optString("opp"));   /* 손잡이 불일치가 그 상대 탓이면 되풀이된다 — 풀어서 다음엔 새 상대 */
+                 if (!save()) throw new IOException("save");
+-                ckpt(matchId).delete();
++                ckptDelete(matchId);
+                 return m;
+             }
+             if (rk) applyRanked(m, out, false); else apply(m, me, o, out);
+@@ -766,7 +773,7 @@ final class League {
+             m.put("settled", System.currentTimeMillis());
+             if (rk && liveHub) noteSessionMem(m);           /* 157 G2 — 같은 한 번의 저장으로 */
+             if (!save()) throw new IOException("save");
+-            ckpt(matchId).delete();
++            ckptDelete(matchId);
+             return m;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -822,7 +829,7 @@ final class League {
+             m.put("settled", System.currentTimeMillis());
+             if (isRanked(m) && liveHub) noteSessionMem(m);  /* 157 G2 */
+             if (!save()) throw new IOException("save");
+-            ckpt(matchId).delete();
++            ckptDelete(matchId);
+             return m;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -1610,7 +1617,7 @@ final class League {
+             r.remove("pending");
+             r.put("season", n + 1); r.put("season_start", System.currentTimeMillis());
+             if (!save()) { db = new JSONObject(backup); arc.delete(); return false; }
+-            for (String id : ready) ckpt(id).delete();
++            for (String id : ready) ckptDelete(id);
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -1642,7 +1649,7 @@ final class League {
+             db.put("ranked", n);
+             if (!save()) { db = new JSONObject(backup); arc.delete(); return false; }
+             File[] fs = dir().listFiles();
+-            for (int i = 0; fs != null && i < fs.length; i++) if (fs[i].getName().startsWith("ckpt_")) fs[i].delete();   /* .state·.state.tmp */
++            for (int i = 0; fs != null && i < fs.length; i++) if (fs[i].getName().startsWith("ckpt_")) fs[i].delete();   /* .state·.state.tmp·.look */
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
 diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
 index 4297289..4484013 100644
 --- a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
