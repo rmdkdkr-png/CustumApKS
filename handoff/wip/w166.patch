@@ -501,7 +501,7 @@ index d92e45d..3f35594 100644
      /* 157 덧판(ovplane.c — 계약서 docs/157_contract.md §3). 게임 화면 위 가상 오버레이 판: 코어 램·VRAM 을 안 건드리고 gl_draw 가 잔상 뒤에 합성한다.
         nativeOvStatus 만 아무 스레드 — 나머지는 GL 스레드(LeagueMenu, gl.queueEvent)에서만. 옛 native 면 UnsatisfiedLinkError — 부르는 쪽이 받아 옛 결과 카드로.
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 4583650..0b9f588 100644
+index 4583650..4a17eca 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -59,6 +59,10 @@ public class EmuActivity extends Activity {
@@ -1306,7 +1306,7 @@ index 4583650..0b9f588 100644
          @Override public void lgmFallback(int why) {
              boolean result = lgmShown && lgmResultId != null;
              org.json.JSONObject m = result ? League.matchById(lgmResultId) : null;
-@@ -3398,12 +3755,113 @@ public class EmuActivity extends Activity {
+@@ -3398,12 +3755,112 @@ public class EmuActivity extends Activity {
          }
      };
  
@@ -1371,8 +1371,7 @@ index 4583650..0b9f588 100644
 +    }
 +    /** 168(11) «내 이름» — 게임 위 카드에 글 칸(덧판·코어는 멈춘 채). 정하면 기록(me.name — 글꼴에 있는 글자만 · 비우면 «나») → 리그 탭·대기 다시 그림 */
 +    private void askName() {
-+        final LeagueMenu mm = lgm;
-+        if (ask != null || root == null) return;
++        if (ask != null || root == null) { lgmDrawer(MenuModel.Prefs.TAB_LEAGUE); return; }   /* 카드를 못 띄움 — 서랍을 다시 그려 바쁨을 푼다 */
 +        final android.widget.EditText e = new android.widget.EditText(this);
 +        e.setSingleLine(true);
 +        e.setText(League.myNick());
@@ -1421,7 +1420,7 @@ index 4583650..0b9f588 100644
          if (tab == MenuModel.Prefs.TAB_SETTINGS) {
              final MenuModel.Prefs p = League.menuPrefs();
              lgmRender(() -> { final LgmPages.Scene sc = lgmPages().settings(p, 0); h.post(() -> lgmDrawerShow(gen, tab, sc)); }, () -> lgmWhy("drawer_render", lgmRenderErr));
-@@ -3491,30 +3949,56 @@ public class EmuActivity extends Activity {
+@@ -3491,30 +3948,56 @@ public class EmuActivity extends Activity {
         코어 쪽은 올리고 내릴 때 이미 모두 끈다. 게임 안 「설정」 › «치트»에서 바꾸면 닫을 때 값만 다시 넣는다(코어를 다시 올리지 않음). */
  
      private volatile boolean cheatOk = false, cheatFight = false;   /* cheatSetup 은 GL 스레드(롬 바뀜 다시 로드)에서도 돈다 */
@@ -1489,7 +1488,7 @@ index 4583650..0b9f588 100644
          java.util.Map<String, String> m = Settings.load();
          Cheats.push(m);
          cheatFight = Cheats.fight(m);
-@@ -3523,11 +4007,11 @@ public class EmuActivity extends Activity {
+@@ -3523,11 +4006,11 @@ public class EmuActivity extends Activity {
  
      /** 1초마다 — 왼쪽 위 작은 «치트» 표시(먹는 치트가 있을 때 · 리그 이름표와 같은 자리, 색만 흐리게), «세이브에 남기기»가 세이브에 들어간 순간 한 번 알림 */
      private final Runnable cheatPoll = new Runnable() { @Override public void run() {
