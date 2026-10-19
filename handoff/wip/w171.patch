@@ -1923,9 +1923,18 @@ index 4583650..e784d3e 100644
          int[] v = lookV;
          if (!lookOn || v == null || v.length < 14 || v[1] != 1 || lookEditor != null) return null;
 diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
-index 45b8405..6b38756 100644
+index 45b8405..5b96e61 100644
 --- a/app/src/main/java/com/dudu/pocketcore/League.java
 +++ b/app/src/main/java/com/dudu/pocketcore/League.java
+@@ -17,7 +17,7 @@ import java.security.MessageDigest;
+  *   기록      = 루트/league/league.json   (원자 저장: 임시 파일 → fsync → 이름 바꾸기, 같은 내용 한 벌 더 .bak)
+  *   랭크전 세이브 = 루트/league/saves/       (원작 세이브 폴더와 다른 곳 — 랭크전이 원작 세이브를 건드리지 않는다)
+  *   랭크전 롬   = 루트/league/rom/          (원본 + 번역 패치만 — 조작 패치·배경음악 없이 고정 판, Patcher.resolveLeague)
+- *   체크포인트 = 루트/league/ckpt_<경기id>.state (앱이 내려갈 때 그 순간만, 한 번 쓰면 지운다)
++ *   체크포인트 = 루트/league/ckpt_<경기id>.state (앱이 내려갈 때 그 순간만, 한 번 쓰면 지운다) + 옆 .state.look(경기 컬러·경기 베기 색 — 171 부터 같이 옮기고 같이 지움)
+  *
+  * 경기 상태(기획서 4장): ready 준비 · playing 진행 중 · settled 정산 완료 · resume 복귀 대기 · forfeit 기권 · hold 오류 보류
+  *                       · cancelled 무효(대진 전에 멈춤). 끝난 상태(settled·forfeit·hold·cancelled)는 다시 바뀌지 않는다.
 @@ -35,7 +35,7 @@ final class League {
      static final String[] DIFF  = { "쉬움", "보통", "어려움" };
      /** 배경(스테이지) 0~7 — 1인 대전에서 배경은 «몇 번째 판»(0x5827)을 따른다(league.c R_BOUT). 실측한 여덟 개 */
