@@ -86,7 +86,7 @@ index 7687ad7..eab014e 100644
      7 막힌 이유(0 없음 · 1 잠김 · 2 (옛: 리그 세션 — 168 부터 안 씀) · 3 연습 대전 흐름 — 3 은 경기 치트만 · 4 리그 세션에서 먹음(막지 않음)), 8 마지막으로 쓴 P1 공격 배율(−1 없음), 9 공격 배율 기준값,
      10 마지막 한 방 KO 프레임, 11 무한 체력으로 되돌린 횟수, 12 프레임, 13 지금 프로그램(0x57C6), 14 지금 단계(0x5726),
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index bc4c00f..9a60497 100644
+index bc4c00f..6c990d7 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
 @@ -20,6 +20,7 @@
@@ -141,8 +141,16 @@ index bc4c00f..9a60497 100644
  /* 게임 속 리그: 결판 뒤 리셋하고 타이틀 «리그 대전»까지(rematch = 바로 다시 붙을 상대 캐릭터, −1 없음) */
  JNI(void, nativeLeagueHubReturn)(JNIEnv *env, jclass cls, jint rematch)
  { (void)env; (void)cls; CORE_LOCK(); if (g_loaded) c_reset(); league_hub_return(rematch); look_forget(); cheat_forget(); ov_clear(OV_CLR_ALL); ov_tag_clear(); CORE_UNLOCK(); }
+@@ -1320,6 +1337,7 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
+    int ok = buf && c_serialize(buf, sz);
+    look_after_save();                    /* 컬러: 되돌린 것을 바로 우리 것으로(다음 화면 한 프레임이 원래 색으로 안 나오게) */
+    if (c_get_memory_data) cheat_after_save((uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM));   /* before_save 가 돌려 둔 치트 값을 되씀 */
++   practice_after_save();                /* 연습 창·숫자·«2P»·176 보기 숫자를 바로 다시(다음 화면 한 장이 숫자 없이 나오지 않게 — 저장된 상태는 이미 원래대로) */
+    uint8_t side[PRAC_SIDE_MAX];          /* 연습 경기 중이면 허브·설정 — 같은 잠금 안에서(상태와 한 순간) */
+    size_t sn = ok ? prac_side_make(side, buf, sz) : 0;
+    uint8_t lside[LOOK_SIDE_MAX];         /* 경기 컬러 — 같은 잠금 안에서 */
 diff --git a/app/src/main/cpp/practice.c b/app/src/main/cpp/practice.c
-index 3a83942..b3bdbe9 100644
+index 3a83942..d4e945b 100644
 --- a/app/src/main/cpp/practice.c
 +++ b/app/src/main/cpp/practice.c
 @@ -29,6 +29,7 @@
@@ -370,7 +378,7 @@ index 3a83942..b3bdbe9 100644
  int practice_take_exit(void)
  {
     pthread_mutex_lock(&P_mu);
-@@ -971,6 +1060,7 @@ void practice_forget(void)
+@@ -971,15 +1060,35 @@ void practice_forget(void)
  {
     pthread_mutex_lock(&P_mu);
     P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
@@ -378,15 +386,36 @@ index 3a83942..b3bdbe9 100644
     fd_reset(1);
     practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
     pthread_mutex_unlock(&P_mu);
-@@ -980,6 +1070,7 @@ void practice_before_save(void)
+ }
+ 
++static int sv_win;                 /* 상태 저장 직전에 연습 메뉴 창이 열려 있었나 — practice_after_save 가 바로 다시 그린다 */
+ void practice_before_save(void)
  {
     pthread_mutex_lock(&P_mu);
-    if (P.active) { window_restore(); hud_restore(); }   /* 메뉴가 열린 채면 다음 프레임에 window_draw 가 다시 빌려 그린다 */
-+   if (AV.active) dig_restore(&AV.dig_state, AV.dig_orig, AV.dig_ours);   /* 176 보기 숫자도 — 다음 진짜 프레임에 다시 그린다 */
+-   if (P.active) { window_restore(); hud_restore(); }   /* 메뉴가 열린 채면 다음 프레임에 window_draw 가 다시 빌려 그린다 */
++   sv_win = P.active && W.open;
++   if (P.active) { window_restore(); hud_restore(); }
++   if (AV.active) dig_restore(&AV.dig_state, AV.dig_orig, AV.dig_ours);   /* 176 보기 숫자도 */
++   pthread_mutex_unlock(&P_mu);
++}
++
++/* 상태 저장(c_serialize) 바로 뒤 — before_save 가 되돌린 창·숫자·«2P» 를 그 자리에서 다시 그린다.
++   view_tick·hud_update·window_draw 는 c_run 뒤에 돌아서, 여기서 안 그리면 저장 다음 화면 한 장(120Hz 프레임 생성이면 두 vsync)에
++   HUD 대미지 숫자·«2P»·메뉴 창이 빠졌다가 그다음 장에 돌아온다(빠른 저장마다 깜빡) — look_after_save 와 같은 뜻.
++   그리는 조건·값은 그 틱 함수들과 같다(저장 사이엔 에뮬레이션이 없어 램·화면이 저장 직전과 같다) */
++void practice_after_save(void)
++{
++   pthread_mutex_lock(&P_mu);
++   if (P.active && P.menu != M_EXIT) {
++      if (sv_win && P.menu == M_OPEN) window_draw();
++      hud_update();
++   }
++   if (AV.active) dig_draw((AV.bits & 2) && AV.disp >= 0 && hud_layout(), AV.disp, &AV.dig_state, AV.dig_orig, AV.dig_ours);
++   sv_win = 0;
     pthread_mutex_unlock(&P_mu);
  }
  
-@@ -1061,7 +1152,7 @@ uint32_t practice_fd_get(uint8_t *cells, int *sum)
+@@ -1061,7 +1170,7 @@ uint32_t practice_fd_get(uint8_t *cells, int *sum)
     if (cells) memcpy(cells, FD.cell, sizeof FD.cell);
     if (sum) {
        for (int i = 0; i < PRACTICE_FD_NSUM; i++) sum[i] = 0;
@@ -395,7 +424,7 @@ index 3a83942..b3bdbe9 100644
        for (int p = 0; p < 2; p++) {
           int *o = sum + 8 + 14 * p; const FdSum *s = &FD.sum[p];
           FdMem *m = s->id ? fd_mem(s->kc, s->ka, s->ks, 0) : NULL;
-@@ -1094,6 +1185,19 @@ JNI(jintArray, nativePracticeStatus)(JNIEnv *env, jclass cls)
+@@ -1094,6 +1203,19 @@ JNI(jintArray, nativePracticeStatus)(JNIEnv *env, jclass cls)
     return a;
  }
  
@@ -416,16 +445,18 @@ index 3a83942..b3bdbe9 100644
  JNI(jint, nativePracticeFrames)(JNIEnv *env, jclass cls, jbyteArray cells, jintArray sum)
  {
 diff --git a/app/src/main/cpp/practice.h b/app/src/main/cpp/practice.h
-index d302229..0c3dcf9 100644
+index d302229..0de90ef 100644
 --- a/app/src/main/cpp/practice.h
 +++ b/app/src/main/cpp/practice.h
-@@ -15,8 +15,14 @@ extern volatile int practice_opt_mask;
+@@ -15,8 +15,16 @@ extern volatile int practice_opt_mask;
  int  practice_take_exit(void);
  /* 리셋·상태 불러오기 뒤 — 램·화면이 통째로 바뀌었으니 되돌리지 않고 잊는다(설정은 남김) */
  void practice_forget(void);
 -/* 상태 저장 직전·직후(코어 잠금 안) — 우리가 바꿔 그린 창·숫자·«2P» 를 원래대로 했다가 다음 프레임에 다시 그린다 */
-+/* 상태 저장 직전·직후(코어 잠금 안) — 우리가 바꿔 그린 창·숫자·«2P» 를 원래대로 했다가 다음 프레임에 다시 그린다(176 보기 숫자도) */
++/* 상태 저장 직전·직후(코어 잠금 안) — 우리가 바꿔 그린 창·숫자·«2P» 를 원래대로(저장된 상태엔 원래 게임 그림) 했다가
++   c_serialize 바로 뒤 practice_after_save 가 다시 그린다(176 보기 숫자도 — 저장 다음 화면 한 장이 숫자·창 없이 나오지 않게) */
  void practice_before_save(void);
++void practice_after_save(void);
 +/* 176 보기(치트 «프레임 표시»·«대미지 미터») — 진짜 프레임마다 cheat_tick 다음(코어 잠금 안): 이번 프레임에 누가 쓴 체력까지 «지난 값»으로 */
 +void practice_view_post(const uint8_t *ram);
 +#define PRACTICE_VSTAT 8
@@ -435,7 +466,7 @@ index d302229..0c3dcf9 100644
  
  #define PRACTICE_NSTAT 26
  /* [경기 중, 메뉴(0 닫힘·1 여는 중·2 열림·3 닫는 중), 메뉴 줄, 더미(0 서기·1 CPU), 가드(0 안 함·1 전부·2 첫 타 뒤·3 랜덤),
-@@ -37,7 +43,7 @@ void practice_state_set(const void *buf);
+@@ -37,7 +45,7 @@ void practice_state_set(const void *buf);
  
  /* 프레임 데이터 — SF6 식 미터(두 줄 × 80칸)와 요약. 칸 값: 0 움직일 수 있음 · 1 움직임(점프·대시) · 2 발동 · 3 지속 · 4 경직 · 5 판정 없는 동작
     · 6 맞음 · 7 막음 · 8 다운 · 9 줄임 | 0x40 튕겨내기 판정 | 0x80 장풍이 닿을 수 있음 · 0xFF 빈칸.
