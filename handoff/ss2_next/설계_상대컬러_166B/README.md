@@ -5,6 +5,9 @@
 - 줄 번호는 w175 기준이다. `java/…` = `app/src/main/java/com/dudu/pocketcore/`, `cpp/…` = `app/src/main/cpp/`.
 - 다른 워크플로가 **176**(치트 보기: cheat.c·practice.c·native.c·PadView·EmuActivity)을 만드는 중이다. 이 묶음은 그 뒤에 얹는다. 이름은 177로 한다.
 
+
+> **유저 결정(10/19): 분노 MAX 얼굴색은 보류(«분노는 hold»)** — §9·차례 6은 이번 묶음에서 빼고, `LOOK_RAGE_FACE` 관련 코드도 넣지 않는다. 상대 컬러·상대 베기 색·166B만 진행.
+
 ---
 
 ## 0. 답 먼저: «리그모드 유저들 커스텀컬러? 뭐 누락된 거 없냐»
