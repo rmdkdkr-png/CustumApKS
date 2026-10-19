@@ -962,7 +962,7 @@ index d92e45d..4f379e1 100644
      /* 157 덧판(ovplane.c — 계약서 docs/157_contract.md §3). 게임 화면 위 가상 오버레이 판: 코어 램·VRAM 을 안 건드리고 gl_draw 가 잔상 뒤에 합성한다.
         nativeOvStatus 만 아무 스레드 — 나머지는 GL 스레드(LeagueMenu, gl.queueEvent)에서만. 옛 native 면 UnsatisfiedLinkError — 부르는 쪽이 받아 옛 결과 카드로.
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 4583650..30aaac9 100644
+index 4583650..a136aa4 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -59,6 +59,10 @@ public class EmuActivity extends Activity {
@@ -1419,11 +1419,11 @@ index 4583650..30aaac9 100644
          while ((open = League.openMatch()) != null && "ready".equals(open.optString("status")))   /* 대진 전 경기는 모두 무효로(같은 폴더의 다른 판이 만든 것까지) — 남은 판: 잡힌 상대 miss 하나(두 번째면 풂) */
              if (!League.cancelStale(open.optString("id"), "게임 속 리그를 새로 열며 정리(대진 전)")) break;
 +        boolean waitOpen = false;
++        boolean now = getIntent().getBooleanExtra(EXTRA_RESUME_NOW, false) && !hubResumeNowUsed;
++        hubResumeNowUsed = true;                                         /* 168 고침: 열린 경기가 없어도 이 창에서 한 번 본 것으로(그 뒤 이 창에서 멈춘 경기가 다시 만든 창에서 바로 이어지지 않게) */
++        getIntent().removeExtra(EXTRA_RESUME_NOW);                       /* 같은 프로세스에서 다시 만든 창도 안 보게(프로세스가 죽은 뒤는 hubRestore 가) */
          if (open != null && !"ready".equals(open.optString("status"))) {
 -            leagueId = open.optString("id"); leagueStart(); resumeOpen = true;    /* 내려간 경기 — 체크포인트로 이어 하고, 결판 뒤 허브로 */
-+            boolean now = getIntent().getBooleanExtra(EXTRA_RESUME_NOW, false) && !hubResumeNowUsed;
-+            hubResumeNowUsed = true;
-+            getIntent().removeExtra(EXTRA_RESUME_NOW);                   /* 168 고침: 같은 프로세스에서 다시 만든 창도 안 보게(프로세스가 죽은 뒤는 hubRestore 가) */
 +            if (League.userSuspended(open) && !now) waitOpen = true;      /* 168 K4: 사용자가 멈춘 경기(리셋·«나중에») — 타이틀에서 A(대기 «이어서 하기»)를 기다린다 */
 +            else { leagueId = open.optString("id"); leagueStart(); resumeOpen = true; }   /* 내려간 경기(앱 멈춤·백그라운드·설정 다시 올리기) — 체크포인트로 바로 이어 하고, 결판 뒤 허브로 */
          }
