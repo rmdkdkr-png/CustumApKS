@@ -39,7 +39,7 @@ index ff0999b..0a01587 100644
                      갈무리11(Galmuri11, SIL OFL 1.1 — 앱 assets/fonts/pixel.ttf 와 같은 글꼴) 12px 로 그림 */
  static const uint8_t HUB_VLAB[2592] = {
 diff --git a/app/src/main/cpp/league.c b/app/src/main/cpp/league.c
-index 35e4023..37a8533 100644
+index 35e4023..1d6d278 100644
 --- a/app/src/main/cpp/league.c
 +++ b/app/src/main/cpp/league.c
 @@ -175,15 +175,19 @@ static int look_stage = -1, look_color = 0;   /* 다음 무장에 쓸 배경(lea
@@ -73,9 +73,9 @@ index 35e4023..37a8533 100644
 +/* 177 §10-7 연습 검질 — H 밖(.prac 아님 · 연습 흐름 한 판 동안만, pr_apply·league_practice_hub·_title·_return 이 비움 — M6).
 +   pr_inj = 대신 누를 단추(A = 캐릭터 확정 · B = 검질 화면 «뒤로»), pr_inj_f 부터 1~4프레임 · pr_try = A 다시 한 횟수(M8) ·
 +   pr_back = 1 검질을 받고 캐릭터 고르기로 돌아가는 중(→ 상대) · 2 캐릭터부터 다시 · pr_sty_auto = 검질 + 1(H_PICK_ME 가 검질 화면에서 자동 확정, 0 = 사용자) */
-+static int pr_inj, pr_try, pr_back, pr_sty_auto, pr_sty_seen, pr_pend_t;
++static int pr_inj, pr_try, pr_back, pr_sty_auto, pr_sty_seen, pr_pend_t, pr_on_sty;   /* pr_on_sty: 자동 확정할 검질 화면(240/4)에 있음 — look ctx AUTO 는 그때만 */
 +static unsigned pr_inj_f, pr_sty_f, pr_pend_tf;
-+static void pr_flow_clear(void) { pr_inj = 0; pr_try = 0; pr_back = 0; pr_sty_auto = 0; pr_sty_seen = 0; pr_pend_t = 0; }
++static void pr_flow_clear(void) { pr_inj = 0; pr_try = 0; pr_back = 0; pr_sty_auto = 0; pr_sty_seen = 0; pr_pend_t = 0; pr_on_sty = 0; }
  volatile int league_in_block = 0;     /* 입력 콜백이 사용자 입력에서 지울 비트(허브가 대신 받는 A) */
  static int hub_scr = -1;              /* 지난 프레임 메뉴 화면(MODE 240 일 때 R_SCR: 0 타이틀 · 2 캐릭터 · 4 검질 · 6 카드 · 8 대사, 아니면 −1) — 띠 안내를 화면마다 */
  static int hub_mk = 0;                /* 168 고침(K5): 지난 프레임 타이틀 메뉴 글자가 떠 있었나(menu_kind — 0 아님 · 1 한글판 · 2 순정판). GAME OPTION·COLLECTION·인트로 그림도 SCR 0 이라 hub_scr 로는 못 가른다 */
@@ -286,7 +286,7 @@ index 35e4023..37a8533 100644
              if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
              hub_set_look(H.picked);
              arm_locked(H.picked, H.sty[H.picked], H.dif[H.picked], 2, 60, LEAGUE_ALLCARDS, NULL);
-@@ -910,13 +1018,19 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -910,13 +1018,20 @@ static void hub_tick(uint8_t *ram, int input)
        }
        break;
     case H_PICK_ME:
@@ -304,10 +304,11 @@ index 35e4023..37a8533 100644
 +            if (((H.f - pr_sty_f) % 16u) < 4) league_in_or |= IN_A;   /* 못 받았으면(04 그대로) 16프레임마다 다시 */
 +         }
 +         if (pr_sty_auto && (ram[R_PHASE] >= 10 || ram[R_MODE] == 241)) pr_sty_auto = 0;
++         pr_on_sty = pr_sty_auto && ram[R_MODE] == 240 && ram[R_SCR] == 4;   /* 캐릭터 고르기 화면(허브가 손 뗀 뒤 사용자가 직접 고를 때)은 FREE 그대로 — look 이 A 를 가른다 */
           if (csel && !H.nav) {                       /* 게임 쪽에서 다시 고르면(검질 고르기에서 B 로 뒤로) 그 칸이 내 칸 — 뽑혔던 캐릭터로 고정한 칸은 확정 연출 동안만 무작위 칸 그대로
                                                          (뒤로 와서 그 칸을 다시 고르면 직접 고른 것 — look 도 그때 무작위 칸 컬러 기억을 놓는다) */
              int h = ram[R_HOVER] >> 2;
-@@ -937,7 +1051,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -937,7 +1052,7 @@ static void hub_tick(uint8_t *ram, int input)
        }
        break;
     case H_PICK_SOLO:                                 /* 168 내 캐릭터만 — 고르기는 게임 그대로(사용자 · 컬러는 look), 이야기가 시작되면 남기고 멈춰 둠 */
@@ -316,7 +317,7 @@ index 35e4023..37a8533 100644
        if (ram[R_MODE] == 240 && (ram[R_SCR] == 2 || ram[R_SCR] == 4)) memset(ram + R_OWN, 8, 120);   /* 올카드(무장의 allcards 와 같은 창) — 무장이 없으니 허브가 */
        if (!PO.done) {
           my_track(ram);
-@@ -953,6 +1067,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -953,6 +1068,7 @@ static void hub_tick(uint8_t *ram, int input)
     default: break;
     }
     if (!menu && (H.menu_saved || H.focus)) { H.focus = 0; H.menu_saved = 0; arrows_clear(); }   /* 타이틀을 떠났다 — 화살표 타일을 비운다(게임이 메뉴를 새로 그린다) */
@@ -324,7 +325,7 @@ index 35e4023..37a8533 100644
     if (H.hold_a) block |= IN_A;
     if (H.hold_b) block |= IN_B;
     if (block & (IN_A | IN_B)) block |= IN_ABFOLD;   /* 패드 «A+B»·원버튼 비트로 게임이 A 를 받아 허브를 건너뛰지 않게 */
-@@ -1002,7 +1117,8 @@ static void pr_me_check(void)                       /* 내 캐릭터 칸(옛 vp_
+@@ -1002,7 +1118,8 @@ static void pr_me_check(void)                       /* 내 캐릭터 칸(옛 vp_
           && H.opp1 >= 0 && H.opp1 <= 15 && H.me_pin >= 0 && H.me_pin <= 14;
     if (!ok) { H.me1 = 0; H.opp1 = 0; H.me_pin = 0; }
     H.me_b2p = 0;                                     /* 165: 늘 0(플레이어 2P색 없음) */
@@ -334,7 +335,7 @@ index 35e4023..37a8533 100644
  }
  static void pr_apply(const uint8_t *b)
  {
-@@ -1014,6 +1130,7 @@ static void pr_apply(const uint8_t *b)
+@@ -1014,6 +1131,7 @@ static void pr_apply(const uint8_t *b)
     memcpy(&look_color, b + sizeof H + sizeof L + sizeof(int), sizeof(int));
     H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0; H.nav = 0;   /* 저장된 화면 램은 원래 그림(저장 직전에 되돌림) */
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -342,7 +343,7 @@ index 35e4023..37a8533 100644
  }
  size_t league_practice_blob(void *buf, size_t cap)
  {
-@@ -1073,6 +1190,7 @@ void league_practice_hub(int on, int autostart)
+@@ -1073,6 +1191,7 @@ void league_practice_hub(int on, int autostart)
     for (int i = 0; i < 15; i++) { H.sty[i] = -1; H.dif[i] = 1; H.home[i] = -1; }
     look_stage = -1; look_color = 0;
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -350,7 +351,7 @@ index 35e4023..37a8533 100644
     if (on && !autostart && pr_pend_on) pr_apply(pr_pend);   /* 이어하기·옵션 바꾸기로 다시 연 판 — 연습 경기 그대로 */
     pr_pend_on = 0;
     pthread_mutex_unlock(&L_mu);
-@@ -1112,6 +1230,7 @@ void league_practice_return(int repick)
+@@ -1112,6 +1231,7 @@ void league_practice_return(int repick)
        H.st = H_RETURN; H.nav = 2; H.nav_f = H.f; H.picked = -1; H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0;
        H.repick = repick ? 1 : 0; H.rematch = -1; H.style_seen = 0; H.sel = H.kind; H.handoff = 0;
        hub_gen++;
@@ -358,7 +359,7 @@ index 35e4023..37a8533 100644
     }
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
     pthread_mutex_unlock(&L_mu);
-@@ -1126,6 +1245,7 @@ void league_practice_title(void)
+@@ -1126,6 +1246,7 @@ void league_practice_title(void)
        H.st = H_TITLE; H.nav = 0; H.picked = -1; H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0; H.repick = 0; H.style_seen = 0;
        H.menu_saved = 0; H.focus = 0; H.handoff = 0;
        league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -366,7 +367,7 @@ index 35e4023..37a8533 100644
     }
     pthread_mutex_unlock(&L_mu);
  }
-@@ -1135,6 +1255,7 @@ void league_practice_title(void)
+@@ -1135,6 +1256,7 @@ void league_practice_title(void)
  void league_hub_before_save(void)
  {
     pthread_mutex_lock(&L_mu);
@@ -374,7 +375,7 @@ index 35e4023..37a8533 100644
     if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
     if (hub_ram && H.nav == 4 && hub_ram[R_MODE] == 240 && hub_ram[R_SCR] == 2) {   /* 커서 옮기는 중(이웃 칸을 써 두고 톡이 아직)이면 진짜 커서를 보이는 칸으로 —
                                                         저장된 상태를 불러와 A 를 누르면 보이는 캐릭터가 골라지게. 살아 있는 nav 는 d==10 확인에서 다시 한다 */
-@@ -1722,6 +1843,16 @@ JNI(jintArray, nativeLeagueStatus)(JNIEnv *env, jclass cls)
+@@ -1722,6 +1844,16 @@ JNI(jintArray, nativeLeagueStatus)(JNIEnv *env, jclass cls)
     return a;
  }
  
@@ -391,12 +392,12 @@ index 35e4023..37a8533 100644
  /* 허브가 고르기 화면 입력을 쓰는 중인가 — 상대 선택(OPTION 스테이지·A/B 고르기)·대신 누르기 동안 1(look 은 컬러를 안 만진다) */
  int league_hub_owns_select(void)
  {
-@@ -1734,7 +1865,9 @@ int league_hub_owns_select(void)
+@@ -1734,7 +1866,9 @@ int league_hub_owns_select(void)
  int league_hub_look_ctx(void)
  {
     pthread_mutex_lock(&L_mu);
 -   int v = auto_active() ? LOOK_CTX_AUTO : H.st == H_PICK_ME1 ? LOOK_CTX_HOLD : (H.st == H_PICK_OPP || H.nav != 0 || league_ovr_on) ? LOOK_CTX_BUSY : LOOK_CTX_FREE;
-+   int v = auto_active() || (H.kind == 1 && H.st == H_PICK_ME && pr_sty_auto && !H.nav) ? LOOK_CTX_AUTO                   /* 177: 연습 내 검질 자동 확정 동안도 */
++   int v = auto_active() || (H.kind == 1 && H.st == H_PICK_ME && pr_on_sty && !H.nav) ? LOOK_CTX_AUTO                   /* 177: 연습 내 검질 자동 확정(검질 화면) 동안도 */
 +         : (H.st == H_PICK_ME1 || H.st == H_PICK_STY1) ? LOOK_CTX_HOLD
 +         : (H.st == H_PICK_OPP || H.nav != 0 || league_ovr_on) ? LOOK_CTX_BUSY : LOOK_CTX_FREE;
     pthread_mutex_unlock(&L_mu);
