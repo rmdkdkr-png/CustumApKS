@@ -1,3 +1,4 @@
+8c97d26 176 고침: 빠른 저장 뒤 HUD 대미지 숫자가 한 장 꺼지던 것 — c_serialize 바로 뒤 practice_after_save
 763a7e9 versionCode 176 (시험 갈래)
 740b442 Merge branch 'w176-sfx' into w176-ship
 580cac6 Merge branch 'w176-fdw' into w176-ship

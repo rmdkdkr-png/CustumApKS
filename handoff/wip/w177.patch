@@ -413,7 +413,7 @@ index ba0c2f8..225df3e 100644
  int league_hub_look_ctx(void);
 +int league_opp_live(void);      /* 177: 상대 컬러를 칠해도 되는 때 — 랭크 경기 무장(연습 허브 제외) · 승리 대사 · 걸쇠(native.c → look_set_opp_live) */
 diff --git a/app/src/main/cpp/look.c b/app/src/main/cpp/look.c
-index 56356ee..b2c8b6d 100644
+index 56356ee..95984cf 100644
 --- a/app/src/main/cpp/look.c
 +++ b/app/src/main/cpp/look.c
 @@ -1,5 +1,5 @@
@@ -579,24 +579,30 @@ index 56356ee..b2c8b6d 100644
     slash_want_step(ram, want, title);
     if (K.inj) {                                                       /* 결정 — 다음 프레임부터 LOOK_INJ_N 프레임 대신 누름 · 십자는 LOOK_INJ_DPAD 프레임째까지 막는다 */
        int d = (int)K.f + 1 - K.inj_f;
-@@ -439,6 +515,16 @@ int look_take_confirm(void)
+@@ -439,6 +515,22 @@ int look_take_confirm(void)
     pthread_mutex_unlock(&K_mu);
     return c;
  }
 +void look_set_opp(int ch, int sty, int c1, int c2, int c3, int fx)
 +{
 +   pthread_mutex_lock(&K_mu);
-+   OP.on = c1 >= 0 && ch >= 0 && ch <= 14; OP.ch = ch; OP.sty = sty & 1; OP.state = 0; OP.fb = -1; OP.grace = 0;
++   int on = c1 >= 0 && ch >= 0 && ch <= 14, fxn = on && fx > 0 && fx < SLASH_N ? fx : 0;
++   if (on && OP.on && OP.ch == ch && OP.sty == (sty & 1) && OP.fx == fxn
++       && OP.c[0] == (uint16_t)(c1 & 0xFFF) && OP.c[1] == (uint16_t)(c2 & 0xFFF) && OP.c[2] == (uint16_t)(c3 & 0xFFF)) {
++      pthread_mutex_unlock(&K_mu);                    /* 같은 값을 다시(허브 대진 뒤 경기 기록 rankNewMatch) — 칠한 상태·대신 색·유예를 그대로(한 프레임 [18]=0 이 안 보이게) */
++      return;
++   }
++   OP.on = on; OP.ch = ch; OP.sty = sty & 1; OP.state = 0; OP.fb = -1; OP.grace = 0;
 +   OP.c[0] = (uint16_t)(c1 & 0xFFF); OP.c[1] = (uint16_t)(c2 & 0xFFF); OP.c[2] = (uint16_t)(c3 & 0xFFF);
 +   memcpy(OP.show, OP.c, 6);
-+   OP.fx = OP.on && fx > 0 && fx < SLASH_N ? fx : 0;
++   OP.fx = fxn;
 +   pthread_mutex_unlock(&K_mu);
 +}
 +void look_set_opp_live(int live) { pthread_mutex_lock(&K_mu); OP.live = live ? 1 : 0; pthread_mutex_unlock(&K_mu); }
  int look_cur(void) { pthread_mutex_lock(&K_mu); int c = K.cur; pthread_mutex_unlock(&K_mu); return c; }
  void look_status(int v[LOOK_NSTAT])
  {
-@@ -446,12 +532,13 @@ void look_status(int v[LOOK_NSTAT])
+@@ -446,12 +538,13 @@ void look_status(int v[LOOK_NSTAT])
     v[0] = K.on; v[1] = K.owned; v[2] = K.mem_gen; v[3] = K.cur; v[4] = K.sel; v[5] = K.sel_ch; v[6] = 0; v[7] = K.edit_req;
     v[8] = K.sty_seen; v[9] = K.sel_gen; v[10] = K.edit; v[11] = (int)K.f; v[12] = K.owned && K.pslot < 14 ? K.prow : -1; v[13] = K.psty;
     v[14] = K.fx; v[15] = K.fx_gen; v[16] = K.conf_n; v[17] = K.fx_sel;
@@ -611,7 +617,7 @@ index 56356ee..b2c8b6d 100644
     pthread_mutex_lock(&K_mu);
     for (int i = 0; i < LOOK_NIDX; i++) { tri(row, sty & 1, i, t); for (int j = 0; j < 3; j++) out[i * 3 + j] = t[j]; }
     pthread_mutex_unlock(&K_mu);
-@@ -488,6 +575,10 @@ void look_before_save(void)
+@@ -488,6 +581,10 @@ void look_before_save(void)
              if (pal_is(0, t)) { tri(row, s, 0, b); pal_wr(0, b); break; }
           }
     }
@@ -622,7 +628,7 @@ index 56356ee..b2c8b6d 100644
     if (g_pal) slash_restore(g_pal, &SW);
     pthread_mutex_unlock(&K_mu);
  }
-@@ -508,6 +599,10 @@ void look_after_save(void)
+@@ -508,6 +605,10 @@ void look_after_save(void)
           }
     }
     if (K.on && K.owned && K.vp_lab) { vpanel_put(K.vp_lab); vpanel_icon_put(SLASH_ICON, K.ic_c); }
@@ -633,7 +639,7 @@ index 56356ee..b2c8b6d 100644
     pthread_mutex_unlock(&K_mu);
  }
  
-@@ -552,6 +647,8 @@ void look_after_load(const uint8_t *ram, size_t n)
+@@ -552,6 +653,8 @@ void look_after_load(const uint8_t *ram, size_t n)
     int title = md == 240 && scr == 0 && vpanel_menu_kind();
     int sel_scr = md == 240 && (scr == 2 || scr == 4) && vpanel_layout();
     if (K.on && !sel_scr && !title) match_want(ram, want, 1);
@@ -642,7 +648,7 @@ index 56356ee..b2c8b6d 100644
     slash_clear(&SW);                                                  /* 불러온 팔레트 램엔 옛 표의 우리 색이 없다(저장 전에 되돌림) — 되돌리기 없이 새로 */
     slash_want_step(ram, want, title);
     rm_push(want);
-@@ -563,6 +660,7 @@ void look_forget(void)
+@@ -563,6 +666,7 @@ void look_forget(void)
     pthread_mutex_lock(&K_mu);
     K.sel = -1; K.sel_ch = -1; K.cur = 0; K.fx_sel = 0; K.edit = 0; K.owned = 0; K.inj = 0; K.hold = 0; K.prow = -1; K.opt_own = 0; K.pv_has = 0;
     K.rand_pin = 0; K.toast_f = (int)K.f; K.vp_lab = NULL; K.last_scr = -1; gate_reset();
@@ -650,7 +656,7 @@ index 56356ee..b2c8b6d 100644
     K.ram = NULL;                      /* 165 고침: 코어를 내리면(load/unload_locked) 그 램도 없다 — 저장 직전 되돌리기가 옛 램을 안 읽게(다음 look_tick·look_after_load 가 다시) */
     slash_clear(&SW);
     rm_init = 0; vpanel_forget();
-@@ -589,6 +687,7 @@ JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1
+@@ -589,6 +693,7 @@ JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1
  JNI(void, nativeLookSetFx)(JNIEnv *env, jclass cls, jint fx) { (void)env; (void)cls; look_set_fx(fx); }
  JNI(void, nativeLookSetMatch)(JNIEnv *env, jclass cls, jint idx) { (void)env; (void)cls; look_set_match(idx); }
  JNI(void, nativeLookEdit)(JNIEnv *env, jclass cls, jboolean on, jint c1, jint c2, jint c3) { (void)env; (void)cls; look_edit(on ? 1 : 0, c1, c2, c3); }
