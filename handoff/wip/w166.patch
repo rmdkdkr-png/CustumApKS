@@ -2591,7 +2591,7 @@ index 8e3e3df..a9e0d44 100644
      private static void addRect(java.util.List<Integer> a, LgmPages.Row r) {
          if (r.rc0 >= 0) { a.add(r.rc0); a.add(r.rr0); a.add(r.rc1); a.add(r.rr1); }
 diff --git a/app/src/main/java/com/dudu/pocketcore/LgmPages.java b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
-index 8653f10..c6d3b6b 100644
+index 8653f10..eaa8ef6 100644
 --- a/app/src/main/java/com/dudu/pocketcore/LgmPages.java
 +++ b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
 @@ -12,7 +12,10 @@ package com.dudu.pocketcore;
@@ -2926,9 +2926,17 @@ index 8653f10..c6d3b6b 100644
      private static void drawerPals(TileCanvas cv) {
          setPal(cv, D_INK, C_INK); setPal(cv, D_GOLD, C_GOLD); setPal(cv, D_SEL, C_SEL); setPal(cv, D_SEAL, C_SEAL);
          setPal(cv, D_PLATE1, C_PLATE1); setPal(cv, D_PLATEM, C_PLATEM); setPal(cv, D_WOOD, C_WOOD); setPal(cv, D_CLOTH, C_CLOTH);
-@@ -1267,16 +1543,17 @@ final class LgmPages {
+@@ -1262,21 +1538,22 @@ final class LgmPages {
+             cv.fill(cx, 3, cx + 18, 12, 2);
+             cv.text("CPU", cx + 2, 4, 3, ink.g7);
+         }
+-        cv.cellPal(11, 0, 19, 0, D_INK);
+-        cv.text(fit(right1, 70, ink.g7), 157, 0, 2, ink.g7, -1, TileCanvas.RIGHT, 0);
++        cv.cellPal(11, 0, 19, 0, D_INK);                                   /* 168: 69px — 오른쪽 끝 157 에서 칸 11(x 88) 안으로(70 이면 x 87 = 팔레트 없는 칸 10 에 잉크 · 리그 탭 «시즌 12 · 10월 31일부터») */
++        cv.text(fit(right1, 69, ink.g7), 157, 0, 2, ink.g7, -1, TileCanvas.RIGHT, 0);
          cv.cellPal(11, 1, 19, 1, r2pal);
-         cv.text(fit(right2, 70, ink.g7), 157, 8, r2pal == D_INK ? 2 : 1, ink.g7, -1, TileCanvas.RIGHT, 0);
+-        cv.text(fit(right2, 70, ink.g7), 157, 8, r2pal == D_INK ? 2 : 1, ink.g7, -1, TileCanvas.RIGHT, 0);
++        cv.text(fit(right2, 69, ink.g7), 157, 8, r2pal == D_INK ? 2 : 1, ink.g7, -1, TileCanvas.RIGHT, 0);
      }
 -    /** 탭 줄(r2) — 157-A 는 순위 · 전적 · 설정 셋만(없는 탭을 보이지 않음) · 지금 탭 = 주홍 칩 */
 +    /** 탭 줄(r2) — 168: 순위 · 전적 · 리그 · 설정 넷(보이는 차례 MenuModel.Prefs.TAB_ORDER) · 지금 탭 = 주홍 칩 */
