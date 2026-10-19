@@ -1,3 +1,5 @@
+0f8532e Merge origin feat/framegen-art (다른 세션 171~173: 코어 smoothwalk·walktween, pace.c 잠금 Hz) · versionCode 174
+fb31261 171 고침: 랭크 체크포인트가 .look 을 같이 옮김 — 이어 한 경기도 베기 색 그대로
 0f9aa59 versionCode 171 (시험 갈래)
 0b5c88f Merge w165-fx (베기 색 프리셋) into 170
 b78f146 165 베기 색(4): 리뷰 고침 — 코어 다시 올린 뒤 첫 프레임 전 불러오기 튕김 · 쥔 단추 A+B · 불러온 첫 프레임 · 아수라 아이콘 · 떠날 때 베기 색
