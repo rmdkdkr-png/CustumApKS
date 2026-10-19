@@ -39,7 +39,7 @@ index ff0999b..0a01587 100644
                      갈무리11(Galmuri11, SIL OFL 1.1 — 앱 assets/fonts/pixel.ttf 와 같은 글꼴) 12px 로 그림 */
  static const uint8_t HUB_VLAB[2592] = {
 diff --git a/app/src/main/cpp/league.c b/app/src/main/cpp/league.c
-index 35e4023..1d6d278 100644
+index 35e4023..605f698 100644
 --- a/app/src/main/cpp/league.c
 +++ b/app/src/main/cpp/league.c
 @@ -175,15 +175,19 @@ static int look_stage = -1, look_color = 0;   /* 다음 무장에 쓸 배경(lea
@@ -79,7 +79,7 @@ index 35e4023..1d6d278 100644
  volatile int league_in_block = 0;     /* 입력 콜백이 사용자 입력에서 지울 비트(허브가 대신 받는 A) */
  static int hub_scr = -1;              /* 지난 프레임 메뉴 화면(MODE 240 일 때 R_SCR: 0 타이틀 · 2 캐릭터 · 4 검질 · 6 카드 · 8 대사, 아니면 −1) — 띠 안내를 화면마다 */
  static int hub_mk = 0;                /* 168 고침(K5): 지난 프레임 타이틀 메뉴 글자가 떠 있었나(menu_kind — 0 아님 · 1 한글판 · 2 순정판). GAME OPTION·COLLECTION·인트로 그림도 SCR 0 이라 hub_scr 로는 못 가른다 */
-@@ -377,19 +387,65 @@ static int hdr_layout(void)
+@@ -377,19 +387,70 @@ static int hdr_layout(void)
     for (int c = 0; c < 9; c++) if (scr_tile(1, 1, 5 + c) != 0x15A + c) return 0;
     return scr_tile(1, 1, 14) == 0x163 ? 2 : 1;
  }
@@ -124,8 +124,9 @@ index 35e4023..1d6d278 100644
 +static uint16_t hdr_ent_orig[20];
 +static int hdr_red_n, hdr_red_pal = -1;
 +static unsigned hdr_csel_f;
++static unsigned hdr_blink_f0;                       /* 깜빡임 셈의 시작 — 이번에 들어와 빨강을 처음 그린 프레임(f). 0 = 아직(f 는 늘 20 이상) */
 +static uint8_t *hdr_cell(int i) { return g_scr + 0x800 + ((i < 10 ? 0 : 32) + 5 + i % 10) * 2; }
-+static void hdr_red_off(void)
++static void hdr_red_restore(void)                   /* 칸만 원래대로(깜빡임 셈은 그대로 — 저장 직전·팔레트 바뀜 뒤 다음 프레임에 이어 그림) */
 +{
 +   if (hdr_red_n && g_scr)
 +      for (int i = 0; i < hdr_red_n; i++) {
@@ -135,13 +136,17 @@ index 35e4023..1d6d278 100644
 +   hdr_red_n = 0; hdr_red_pal = -1;
 +   vpanel_hdr_mark(0);
 +}
++static void hdr_red_off(void) { hdr_red_restore(); hdr_blink_f0 = 0; }   /* 화면을 떠남·상대를 고름·그릴 수 없음 — 다음에 그릴 때 깜빡임을 처음부터 */
 +static void hdr_red(int kind, unsigned f)
 +{
-+   int blink = f < 56 && ((f - 20) / 6) % 2 == 1;
++   if (!hdr_blink_f0 || f < hdr_blink_f0) hdr_blink_f0 = f ? f : 1;   /* 177 리뷰: 화면에 든 프레임(csel_f)이 아니라 처음 그린 프레임부터 36프레임 —
++                                                         «상대 고르기»·두 번째 ①②③ 은 지난 더미 칸으로 옮기는(nav) 동안 안 그려 첫 모습이 빈칸 · 2번만 깜빡였다 */
++   unsigned g = f - hdr_blink_f0;
++   int blink = g < 36 && (g / 6) % 2 == 1;
 +   if (!g_scr || !vpanel_icon_put(HUB_SEAL_SANGDAE, blink ? HDR_BLANK : HDR_RED)) { hdr_red_off(); return; }
 +   int p = vpanel_icon_pal();
 +   if (p < 0) { hdr_red_off(); return; }
-+   if (hdr_red_n && p != hdr_red_pal) hdr_red_off();
++   if (hdr_red_n && p != hdr_red_pal) hdr_red_restore();
 +   vpanel_hdr_mark(1);                              /* vpanel 이 머리말 칸을 «게임이 그 팔레트를 씀»으로 안 보게 */
 +   int n = kind == 2 ? 20 : 19;
 +   for (int i = 0; i < n; i++) {
@@ -151,19 +156,20 @@ index 35e4023..1d6d278 100644
 +   hdr_red_n = n; hdr_red_pal = p;
  }
 +/* 내 캐릭터 고르기 화면(연습 H_PICK_ME1·검질 가기 전 STY1 · 랭크 H_PICK_SOLO · H_PICK_ME 직접·자동 고르기) — 머리말 «내 캐릭터» */
-+static void hdr_mine(void) { int hk = hdr_csel_f >= 20 ? hdr_layout() : 0; if (hk) { if (hdr_red_n) hdr_red_off(); hdr_put(hk, 2); } }
++static void hdr_mine(void) { int hk = hdr_csel_f >= 20 ? hdr_layout() : 0; if (hk) { if (hdr_red_n) hdr_red_off(); hdr_blink_f0 = 0; hdr_put(hk, 2); } }
  
  /* 캐릭터 고르기 오른쪽 세로 이름 칸 — 둘째 판 3~11줄 × 17·18칸(위아래 테: 2줄 0x16C · 12줄 0x16E, 검질 고르기는 0x19C · 0x19E).
     원래는 왼쪽 칸과 같은 커서 캐릭터 이름(전용 타일 0x1E8 빈칸 ~ 0x1F9). 상대 고르기에서는 배경 이름(여기), 내 캐릭터 고르기에서는 컬러 이름(look.c)을
-@@ -711,6 +767,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -711,6 +772,8 @@ static void hub_tick(uint8_t *ram, int input)
     int menu = mk != 0;
     int csel = ram[R_MODE] == 240 && ram[R_SCR] == 2;
     int block = 0;
 +   hdr_csel_f = csel ? hdr_csel_f + 1 : 0;           /* 177 §10-8: 고르기 화면이 이어진 프레임(머리말은 자리 잡은 뒤에) */
++   if (!csel) hdr_blink_f0 = 0;                      /* 고르기 화면 밖 — 다음에 들어와 빨강을 그리면 깜빡임을 처음부터(저장 직전 칸만 되돌린 채 떠나도) */
     if (H.hold_a && !(input & IN_A)) H.hold_a = 0;
     if (H.hold_b && !(input & IN_B)) H.hold_b = 0;
  
-@@ -822,6 +879,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -822,6 +885,7 @@ static void hub_tick(uint8_t *ram, int input)
        break;
     case H_PICK_ME1:                                  /* 연습: 내 캐릭터 먼저 — 컬러(OPTION)·베기 색(A+B)·A·B 가르기는 look(ctx HOLD — 대신 누르지 않고 결정만 넘김) */
        if (csel) { H.seen_csel = 1; H.csel_f++; } else H.csel_f = 0;
@@ -171,7 +177,7 @@ index 35e4023..1d6d278 100644
        if (csel && !H.nav) {
           block = IN_A | IN_B;
           int h = ram[R_HOVER] >> 2;
-@@ -831,24 +889,71 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -831,24 +895,71 @@ static void hub_tick(uint8_t *ram, int input)
              H.prepos = 1;
              if (H.me1 > 0 && h != H.me1 - 1) { (void)look_take_confirm(); nav_to(H.me1 - 1, 0); break; }   /* 미리 옮기는 동안 받은 결정은 버린다 */
           }
@@ -226,7 +232,7 @@ index 35e4023..1d6d278 100644
 +            if (t == 1) {
 +               H.me_pad = (ram[R_STYC] & 1) + 1;     /* 내 검질 + 1(옛 «남는 칸» — sizeof H 그대로, 옛 덩어리는 0 = 모름).
 +                                                        무작위 칸은 고정하지 않는다 — 뽑기는 검질을 확정한 뒤에야 돈다(177 실측: 검질 화면 받기 04 동안 커서 15 그대로).
-+                                                        첫 경기 시작에 뽑힌 캐릭터로 고정(아래 L.fight_seen — 유가 치트면 14 라 고정 안 함)은 예전 그대로 */
++                                                        첫 경기 시작에 뽑힌 캐릭터·검질로 고정(아래 L.fight_seen — 유가 치트면 14 라 고정 안 함) */
 +               pr_back = 1;
 +            } else pr_back = 2;
 +            pr_inj = IN_B; pr_inj_f = H.f; pr_try = 0;
@@ -248,7 +254,7 @@ index 35e4023..1d6d278 100644
     case H_PICK_OPP:
        if (csel) { H.seen_csel = 1; H.csel_f++; } else H.csel_f = 0;
        if (csel && !H.nav && H.kind == 1 && (input & (IN_UP_DOWN | IN_LEFT | IN_RIGHT))) H.prepos = 1;   /* 먼저 움직였으면 그대로(내 캐릭터를 고르자마자 더미 쪽으로 가는 손) */
-@@ -865,10 +970,11 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -865,10 +976,11 @@ static void hub_tick(uint8_t *ram, int input)
           int h = ram[R_HOVER] >> 2;                 /* 0~13 캐릭터 · 15 가운데 무작위 칸 = 유가(14) — 더미는 AI 가 필요 없어 15명 모두 */
           H.hover = (h >= 0 && h < 14) ? h : h == 15 ? 14 : -1;
           int hk = H.csel_f >= 20 ? hdr_layout() : 0;
@@ -261,7 +267,7 @@ index 35e4023..1d6d278 100644
              if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
              look_stage = H.stage_sel >= 0 ? H.stage_sel : (int)((H.f * 5u + 3u) % 8u);   /* 무작위는 고르는 순간 뽑는다 */
              look_color = H.color;
-@@ -880,6 +986,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -880,6 +992,7 @@ static void hub_tick(uint8_t *ram, int input)
                 vp_restore();
                 nav_to(pin >= 0 ? pin : H.me1 - 1, 1);
                 look_set_pick(pin);                   /* 무작위 칸 컬러 — 리셋(look_forget)이 지웠다. L_mu → K_mu (허용된 순서) */
@@ -269,7 +275,7 @@ index 35e4023..1d6d278 100644
              }
              if (a_edge) H.hold_a = 1; else H.hold_b = 1;
           }
-@@ -890,7 +997,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -890,7 +1003,7 @@ static void hub_tick(uint8_t *ram, int input)
           int h = ram[R_HOVER] >> 2;                 /* 0~13 캐릭터 · 15 가운데 무작위 칸 — 고르기 판에 없는 유가(14)를 그 칸에 숨은 상대로 */
           H.hover = (h >= 0 && h < 14) ? h : (h == 15 && H.sty[14] >= 0) ? 14 : -1;
           int hk = H.csel_f >= 20 ? hdr_layout() : 0;
@@ -278,7 +284,7 @@ index 35e4023..1d6d278 100644
           if (H.csel_f >= 20) {                       /* 오른쪽 세로 칸 = 배경 이름(상대 기본이면 커서 상대의 배경, 리그 상대가 아니면 원래 이름) */
              int lab = H.stage_sel == -2 ? 8 : H.stage_sel >= 0 ? H.stage_sel
                      : (H.hover >= 0 && H.sty[H.hover] >= 0 && H.home[H.hover] >= 0) ? H.home[H.hover] : -1;
-@@ -898,6 +1005,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -898,6 +1011,7 @@ static void hub_tick(uint8_t *ram, int input)
           }
           if (a_edge && H.csel_f >= 20 && H.hover >= 0 && H.sty[H.hover] >= 0) {   /* 머리말이 «상대 선택» 으로 바뀐 뒤에만(두 번 눌러 안 보고 골라지지 않게) */
              H.picked = H.hover;
@@ -286,7 +292,7 @@ index 35e4023..1d6d278 100644
              if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
              hub_set_look(H.picked);
              arm_locked(H.picked, H.sty[H.picked], H.dif[H.picked], 2, 60, LEAGUE_ALLCARDS, NULL);
-@@ -910,13 +1018,20 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -910,13 +1024,20 @@ static void hub_tick(uint8_t *ram, int input)
        }
        break;
     case H_PICK_ME:
@@ -308,7 +314,16 @@ index 35e4023..1d6d278 100644
           if (csel && !H.nav) {                       /* 게임 쪽에서 다시 고르면(검질 고르기에서 B 로 뒤로) 그 칸이 내 칸 — 뽑혔던 캐릭터로 고정한 칸은 확정 연출 동안만 무작위 칸 그대로
                                                          (뒤로 와서 그 칸을 다시 고르면 직접 고른 것 — look 도 그때 무작위 칸 컬러 기억을 놓는다) */
              int h = ram[R_HOVER] >> 2;
-@@ -937,7 +1052,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -926,6 +1047,8 @@ static void hub_tick(uint8_t *ram, int input)
+       if (L.fight_seen && H.kind == 1) {            /* 연습 경기 시작 — 무작위 칸이면 뽑힌 캐릭터(P1 블록, 유가 치트면 14 → 고정 안 함) */
+          int c = ram[R_P1BLK] >> 4;
+          H.me_pin = (signed char)(H.me1 == 16 && c < 14 ? c + 1 : 0);
++         if (H.me1 == 16 && c < 14) H.me_pad = ((ram[R_P1BLK] >> 3) & 1) + 1;   /* 뽑힌 검질도(177 리뷰: 무작위 칸은 게임이 검질까지 뽑아 ② 를 안 씀 —
++                                                                                 «상대 고르기» 가 캐릭터는 고정하고 검질만 ② 로 바꾸던 것) */
+          H.me_b2p = 0;                               /* 165: 플레이어 2P색 없음(옛 덩어리의 남은 1 도 여기서 낫는다) */
+       }
+       if (L.fight_seen) {
+@@ -937,7 +1060,7 @@ static void hub_tick(uint8_t *ram, int input)
        }
        break;
     case H_PICK_SOLO:                                 /* 168 내 캐릭터만 — 고르기는 게임 그대로(사용자 · 컬러는 look), 이야기가 시작되면 남기고 멈춰 둠 */
@@ -317,7 +332,7 @@ index 35e4023..1d6d278 100644
        if (ram[R_MODE] == 240 && (ram[R_SCR] == 2 || ram[R_SCR] == 4)) memset(ram + R_OWN, 8, 120);   /* 올카드(무장의 allcards 와 같은 창) — 무장이 없으니 허브가 */
        if (!PO.done) {
           my_track(ram);
-@@ -953,6 +1068,7 @@ static void hub_tick(uint8_t *ram, int input)
+@@ -953,6 +1076,7 @@ static void hub_tick(uint8_t *ram, int input)
     default: break;
     }
     if (!menu && (H.menu_saved || H.focus)) { H.focus = 0; H.menu_saved = 0; arrows_clear(); }   /* 타이틀을 떠났다 — 화살표 타일을 비운다(게임이 메뉴를 새로 그린다) */
@@ -325,7 +340,7 @@ index 35e4023..1d6d278 100644
     if (H.hold_a) block |= IN_A;
     if (H.hold_b) block |= IN_B;
     if (block & (IN_A | IN_B)) block |= IN_ABFOLD;   /* 패드 «A+B»·원버튼 비트로 게임이 A 를 받아 허브를 건너뛰지 않게 */
-@@ -1002,7 +1118,8 @@ static void pr_me_check(void)                       /* 내 캐릭터 칸(옛 vp_
+@@ -1002,7 +1126,8 @@ static void pr_me_check(void)                       /* 내 캐릭터 칸(옛 vp_
           && H.opp1 >= 0 && H.opp1 <= 15 && H.me_pin >= 0 && H.me_pin <= 14;
     if (!ok) { H.me1 = 0; H.opp1 = 0; H.me_pin = 0; }
     H.me_b2p = 0;                                     /* 165: 늘 0(플레이어 2P색 없음) */
@@ -335,7 +350,7 @@ index 35e4023..1d6d278 100644
  }
  static void pr_apply(const uint8_t *b)
  {
-@@ -1014,6 +1131,7 @@ static void pr_apply(const uint8_t *b)
+@@ -1014,6 +1139,7 @@ static void pr_apply(const uint8_t *b)
     memcpy(&look_color, b + sizeof H + sizeof L + sizeof(int), sizeof(int));
     H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0; H.nav = 0;   /* 저장된 화면 램은 원래 그림(저장 직전에 되돌림) */
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -343,7 +358,7 @@ index 35e4023..1d6d278 100644
  }
  size_t league_practice_blob(void *buf, size_t cap)
  {
-@@ -1073,6 +1191,7 @@ void league_practice_hub(int on, int autostart)
+@@ -1073,6 +1199,7 @@ void league_practice_hub(int on, int autostart)
     for (int i = 0; i < 15; i++) { H.sty[i] = -1; H.dif[i] = 1; H.home[i] = -1; }
     look_stage = -1; look_color = 0;
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -351,7 +366,7 @@ index 35e4023..1d6d278 100644
     if (on && !autostart && pr_pend_on) pr_apply(pr_pend);   /* 이어하기·옵션 바꾸기로 다시 연 판 — 연습 경기 그대로 */
     pr_pend_on = 0;
     pthread_mutex_unlock(&L_mu);
-@@ -1112,6 +1231,7 @@ void league_practice_return(int repick)
+@@ -1112,6 +1239,7 @@ void league_practice_return(int repick)
        H.st = H_RETURN; H.nav = 2; H.nav_f = H.f; H.picked = -1; H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0;
        H.repick = repick ? 1 : 0; H.rematch = -1; H.style_seen = 0; H.sel = H.kind; H.handoff = 0;
        hub_gen++;
@@ -359,7 +374,7 @@ index 35e4023..1d6d278 100644
     }
     league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
     pthread_mutex_unlock(&L_mu);
-@@ -1126,6 +1246,7 @@ void league_practice_title(void)
+@@ -1126,6 +1254,7 @@ void league_practice_title(void)
        H.st = H_TITLE; H.nav = 0; H.picked = -1; H.hdr_saved = 0; H.vp_on = 0; H.hold_a = 0; H.hold_b = 0; H.repick = 0; H.style_seen = 0;
        H.menu_saved = 0; H.focus = 0; H.handoff = 0;
        league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
@@ -367,15 +382,15 @@ index 35e4023..1d6d278 100644
     }
     pthread_mutex_unlock(&L_mu);
  }
-@@ -1135,6 +1256,7 @@ void league_practice_title(void)
+@@ -1135,6 +1264,7 @@ void league_practice_title(void)
  void league_hub_before_save(void)
  {
     pthread_mutex_lock(&L_mu);
-+   hdr_red_off();                                   /* 177 §10-8 빨간 머리말 칸 — 도장(아이콘)은 아래 vp_restore 가 */
++   hdr_red_restore();                               /* 177 §10-8 빨간 머리말 칸 — 도장(아이콘)은 아래 vp_restore 가 · 깜빡임 셈은 그대로(다음 프레임에 이어서) */
     if (H.hdr_saved && hdr_layout()) hdr_put(0, 0);
     if (hub_ram && H.nav == 4 && hub_ram[R_MODE] == 240 && hub_ram[R_SCR] == 2) {   /* 커서 옮기는 중(이웃 칸을 써 두고 톡이 아직)이면 진짜 커서를 보이는 칸으로 —
                                                         저장된 상태를 불러와 A 를 누르면 보이는 캐릭터가 골라지게. 살아 있는 nav 는 d==10 확인에서 다시 한다 */
-@@ -1722,6 +1844,16 @@ JNI(jintArray, nativeLeagueStatus)(JNIEnv *env, jclass cls)
+@@ -1722,6 +1852,16 @@ JNI(jintArray, nativeLeagueStatus)(JNIEnv *env, jclass cls)
     return a;
  }
  
@@ -392,7 +407,7 @@ index 35e4023..1d6d278 100644
  /* 허브가 고르기 화면 입력을 쓰는 중인가 — 상대 선택(OPTION 스테이지·A/B 고르기)·대신 누르기 동안 1(look 은 컬러를 안 만진다) */
  int league_hub_owns_select(void)
  {
-@@ -1734,7 +1866,9 @@ int league_hub_owns_select(void)
+@@ -1734,7 +1874,9 @@ int league_hub_owns_select(void)
  int league_hub_look_ctx(void)
  {
     pthread_mutex_lock(&L_mu);
@@ -413,7 +428,7 @@ index ba0c2f8..225df3e 100644
  int league_hub_look_ctx(void);
 +int league_opp_live(void);      /* 177: 상대 컬러를 칠해도 되는 때 — 랭크 경기 무장(연습 허브 제외) · 승리 대사 · 걸쇠(native.c → look_set_opp_live) */
 diff --git a/app/src/main/cpp/look.c b/app/src/main/cpp/look.c
-index 56356ee..95984cf 100644
+index 56356ee..f785442 100644
 --- a/app/src/main/cpp/look.c
 +++ b/app/src/main/cpp/look.c
 @@ -1,5 +1,5 @@
@@ -441,7 +456,7 @@ index 56356ee..95984cf 100644
     int prev_in, owned, inj, inj_f, inj_bit, last_scr;
     int g_st, g_first, g_scr0; unsigned g_f0;   /* A·B·A+B 가르기 — 상태 · 먼저 누른 단추 · 그때 화면 · 그때 프레임 */
     int hold;                          /* 결정·A+B 뒤 뗄 때까지 막는 단추(A·B·A+B) — 쥠이 풀려도 */
-@@ -100,12 +102,27 @@ static struct {
+@@ -100,12 +102,36 @@ static struct {
     unsigned f;
  } K = { .sel = -1, .sel_ch = -1, .sty_seen = -1, .prow = -1, .last_scr = -1, .a_age = 255, .b_age = 255 };
  
@@ -457,6 +472,15 @@ index 56356ee..95984cf 100644
 +   return d;
 +}
 +static int opp_row(int ch) { return ch == 14 ? LOOK_ROW_YUGA : ch; }   /* 상대 ch 0~14 → 표 줄(유가 15 — 쿠로코 줄 14 는 고르기 화면 미리보기 전용) */
++/* 177 K3 ① 게임 짝 — {내 보이는 색, 상대 주 색} 이 게임 자신이 보이는 짝이면 거리와 상관없이 겹침 아님(흰옷 등 대신 색은 진짜 커스텀끼리만).
++   같은 검질: 그 검질 {기본, 2P색} 짝(거울 비트 — 게임이 P2 를 2P색으로) · 다른 검질: 둘 다 제 검질의 게임 색(기본·2P색 — 거울 비트 없이 게임은 상대 검질 기본을 보임.
++   주베이 수라↔나찰 기본 거리 7 — 177 리뷰: 같은 검질만 보던 예외라 «나 나찰 기본 vs 상대 수라 기본»에 흰옷이 나왔다) */
++static int opp_game_pair(int row, int msty, int sty, const uint16_t mine[3], const uint16_t oc[3])
++{
++   const uint16_t *b0 = LOOK_TAB[row][sty][0], *b1 = LOOK_TAB[row][sty][1];
++   if (msty == sty) return (!memcmp(mine, b0, 6) && !memcmp(oc, b1, 6)) || (!memcmp(mine, b1, 6) && !memcmp(oc, b0, 6));
++   return (!memcmp(mine, LOOK_TAB[row][msty & 1][0], 6) || !memcmp(mine, LOOK_TAB[row][msty & 1][1], 6)) && (!memcmp(oc, b0, 6) || !memcmp(oc, b1, 6));
++}
 +
  void look_vram(void *chr, void *scr, void *pal) { vpanel_vram(chr, scr); vpanel_pal(pal); g_pal = (uint8_t *)pal; }
  void look_palremap_fn(void *fn) { if ((void *)g_remap != fn) rm_init = 0; *(void **)&g_remap = fn; }
@@ -470,7 +494,7 @@ index 56356ee..95984cf 100644
     const uint16_t *t = LOOK_TAB[row][sty][0];
     if (idx >= 0 && idx < LOOK_NPRE) t = LOOK_TAB[row][sty][idx];
     else if (idx >= LOOK_NPRE && idx < LOOK_NIDX && row < 14 && K.cus_ok[row][idx - LOOK_NPRE]) t = K.cus[row][idx - LOOK_NPRE];
-@@ -205,7 +222,7 @@ static void gate_chord(int input)
+@@ -205,7 +231,7 @@ static void gate_chord(int input)
  }
  static void gate_confirm(int first, int scr, int ctx, int input)
  {
@@ -479,7 +503,7 @@ index 56356ee..95984cf 100644
     else { K.inj_bit = (scr == 4 && first == IN_B) ? IN_B : IN_A; K.inj = 1; K.inj_f = (int)K.f; }
     K.conf_n++;
     K.hold = input & (IN_A | IN_B | IN_ABK);
-@@ -251,14 +268,65 @@ static void match_want(const uint8_t *ram, rm_t want, int write)
+@@ -251,14 +277,64 @@ static void match_want(const uint8_t *ram, rm_t want, int write)
        }
     }
  }
@@ -512,9 +536,8 @@ index 56356ee..95984cf 100644
 +   const uint16_t *b0 = LOOK_TAB[row][sty][0], *b1 = LOOK_TAB[row][sty][1];
 +   uint16_t mine[3], show[3], prev[3];
 +   memcpy(show, OP.c, 6);
-+   if (p1_visible(ram, mine, &msty) == OP.ch && tdist(mine, OP.c) <= OPP_CLASH
-+       && !(msty == sty && ((!memcmp(mine, b0, 6) && !memcmp(OP.c, b1, 6)) || (!memcmp(mine, b1, 6) && !memcmp(OP.c, b0, 6))))) {
-+      /* 겹침(같은 캐릭터면 검질과 상관없이 — 두 검질이 같은 그림) — 단 같은 검질의 게임 {기본, 2P색} 짝은 겹침 아님(K3 ①: 기본↔2P 거리 7~11 인 캐릭터) */
++   if (p1_visible(ram, mine, &msty) == OP.ch && tdist(mine, OP.c) <= OPP_CLASH && !opp_game_pair(row, msty, sty, mine, OP.c)) {
++      /* 겹침(같은 캐릭터면 검질과 상관없이 — 두 검질이 같은 그림) — 단 게임 짝은 겹침 아님(K3 ①: 같은 검질 기본↔2P 거리 7~11 · 다른 검질 기본끼리 주베이 7) */
 +      int best = 0, bd = -1;
 +      for (int i = 0; i < 8; i++) {
 +         const uint16_t *t = LOOK_TAB[row][sty][OPP_FB[i]];
@@ -549,7 +572,7 @@ index 56356ee..95984cf 100644
     }
     if (memcmp(&nw, &SW, sizeof SW)) { if (g_pal) slash_restore(g_pal, &SW); SW = nw; }
     for (int p = 1; p < RM_NP; p++)
-@@ -279,11 +347,17 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -279,11 +355,17 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
     pthread_mutex_lock(&K_mu);
     K.ram = ram;
     rm_clear(want);
@@ -570,7 +593,7 @@ index 56356ee..95984cf 100644
        pthread_mutex_unlock(&K_mu); return;
     }
     K.f++;
-@@ -363,6 +437,8 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
+@@ -363,6 +445,8 @@ void look_tick(uint8_t *ram, size_t n, int input, int ctx)
        if (!sel_scr) match_want(ram, want, 1);                         /* 경기 쪽(고르기 화면 밖) */
     }
     K.owned = owned;
@@ -579,7 +602,7 @@ index 56356ee..95984cf 100644
     slash_want_step(ram, want, title);
     if (K.inj) {                                                       /* 결정 — 다음 프레임부터 LOOK_INJ_N 프레임 대신 누름 · 십자는 LOOK_INJ_DPAD 프레임째까지 막는다 */
        int d = (int)K.f + 1 - K.inj_f;
-@@ -439,6 +515,22 @@ int look_take_confirm(void)
+@@ -439,6 +523,22 @@ int look_take_confirm(void)
     pthread_mutex_unlock(&K_mu);
     return c;
  }
@@ -602,7 +625,7 @@ index 56356ee..95984cf 100644
  int look_cur(void) { pthread_mutex_lock(&K_mu); int c = K.cur; pthread_mutex_unlock(&K_mu); return c; }
  void look_status(int v[LOOK_NSTAT])
  {
-@@ -446,12 +538,13 @@ void look_status(int v[LOOK_NSTAT])
+@@ -446,12 +546,13 @@ void look_status(int v[LOOK_NSTAT])
     v[0] = K.on; v[1] = K.owned; v[2] = K.mem_gen; v[3] = K.cur; v[4] = K.sel; v[5] = K.sel_ch; v[6] = 0; v[7] = K.edit_req;
     v[8] = K.sty_seen; v[9] = K.sel_gen; v[10] = K.edit; v[11] = (int)K.f; v[12] = K.owned && K.pslot < 14 ? K.prow : -1; v[13] = K.psty;
     v[14] = K.fx; v[15] = K.fx_gen; v[16] = K.conf_n; v[17] = K.fx_sel;
@@ -617,7 +640,7 @@ index 56356ee..95984cf 100644
     pthread_mutex_lock(&K_mu);
     for (int i = 0; i < LOOK_NIDX; i++) { tri(row, sty & 1, i, t); for (int j = 0; j < 3; j++) out[i * 3 + j] = t[j]; }
     pthread_mutex_unlock(&K_mu);
-@@ -488,6 +581,10 @@ void look_before_save(void)
+@@ -488,6 +589,10 @@ void look_before_save(void)
              if (pal_is(0, t)) { tri(row, s, 0, b); pal_wr(0, b); break; }
           }
     }
@@ -628,7 +651,7 @@ index 56356ee..95984cf 100644
     if (g_pal) slash_restore(g_pal, &SW);
     pthread_mutex_unlock(&K_mu);
  }
-@@ -508,6 +605,10 @@ void look_after_save(void)
+@@ -508,6 +613,10 @@ void look_after_save(void)
           }
     }
     if (K.on && K.owned && K.vp_lab) { vpanel_put(K.vp_lab); vpanel_icon_put(SLASH_ICON, K.ic_c); }
@@ -639,7 +662,7 @@ index 56356ee..95984cf 100644
     pthread_mutex_unlock(&K_mu);
  }
  
-@@ -552,6 +653,8 @@ void look_after_load(const uint8_t *ram, size_t n)
+@@ -552,6 +661,8 @@ void look_after_load(const uint8_t *ram, size_t n)
     int title = md == 240 && scr == 0 && vpanel_menu_kind();
     int sel_scr = md == 240 && (scr == 2 || scr == 4) && vpanel_layout();
     if (K.on && !sel_scr && !title) match_want(ram, want, 1);
@@ -648,7 +671,7 @@ index 56356ee..95984cf 100644
     slash_clear(&SW);                                                  /* 불러온 팔레트 램엔 옛 표의 우리 색이 없다(저장 전에 되돌림) — 되돌리기 없이 새로 */
     slash_want_step(ram, want, title);
     rm_push(want);
-@@ -563,6 +666,7 @@ void look_forget(void)
+@@ -563,6 +674,7 @@ void look_forget(void)
     pthread_mutex_lock(&K_mu);
     K.sel = -1; K.sel_ch = -1; K.cur = 0; K.fx_sel = 0; K.edit = 0; K.owned = 0; K.inj = 0; K.hold = 0; K.prow = -1; K.opt_own = 0; K.pv_has = 0;
     K.rand_pin = 0; K.toast_f = (int)K.f; K.vp_lab = NULL; K.last_scr = -1; gate_reset();
@@ -656,7 +679,7 @@ index 56356ee..95984cf 100644
     K.ram = NULL;                      /* 165 고침: 코어를 내리면(load/unload_locked) 그 램도 없다 — 저장 직전 되돌리기가 옛 램을 안 읽게(다음 look_tick·look_after_load 가 다시) */
     slash_clear(&SW);
     rm_init = 0; vpanel_forget();
-@@ -589,6 +693,7 @@ JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1
+@@ -589,6 +701,7 @@ JNI(void, nativeLookSetCustom)(JNIEnv *env, jclass cls, jint ch, jint k, jint c1
  JNI(void, nativeLookSetFx)(JNIEnv *env, jclass cls, jint fx) { (void)env; (void)cls; look_set_fx(fx); }
  JNI(void, nativeLookSetMatch)(JNIEnv *env, jclass cls, jint idx) { (void)env; (void)cls; look_set_match(idx); }
  JNI(void, nativeLookEdit)(JNIEnv *env, jclass cls, jboolean on, jint c1, jint c2, jint c3) { (void)env; (void)cls; look_edit(on ? 1 : 0, c1, c2, c3); }
