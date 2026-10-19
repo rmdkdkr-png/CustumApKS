@@ -1,0 +1,850 @@
+diff --git a/app/src/main/cpp/cheat.c b/app/src/main/cpp/cheat.c
+index 4108fc8..de4421d 100644
+--- a/app/src/main/cpp/cheat.c
++++ b/app/src/main/cpp/cheat.c
+@@ -3,7 +3,10 @@
+    치트를 가장 뒤에 두는 까닭: 리그·연습이 같은 바이트를 쓰는 세션이면 치트는 «막혔을 때 아예 안 쓴다»로 정리되고,
+    막히지 않았을 땐 리그·연습이 그 바이트를 안 쓰는 상황이다.
+ 
+-     막기   랭크전·게임 속 리그(허브 종류 0) 세션이면 아무것도 안 쓴다(기록이 깨끗해야 한다 — Java 도 잠그지만 C 가 허브 종류를 보고 한 번 더).
++     리그   168: 랭크전·게임 속 리그(허브 종류 0) 세션에서도 쓴다(유저 «리그 때도 쓸 수 있게») — 막힌 이유 v[7] = 4(«리그에서 먹음» 표시만).
++            그 판에 실제로 쓴 치트는 MB(1 << CH_*)에 모아 Java 가 경기 기록에 «치트»로 남긴다(cheat_match_bits — 무장 때 비움).
++            리그가 같은 바이트(CPU 손잡이·실효 시간)를 먼저 쓰고 치트가 그 뒤에 덮는다 — 정산 검사는 MB 가 설명하는 것만 면제(League.settle).
++     막기   잠금(cheat_lock — 시험용, Java 는 이제 안 부른다)이면 아무것도 안 쓴다.
+             연습 대전 흐름(허브 종류 1 의 상대 고르기 → 내 캐릭터 → 연습 경기)이면 경기 치트(시간·체력·분노·상대·세기·공격력)는 쉰다 —
+             연습이 시간·체력 바닥·분노·더미 CPU 비트·CPU 배율을 매 프레임 맡고, 경기 전에 쓴 공격 배율(0x57D8)은 연습이 안 고쳐 연습 경기까지 샌다.
+             올카드·유가는 연습에서도 먹는다(연습 상대 고르기는 허브가 A 를 받아 게임이 확정하지 않으므로 유가 판정에 안 걸린다).
+@@ -74,6 +77,7 @@ static struct {
+    int atk_base, atk_last;           /* P1 공격 배율 기준(게임이 정한 값) · 마지막으로 쓴 값(−1 없음) */
+    int diff_prev;
+    int used, why;
++   unsigned mb;                      /* 168: 마지막 cheat_match_bits(1) 뒤 실제로 쓴 치트(1 << CH_*) — 경기 치트는 라운드 중(live) 쓴 것만, 올카드·유가는 쓴 순간 */
+    int sv_atk, sv_cpu, sv_nextt;     /* 상태 저장 동안 원래 값으로 돌려 둔 경기 치트 값(−1 없음) — 저장 뒤 cheat_after_save 가 되쓴다 */
+    unsigned f;
+ } S = { .atk_last = -1, .perm_saved = -1, .sv_atk = -1, .sv_cpu = -1, .sv_nextt = -1 };
+@@ -100,6 +104,13 @@ static void clear_max(uint8_t *ram, int p)
+    ram[b + O_FLAGS] &= (uint8_t)~0x04; wr16(ram, b + O_MAXT, 0); ram[b + O_RAGE] = 0; ram[b + O_DRAGE] = 0;
+ }
+ 
++/* 소유 개수에 8 이 아닌 칸이 있나 — 올카드가 «실제로 바꿨나»(MB) */
++static int own_lt8(const uint8_t *ram)
++{
++   for (int i = 0; i < 120; i++) if (ram[R_OWN + i] < 8) return 1;
++   return 0;
++}
++
+ static void cards_restore(uint8_t *ram)
+ {
+    if (S.win && ram) memcpy(ram + R_OWN, S.snap, 120);
+@@ -119,6 +130,7 @@ static void cards_tick(uint8_t *ram, int mode, int prog, int sub)
+       if (S.win) { memcpy(S.perm_snap, S.snap, 120); S.perm_ok = 1; S.win = 0; }   /* 이번만 창 안에서 바꿨다 — 램은 이미 8, 원래 값은 창 보관본 */
+       if (prog != 0) {
+          if (!S.perm_ok || reread) { memcpy(S.perm_snap, ram + R_OWN, 120); S.perm_ok = 1; }
++         if (own_lt8(ram)) S.mb |= 1u << CH_CARDS;
+          memset(ram + R_OWN, 8, 120);
+       }
+       S.perm_on = 1;
+@@ -132,6 +144,7 @@ static void cards_tick(uint8_t *ram, int mode, int prog, int sub)
+             && (((prog == 0x06 || prog == 0x0C) && (sub == 0x06 || sub == 0x08 || sub == 0x0A)) || prog == 0x12);
+    if (inwin) {
+       if (!S.win) { memcpy(S.snap, ram + R_OWN, 120); S.win = 1; }
++      if (own_lt8(ram)) S.mb |= 1u << CH_CARDS;           /* 리그는 고르기 화면에서 이미 8(올카드 규칙) — 그때는 바뀐 게 없어 표시 안 함 */
+       memset(ram + R_OWN, 8, 120);
+    } else if (S.win) cards_restore(ram);
+ }
+@@ -143,6 +156,7 @@ static void yuga_tick(uint8_t *ram, int mode, int prog, int sub)
+    if (S.prev_sub == 0x06 && sub == 0x08) S.yuga_pick = CV[CH_YUGA] && S.hover == 60;   /* 캐릭터 확정 순간 */
+    if (sub == 0x06) return;                                 /* 다시 고르는 중(이어하기 포함) — 확정 때 다시 정한다 */
+    if (S.yuga_pick && CV[CH_YUGA] && ram[R_P1CH] != 255) {   /* 가운데 칸은 게임이 검질 확정 뒤 캐릭터·검질을 굴려 정한다 — 그 값을 유가로(전투 로드 전) */
++      if (ram[R_P1CH] != 14) S.mb |= 1u << CH_YUGA;
+       ram[R_P1CH] = 14; ram[R_P1STY] = (uint8_t)(CV[CH_YUGA] == 2);
+    }
+ }
+@@ -167,7 +181,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+       지금 라운드는 ∞ 그대로 — 다음 라운드부터 원래 시간 */
+    if (CV[CH_TIME] && ours) {
+       ram[R_NEXTT] = 0x80; S.time_on = 1;
+-      if (live) { ram[R_TIMER] = 0xFF; ram[R_TIMER + 1] = 0xFF; }
++      if (live) { ram[R_TIMER] = 0xFF; ram[R_TIMER + 1] = 0xFF; S.mb |= 1u << CH_TIME; }
+    } else if (S.time_on) {
+       if (ours) ram[R_NEXTT] = prog == 0x0C ? 0x80 : ram[R_OPTT];
+       S.time_on = 0;
+@@ -178,6 +192,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+       const uint16_t *t = DIFF_T[CV[CH_DIFF]];
+       ram[R_CPULV] = (uint8_t)t[0]; ram[R_CPUCAP] = (uint8_t)t[1]; wr16(ram, R_CPUATK, t[2]); wr16(ram, R_CPUDEF, t[3]);
+       if (live && S.diff_prev != CV[CH_DIFF]) ram[R_P2LV] = (uint8_t)t[0];   /* 라운드 중에 바꾸면 지금 단계도 */
++      if (live) S.mb |= 1u << CH_DIFF;
+    }
+    S.diff_prev = live ? CV[CH_DIFF] : S.diff_prev;
+ 
+@@ -189,7 +204,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+          int cur = rd16(ram, R_P1ATK);
+          if (S.atk_last < 0 || cur != S.atk_last) S.atk_base = cur;
+          int v = S.atk_base * POW_K[CV[CH_POW]] >> 8; if (v > 0x7FFF) v = 0x7FFF;
+-         wr16(ram, R_P1ATK, v); S.atk_last = v;
++         wr16(ram, R_P1ATK, v); S.atk_last = v; S.mb |= 1u << CH_POW;
+       } else if (S.atk_last >= 0) {
+          if (rd16(ram, R_P1ATK) == S.atk_last) wr16(ram, R_P1ATK, S.atk_base);   /* 게임이 그사이 새로 썼으면 그 값 그대로 */
+          S.atk_last = -1;
+@@ -198,7 +213,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+ 
+    /* 상대 가만히 — CPU 비트를 끈다(사람 갈래 · 패드 0 — 가드도 안 함). 끄면 한 번 다시 켬 */
+    if (live) {
+-      if (CV[CH_CPU]) { ram[PB(1) + O_CPU] &= (uint8_t)~1; S.cpu_off = 1; }
++      if (CV[CH_CPU]) { ram[PB(1) + O_CPU] &= (uint8_t)~1; S.cpu_off = 1; S.mb |= 1u << CH_CPU; }
+       else if (S.cpu_off) { ram[PB(1) + O_CPU] |= 1; S.cpu_off = 0; }
+    }
+ 
+@@ -208,6 +223,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+       한 방: 이번 프레임에 깎였으면 0(게임이 다음 틱에 KO 로 끝낸다 — 가드 깎임에도) */
+    for (int p = 0; p < 2; p++) {
+       int b = PB(p), hp = ram[b + O_HP], mode_hp = CV[CH_HP1 + p];
++      if (mode_hp) S.mb |= 1u << (CH_HP1 + p);
+       if (mode_hp == 1 && hp < 128) { ram[b + O_HP] = 128; ram[b + O_DHP] = 128; S.hp_fixes++; hp = 128; }
+       else if (mode_hp == 2 && hp > 0 && hp < S.prev_hp[p]) { ram[b + O_HP] = 0; S.last_ko = (int)S.f; hp = 0; }
+       S.prev_hp[p] = hp;
+@@ -218,6 +234,7 @@ static void fight_tick(uint8_t *ram, int mode, int prog)
+    for (int p = 0; p < 2; p++) {
+       int b = PB(p), act = ram[b + O_CTRL] == 0, ground = rd16(ram, b + O_Y) == 128;
+       if (CV[CH_RAGE1 + p]) {
++         S.mb |= 1u << (CH_RAGE1 + p);
+          if (!(ram[b + O_FLAGS] & 0x04)) { if (act) set_max(ram, p); }
+          else if (rd16(ram, b + O_MAXT) < 0x1000) wr16(ram, b + O_MAXT, 0x3000);
+          if ((ram[b + O_SECRET] & 0x80) && act && ground && !(ram[b + O_FLAGS] & 0x04)) ram[b + O_SECRET] &= (uint8_t)~0x80;
+@@ -237,8 +254,8 @@ void cheat_tick(uint8_t *ram, size_t n, int input)
+    pthread_mutex_lock(&C_mu);
+    S.f++;
+    int mode = ram[R_MODE], prog = ram[R_PROG], sub = ram[R_SUB];
+-   int why = locked ? 1 : own == 1 ? 2 : own == 2 ? 3 : 0;
+-   if (why == 1 || why == 2) {                      /* 아무것도 안 쓴다 — 혹시 남은 창이 있으면 되돌린다 */
++   int why = locked ? 1 : own == 2 ? 3 : own == 1 ? 4 : 0;   /* 168: 리그(4)도 쓴다 — 0 과 같은 갈래, 표시만 다르게 */
++   if (why == 1) {                                  /* 아무것도 안 쓴다 — 혹시 남은 창이 있으면 되돌린다 */
+       cards_restore(ram);
+       fight_release(ram);
+    } else {
+@@ -269,7 +286,7 @@ void cheat_set(int key, int value)
+ void cheat_reset_all(void)
+ {
+    pthread_mutex_lock(&C_mu);
+-   memset(CV, 0, sizeof CV); memset(&S, 0, sizeof S); S.atk_last = -1; S.perm_saved = -1; S.sv_atk = S.sv_cpu = S.sv_nextt = -1; locked = 0;
++   memset(CV, 0, sizeof CV); memset(&S, 0, sizeof S); S.atk_last = -1;   /* S.mb 도 0 */ S.perm_saved = -1; S.sv_atk = S.sv_cpu = S.sv_nextt = -1; locked = 0;
+    pthread_mutex_unlock(&C_mu);
+ }
+ 
+@@ -319,6 +336,15 @@ void cheat_after_save(uint8_t *ram)
+    pthread_mutex_unlock(&C_mu);
+ }
+ 
++unsigned cheat_match_bits(int clear)
++{
++   pthread_mutex_lock(&C_mu);
++   unsigned b = S.mb;
++   if (clear) S.mb = 0;
++   pthread_mutex_unlock(&C_mu);
++   return b;
++}
++
+ void cheat_status(int v[CHEAT_NSTAT])
+ {
+    pthread_mutex_lock(&C_mu);
+@@ -340,6 +366,10 @@ JNI(void, nativeCheatSet)(JNIEnv *env, jclass cls, jint key, jint value)
+ JNI(void, nativeCheatLock)(JNIEnv *env, jclass cls, jboolean on)
+ { (void)env; (void)cls; cheat_lock(on ? 1 : 0); }
+ 
++/* 168: 이 판에 실제로 쓴 치트 비트(1 << CH_*) — clear 면 0 으로. 무장(league.c arm_locked)이 비운다 */
++JNI(jint, nativeCheatMatch)(JNIEnv *env, jclass cls, jboolean clear)
++{ (void)env; (void)cls; return (jint)cheat_match_bits(clear ? 1 : 0); }
++
+ JNI(jintArray, nativeCheatStatus)(JNIEnv *env, jclass cls)
+ {
+    (void)cls;
+diff --git a/app/src/main/cpp/cheat.h b/app/src/main/cpp/cheat.h
+index 5e538b2..7687ad7 100644
+--- a/app/src/main/cpp/cheat.h
++++ b/app/src/main/cpp/cheat.h
+@@ -1,4 +1,4 @@
+-/* 치트 — 사무쇼2 (cheat.c). 일반 세션에서만. 랭크전·게임 속 리그 세션에서는 아무것도 안 쓰고, 연습 대전 흐름에서는 경기 치트를 쉰다. */
++/* 치트 — 사무쇼2 (cheat.c). 일반 세션·랭크전·게임 속 리그(168 — 리그에서 먹은 판은 기록에 «치트», cheat_match_bits). 연습 대전 흐름에서는 경기 치트를 쉰다. */
+ #pragma once
+ #include <stddef.h>
+ #include <stdint.h>
+@@ -24,8 +24,11 @@ void cheat_tick(uint8_t *ram, size_t n, int input);
+ void cheat_set(int key, int value);
+ /* 모두 끔 + 잠금 풂 + 상태 비움(코어 올리기·내리기 — Java 가 일반 세션이면 다시 넣는다) */
+ void cheat_reset_all(void);
+-/* 랭크전·게임 속 리그 세션 — 켜면 값을 0 으로 비우고 cheat_set 을 받지 않으며 tick 은 아무것도 안 쓴다 */
++/* 잠금 — 켜면 값을 0 으로 비우고 cheat_set 을 받지 않으며 tick 은 아무것도 안 쓴다(168: 시험용 — Java 는 리그에서도 안 부른다) */
+ void cheat_lock(int on);
++/* 168: 마지막으로 비운 뒤 실제로 쓴 치트(1 << CH_*) — 경기 치트는 라운드 중(live) 쓴 것만 · 올카드는 8 이 아닌 칸을 바꿨을 때 · 유가는 P1 을 14 로 바꿨을 때.
++   clear 면 0 으로. league.c arm_locked(L_mu 안 — L_mu → C_mu 순서)가 무장마다 비운다 */
++unsigned cheat_match_bits(int clear);
+ /* 리셋·상태 불러오기 뒤 — 램이 통째로 바뀌었으니 보관한 카드 개수는 되돌리지 않고 버린다 */
+ void cheat_forget(void);
+ /* 상태 저장 직전(코어 잠금 안) — 올카드(이번만)로 바꿔 둔 소유 개수를 원래대로(저장된 상태에 8 이 안 실리게 — 다음 프레임에 다시 쓴다),
+@@ -37,7 +40,7 @@ void cheat_after_save(uint8_t *ram);
+ #define CHEAT_NSTAT 16
+ /* [0 잠김, 1 켜진 치트 수, 2 이번 세션에 경기 치트가 먹은 적 있음, 3 올카드 창 안(이번만), 4 보관한 개수 합,
+     5 세이브에 이미 올카드(부팅·모드 고를 때 게임이 읽은 값이 모두 8 → 1 · 아님 0 · 올린 뒤·불러온 뒤 아직 모름 −1), 6 유가 고름,
+-    7 막힌 이유(0 없음 · 1 잠김 · 2 리그 세션 · 3 연습 대전 흐름 — 3 은 경기 치트만), 8 마지막으로 쓴 P1 공격 배율(−1 없음), 9 공격 배율 기준값,
++    7 막힌 이유(0 없음 · 1 잠김 · 2 (옛: 리그 세션 — 168 부터 안 씀) · 3 연습 대전 흐름 — 3 은 경기 치트만 · 4 리그 세션에서 먹음(막지 않음)), 8 마지막으로 쓴 P1 공격 배율(−1 없음), 9 공격 배율 기준값,
+     10 마지막 한 방 KO 프레임, 11 무한 체력으로 되돌린 횟수, 12 프레임, 13 지금 프로그램(0x57C6), 14 지금 단계(0x5726),
+     15 세이브에 남기기로 8 을 쓰는 중] */
+ void cheat_status(int v[CHEAT_NSTAT]);
+diff --git a/app/src/main/cpp/league.c b/app/src/main/cpp/league.c
+index b1818c4..a78f4d2 100644
+--- a/app/src/main/cpp/league.c
++++ b/app/src/main/cpp/league.c
+@@ -33,6 +33,7 @@
+ #include "vpanel.h"
+ #include "hub_glyphs.h"
+ #include "vsband.h"
++#include "cheat.h"
+ #define PG_WANT_MENU
+ #include "practice_glyphs.h"
+ 
+@@ -174,7 +175,10 @@ static int look_stage = -1, look_color = 0;   /* 다음 무장에 쓸 배경(lea
+    ←→ 로 «연습 대전» ↔ «리그 대전»을 바꾼다(sel). 이 판의 종류(kind)와 같은 쪽에서 A 면 위 흐름 그대로, 다른 쪽이면 A 를 받아 두고
+    handoff 를 세운다 — 리그는 따로 세이브·고정 롬·동봉 코어로 돌아야 해서(랭크전 판) Java 가 판을 갈아 끼우고(일반 세션 ↔ 리그 세션)
+    새 판은 league_hub_go 로 로고·메뉴를 넘겨 바로 상대 선택까지 간다(전원부터 1초 남짓 — 실측 61프레임). */
+-enum { H_OFF = 0, H_TITLE, H_PICK_OPP, H_PICK_ME, H_MATCH, H_RETURN, H_SEARCH, H_PICK_ME1 };
++enum { H_OFF = 0, H_TITLE, H_PICK_OPP, H_PICK_ME, H_MATCH, H_RETURN, H_SEARCH, H_PICK_ME1, H_PICK_SOLO = 9 };
++/* H_PICK_SOLO (168 랭크 «내 캐릭터 먼저») 상대 없이(L 무장 안 함) 1인 대전 캐릭터 고르기 → 검질 → 카드를 사용자가 고른다. 이야기가 시작되면 고른 것을 MY 에 남기고
++              (PO.done) 게임 입력을 모두 막은 채 이야기를 넘기지 않는다(序章 ≥ 1700프레임 — Java 가 그 안에 남긴 걸 pref.main 으로 굳히고 −4 로 상대를 붙인다).
++              번호 9 — 8 은 연습 검질 고르기(H_PICK_STY1, 다른 묶음) 자리. .prac 은 H_MATCH 만 저장하니 새 번호와 무관. 그 전에 타이틀로 나가면 H_TITLE */
+ /* H_PICK_ME1 (연습만) 내 캐릭터 먼저 — 게임 머리말 «캐릭터 선택» 그대로, 컬러(OPTION)·2P색 표시(B)는 look(ctx HOLD). A·B 는 허브가 받아 두고
+               H_PICK_OPP(«상대 선택»)로. 상대를 고르면 커서를 내 캐릭터 칸으로 되돌려(nav 4) A 를 대신 눌러 확정 → H_PICK_ME(검질·카드는 게임 그대로).
+               연습 메뉴 «상대 고르기»는 내 캐릭터를 둔 채 바로 H_PICK_OPP(무작위 칸이었으면 뽑힌 캐릭터로 — 더미만 바뀐다). 번호는 뒤에 붙여 다른 상태 번호는 그대로 */
+@@ -506,6 +510,8 @@ static struct {
+    unsigned f0, fs, navf, csel_f;                 /* go(−4 는 리셋) · 이 단계 시작 · nav 건 때 · 고르기 화면 프레임 (허브 프레임) */
+ } AP;
+ static struct { int valid, cell, ch, sty, b2p, k1, k2, color, r_cell, r_sty, done; } MY = { .r_cell = -1, .r_sty = -1 };
++/* 168 내 캐릭터만 고르는 판(H_PICK_SOLO) — H 밖(리그 판 전용 · .prac 크기 무관). req = Java 요청(타이틀·찾기에서 메뉴가 뜨면) · on = 그 판 · done = 고른 것을 MY 에 남김 */
++static struct { int req, on, done; unsigned f0; } PO;
+ /* 1 = native.c 가 코어를 4배속(pace 배속)으로 · 1 = 오디오가 소리를 버린다 — 자동 진행 단계 1~5(flags 4) · −4 리셋부터 */
+ volatile int league_ff = 0;
+ static int auto_active(void) { return AP.fixed && H.kind == 0 && H.st == H_PICK_ME && AP.ph >= AP_BOOT && AP.ph <= AP_SCENE; }
+@@ -607,6 +613,13 @@ static void my_commit(const uint8_t *ram, int fight)
+    if (fight) b = ram[R_P1BLK];
+    else {
+       ch = MY.r_cell == 15 ? ram[A(0x57D5)] : MY.r_cell;   /* 0x57D5/D6 = P1 캐릭터·검질 — 검질 확정 ~96프레임 뒤(u149 e5) */
++      if (MY.r_cell == 15 && (ch < 0 || ch > 13)) {       /* 168: 무작위 칸인데 유가 치트(14) — 칸 15 로만 남긴다(ch −1 · 자동 진행이 다시 굴림, 유가 치트면 다시 유가) */
++         look_status(lv);
++         MY.ch = -1; MY.sty = ram[A(0x57D6)] & 1; MY.cell = 15; MY.k1 = MY.k2 = -1;
++         MY.b2p = lv[0] && lv[6]; MY.color = lv[0] && lv[4] > 0 ? lv[4] : 0;
++         MY.valid = 1; MY.done = 1;
++         return;
++      }
+       if (ch < 0 || ch > 13) return;
+       b = (ch << 4) | ((MY.r_cell == 15 || MY.r_sty < 0 ? ram[A(0x57D6)] : MY.r_sty) & 1) << 3;
+    }
+@@ -653,6 +666,22 @@ static void hub_go_fixed(uint8_t *ram)       /* 정해진 상대로 1인 대전
+    MY.r_cell = -1; MY.r_sty = -1; MY.done = 0; MY.valid = 0;   /* 내 고르기 기록은 이 판 것만(Java 는 단계 5 부터 읽는다) */
+ }
+ 
++/* 168 내 캐릭터만 고르는 판으로(메뉴 · 커서 2 에서만 부른다 — hub_go_fixed 와 같은 자리) — 상대 없음(L 무장 안 함) */
++static void hub_go_pick_only(uint8_t *ram)
++{
++   ram[R_MCUR] = 0; H.nav = 1; H.nav_f = H.f; H.st = H_PICK_SOLO; H.picked = -1; H.seen_csel = 0; H.go = 0; H.ev = 0; H.hold_a = 1;
++   L.armed = 0; auto_clear(); vs_reset_locked(1);
++   memset(&MY, 0, sizeof MY); MY.r_cell = -1; MY.r_sty = -1;
++   PO.req = 0; PO.on = 1; PO.done = 0; PO.f0 = H.f;
++}
++/* 메뉴가 떠 있고 대신 누르기 없음 — 커서가 2 가 아니면 이 프레임에 2 를 쓰고(게임이 안 받은 A 뒤 되돌리기와 같은 길) 다음 프레임에 go */
++static int menu_cursor2(uint8_t *ram)
++{
++   if (ram[R_MCUR] == 2) return 1;
++   ram[R_MCUR] = 2;
++   return 0;
++}
++
+ /* 고른 상대로 무장하기 직전 — 배경(−1 상대 기본 · −2 무작위 · 0~7)과 컬러를 다음 무장에 넘긴다 */
+ static void hub_set_look(int picked)
+ {
+@@ -689,9 +718,10 @@ static void hub_tick(uint8_t *ram, int input)
+    } else if (H.nav == 2) {                           /* 리셋 뒤: A 로 로고·인트로를 넘겨 메뉴까지(메뉴가 뜬 뒤엔 A 를 안 준다) */
+       unsigned d = H.f + 1 - H.nav_f;
+       league_ovr_on = 1;
+-      int fast = auto_fast_boot();                   /* 153: 자동 진행·tail 재대결·다음 상대(−4) — 로고를 더 일찍 넘긴다(A@8 — 실측 A@8·A@16 이 가장 빠름) */
++      int fast = auto_fast_boot() || (H.rematch == -5 && H.kind == 0);   /* 153: 자동 진행·tail 재대결·다음 상대(−4) — 로고를 더 일찍 넘긴다(A@8 — 실측 A@8·A@16 이 가장 빠름) · 168: −5 도 */
+       league_ovr_mask = (!menu && ((d >= (fast ? 8u : 20u) && d < (fast ? 12u : 24u)) || (d >= 200 && d < 204) || (d >= 380 && d < 384))) ? IN_A : 0;
+-      if (menu && fast) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.repick = 0; H.rematch = -1; hub_go_fixed(ram); }   /* 셋째 줄로 안 내리고 바로 1인 대전(커서 0) */
++      if (menu && fast && H.rematch != -5) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.repick = 0; H.rematch = -1; hub_go_fixed(ram); }   /* 셋째 줄로 안 내리고 바로 1인 대전(커서 0) */
++      else if (menu && H.rematch == -5 && H.kind == 0) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.repick = 0; H.rematch = -1; hub_go_pick_only(ram); }   /* 168 «새 캐릭터» — 바로 내 캐릭터 고르기 */
+       else if (menu) { H.nav = 3; H.nav_f = H.f; H.downs = 2; league_ovr_mask = 0; }
+       else if (d > 900) { H.nav = 0; league_ovr_on = 0; league_ovr_mask = 0; H.st = H_TITLE; if (AP.pre && AP.ph == AP_BOOT) auto_fail(ram, AP_BOOT); }
+    } else if (H.nav == 4) {                           /* 고르기 커서를 nav_ch 칸으로 — 이웃 칸을 써 두고 그쪽으로 한 번 톡(게임이 미리보기·이름을 스스로 바꿈 ·
+@@ -727,6 +757,8 @@ static void hub_tick(uint8_t *ram, int input)
+             H.rematch = -1;
+          } else if (H.rematch == -4 && H.fx_on && menu && ram[R_MCUR] == 2) {   /* 랭크 재대결: 같은 상대·같은 손잡이로 바로 내 캐릭터 고르기 */
+             hub_go_fixed(ram); H.rematch = -1;
++         } else if (H.rematch == -5 && H.kind == 0 && menu && ram[R_MCUR] == 2) {   /* 168 «새 캐릭터»(느린 길) */
++            hub_go_pick_only(ram); H.rematch = -1;
+          } else if (H.repick == 2 && menu && ram[R_MCUR] == 2) {   /* 랭크 «다음 상대»·갈아탄 리그 판: 메뉴에서 바로 상대 찾기 */
+             H.st = H_SEARCH; H.ev = 0; H.go = 0;
+          } else if (H.repick && menu && ram[R_MCUR] == 2) {   /* 연습 «상대 고르기»·리그 «다른 상대»·갈아탄 새 판: 바로 상대 선택 */
+@@ -739,6 +771,11 @@ static void hub_tick(uint8_t *ram, int input)
+ 
+    switch (H.st) {
+    case H_TITLE:
++      if (menu && PO.req && !H.nav && H.kind == 0) {  /* 168 내 캐릭터 먼저(Java) — 커서 2 를 맞춘 다음 프레임에 */
++         block = IN_GAME_ALL; menu_relabel(mk, 0); H.label_menu = mk;
++         if (menu_cursor2(ram)) hub_go_pick_only(ram);
++         break;
++      }
+       if (menu) {
+          H.focus = ram[R_MCUR] == 2 && !H.nav;
+          if (!H.focus && !H.handoff) H.sel = H.kind;    /* 커서가 셋째 줄을 떠나면 이 판의 종류로(다른 줄에서 본 글자·안내가 어긋나지 않게) */
+@@ -772,7 +809,8 @@ static void hub_tick(uint8_t *ram, int input)
+       if ((input & IN_DOWN) && !(H.prev_in2 & IN_DOWN)) H.ev |= 64;
+       if (menu) {
+          H.focus = 0; menu_relabel(mk, 0); H.label_menu = mk;   /* 찾는 동안은 ◀▶ 없이(바꿀 수 없음) */
+-         if (H.go && H.fx_on && ram[R_MCUR] == 2) hub_go_fixed(ram);
++         if (PO.req && !H.nav) { if (menu_cursor2(ram)) hub_go_pick_only(ram); }   /* 168 내 캐릭터 먼저 */
++         else if (H.go && H.fx_on && !H.nav && menu_cursor2(ram)) hub_go_fixed(ram);   /* 168: 커서가 2 가 아니면(대기 메뉴에서 연 찾기) 2 를 쓰고 다음 프레임 */
+       } else if (!H.nav) { H.st = H_TITLE; H.go = 0; }   /* 메뉴가 사라졌다(있을 수 없는 일 — 안전하게 타이틀 상태로) */
+       break;
+    case H_RETURN:                                    /* 돌아가는 중에도 메뉴가 뜨면 셋째 줄 글자를 바로(원래 «2 인 대전»이 잠깐 보이지 않게) */
+@@ -890,6 +928,17 @@ static void hub_tick(uint8_t *ram, int input)
+          if (H.kind == 0) { vs_reset_locked(1); auto_clear(); }   /* 153 */
+       }
+       break;
++   case H_PICK_SOLO:                                 /* 168 내 캐릭터만 — 고르기는 게임 그대로(사용자 · 컬러는 look), 이야기가 시작되면 남기고 멈춰 둠 */
++      if (csel) H.seen_csel = 1;
++      if (ram[R_MODE] == 240 && (ram[R_SCR] == 2 || ram[R_SCR] == 4)) memset(ram + R_OWN, 8, 120);   /* 올카드(무장의 allcards 와 같은 창) — 무장이 없으니 허브가 */
++      if (!PO.done) {
++         my_track(ram);
++         if (!MY.done && story_start(ram)) { my_commit(ram, 0); PO.done = MY.valid; }
++      }
++      if (PO.done) { block = IN_GAME_ALL; league_in_or = 0; }   /* 이야기를 넘기지 않는다 — Java 가 남긴 걸 가져가 −4 로 */
++      else if (menu && !H.nav && H.seen_csel) { H.st = H_TITLE; H.seen_csel = 0; H.vp_on = 0; PO.on = 0; PO.done = 0; }   /* 고르기에서 뒤로 나감 */
++      else if (menu && !H.nav && !H.seen_csel && H.f - H.nav_f > 90) { H.st = H_TITLE; ram[R_MCUR] = 2; PO.on = 0; }   /* 대신 누른 A 를 게임이 안 받았다 */
++      break;
+    case H_MATCH:
+       if (H.kind == 1 && menu && !H.nav) { L.armed = 0; H.st = H_TITLE; H.picked = -1; H.seen_csel = 0; H.vp_on = 0; }   /* 연습 경기가 게임 쪽에서 끝나 타이틀로 왔다 */
+       break;
+@@ -919,6 +968,7 @@ void league_hub(int on, const signed char *sty, const signed char *dif)
+    league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
+    vsband_forget(); vs_reset_locked(0);              /* 153: 새 허브 — 띠도 잊는다(코어를 새로 올린 판) */
+    auto_clear(); memset(&MY, 0, sizeof MY); MY.r_cell = -1; MY.r_sty = -1;   /* 153: 자동 진행·내 고르기 기록도 */
++   memset(&PO, 0, sizeof PO);                        /* 168 */
+    if (!on) memset(&APC, 0, sizeof APC);            /* 끔(코어 올림·내림)이면 설정도 — 켠 뒤엔 Java 가 다시 넣는다(켜기 앞뒤 어느 쪽이어도) */
+    pthread_mutex_unlock(&L_mu);
+ }
+@@ -1125,11 +1175,12 @@ void league_hub_return(int rematch)
+       H.st = H_RETURN; H.nav = 2; H.nav_f = H.f; H.picked = -1; H.hdr_saved = 0; H.vp_on = 0; H.hold_b = 0;
+       H.sel = H.kind; H.handoff = 0; H.menu_saved = 0; H.focus = 0;
+       hub_gen++;
+-      H.rematch = (rematch >= 0 && rematch < 15 && H.sty[rematch] >= 0) ? rematch : (rematch == -4 && H.fx_on) ? -4 : -1;
++      H.rematch = (rematch >= 0 && rematch < 15 && H.sty[rematch] >= 0) ? rematch : (rematch == -4 && H.fx_on) ? -4 : (rematch == -5 && H.kind == 0) ? -5 : -1;
+       H.repick = rematch == -2 ? 1 : rematch == -3 ? 2 : 0;    /* −2 상대 선택 · −3 랭크 «다음 상대»(바로 상대 찾기) · −4 랭크 재대결(정해진 상대) */
+       H.go = 0; H.ev = 0;
+    }
+    auto_clear();                                      /* 153: 이 판의 자동 진행은 끝(설정 APC·내 고르기 MY 는 그대로 — 다음 go 에서 다시) */
++   memset(&PO, 0, sizeof PO);                         /* 168: 내 캐릭터만 고르던 판도 끝(남긴 MY 는 그대로 — Java 가 이미 가져갔다) */
+    if (rematch == -4 && H.st == H_RETURN && H.kind == 0 && H.fx_on && APC.on) {   /* −4 자동 진행: 리셋부터 단계 1(Java 겹창의 셈도 여기부터) · 4배속·소리 끔(flags 4) */
+       AP.pre = 1; AP.ph = AP_BOOT; AP.f0 = AP.fs = H.f;
+       league_ff = league_mute = APC.ff;
+@@ -1146,11 +1197,30 @@ void league_hub_cancel(void)
+    if (H.st != H_OFF) { vp_restore(); H.st = H_TITLE; H.picked = -1; H.hold_b = 0; H.go = 0; H.ev = 0; }
+    vs_reset_locked(0);                               /* 153: 띠·자동 진행도(커서 옮기던 nav 4 는 손 뗌) */
+    auto_clear(); if (H.nav == 4) H.nav = 0;
++   memset(&PO, 0, sizeof PO);
+    league_in_block = 0; league_ovr_on = 0; league_ovr_mask = 0; league_in_or = 0;
+    pthread_mutex_unlock(&L_mu);
+ }
+ 
+-/* [허브 상태(0 꺼짐·1 타이틀·2 상대 고르기·3 내 캐릭터·4 경기·5 타이틀로 돌아가는 중·6 랭크 상대 찾기·7 연습 내 캐릭터 먼저), 커서 캐릭터, 고른 상대 캐릭터, 허브 프레임,
++/* 168 «내 캐릭터 먼저» 요청 — 타이틀·찾기에서 메뉴가 뜨면(대신 누르기 없음) 커서 2 를 맞춘 뒤 1인 대전 고르기(상대 없음 · H_PICK_SOLO).
++   리그 랭크 판(허브 종류 0)일 때만 받는다(1). 그 밖·이미 고르는 중이면 0 */
++int league_hub_pick_only(void)
++{
++   int ok = 0;
++   pthread_mutex_lock(&L_mu);
++   if (H.kind == 0 && (H.st == H_TITLE || H.st == H_SEARCH)) { PO.req = 1; PO.on = 0; PO.done = 0; ok = 1; }
++   pthread_mutex_unlock(&L_mu);
++   return ok;
++}
++/* [요청 대기, 고르는 판(H_PICK_SOLO), 고른 것을 남김(MY), 그 판 프레임(−1 아님)] — LEAGUE_NHUB(15) 는 안 늘린다 */
++void league_hub_pick_only_status(int v[LEAGUE_NPO])
++{
++   pthread_mutex_lock(&L_mu);
++   v[0] = PO.req; v[1] = PO.on && H.st == H_PICK_SOLO; v[2] = PO.done; v[3] = PO.on ? (int)(H.f - PO.f0) : -1;
++   pthread_mutex_unlock(&L_mu);
++}
++
++/* [허브 상태(0 꺼짐·1 타이틀·2 상대 고르기·3 내 캐릭터·4 경기·5 타이틀로 돌아가는 중·6 랭크 상대 찾기·7 연습 내 캐릭터 먼저·9 랭크 내 캐릭터만(168)), 커서 캐릭터, 고른 상대 캐릭터, 허브 프레임,
+     메뉴 글자 바꿈, 머리말 글자 바꿈, 재대결 상대, 대신 누르기 단계, 타이틀로 돌려보낸 횟수, 고른 배경(−1 상대 기본·−2 무작위·0~7),
+     고르기 화면에 보이는 컬러(0~17 — look_cur), 무장한 경기의 배경(−1 없음)] */
+ void league_hub_status(int v[LEAGUE_NHUB])
+@@ -1444,6 +1514,8 @@ static void arm_locked(int opp, int sty, int diff, int points, int timev, int fl
+    L.stage = look_stage; L.color = look_color;
+    if (H.nav == 0) { league_ovr_on = 0; league_ovr_mask = 0; }   /* 허브가 대신 누르는 중이면 그대로 */
+    L.armed = 1;
++   memset(&PO, 0, sizeof PO);                         /* 168: 무장 = 상대가 붙었다 — 내 캐릭터만 고르던 판은 끝 */
++   cheat_match_bits(1);                               /* 168: 이 판에 먹은 치트는 여기부터 센다(L_mu → C_mu — 허용된 순서) */
+ }
+ 
+ void league_arm(int opp, int sty, int diff, int points, int timev, int flags)
+@@ -1579,6 +1651,19 @@ JNI(jintArray, nativeHubAutoStatus)(JNIEnv *env, jclass cls)
+    return a;
+ }
+ 
++JNI(jboolean, nativeHubPickOnly)(JNIEnv *env, jclass cls)
++{ (void)env; (void)cls; return league_hub_pick_only() ? JNI_TRUE : JNI_FALSE; }
++JNI(jintArray, nativeHubPickOnlyStatus)(JNIEnv *env, jclass cls)
++{
++   (void)cls;
++   int v[LEAGUE_NPO]; jint jv[LEAGUE_NPO];
++   league_hub_pick_only_status(v);
++   for (int i = 0; i < LEAGUE_NPO; i++) jv[i] = v[i];
++   jintArray a = (*env)->NewIntArray(env, LEAGUE_NPO);
++   if (a) (*env)->SetIntArrayRegion(env, a, 0, LEAGUE_NPO, jv);
++   return a;
++}
++
+ JNI(void, nativeLeagueHubLook)(JNIEnv *env, jclass cls, jbyteArray home, jint stageSel, jint color)
+ {
+    (void)cls;
+diff --git a/app/src/main/cpp/league.h b/app/src/main/cpp/league.h
+index b10da7e..7a7071f 100644
+--- a/app/src/main/cpp/league.h
++++ b/app/src/main/cpp/league.h
+@@ -43,6 +43,11 @@ void league_cpu(int lv, int cap, int atk, int dfn, int floor);
+ int  league_hub_autopick(int on, int cell, int sty, int b2p, int k1, int k2, int flags);
+ #define LEAGUE_NMYPICK 8
+ void league_hub_mypick(int v[LEAGUE_NMYPICK]);     /* [있음, 칸, 캐릭터, 검질, 2P색, 카드 1, 2, 경기 컬러] */
++/* 168 랭크 «내 캐릭터 먼저» — 상대 없이(무장 안 함) 1인 대전 고르기(허브 상태 9). 이야기가 시작되면 고른 것은 league_hub_mypick 에(그 뒤 입력을 막고 멈춰 둠).
++   1 = 받음(허브 종류 0 · 타이틀·찾기). 상태 [요청 대기, 고르는 판, 고른 것을 남김, 그 판 프레임(−1)] */
++#define LEAGUE_NPO 4
++int  league_hub_pick_only(void);
++void league_hub_pick_only_status(int v[LEAGUE_NPO]);
+ #define LEAGUE_NAUTO 5
+ void league_hub_autostatus(int v[LEAGUE_NAUTO]);   /* [단계 0~8(6 무대 인트로 · 8 막힘), go 뒤 프레임, go→장면, go→첫 라운드, 막힌 단계] */
+ /* 153: native.c 가 프레임마다(잠금 없이) — 1 = 코어 4배속(pace 배속) · 1 = 게임 소리를 버린다(자동 진행 단계 1~5 · −4 리셋부터, autopick flags 4) */
+diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
+index 45b8405..1a3b6d4 100644
+--- a/app/src/main/java/com/dudu/pocketcore/League.java
++++ b/app/src/main/java/com/dudu/pocketcore/League.java
+@@ -391,11 +391,45 @@ final class League {
+         String s = m.cell == 15 ? "무작위 칸" : CHAR[m.ch] + " " + STYLE[m.sty];
+         return colour >= 0 && colour < COLORS.length ? s + " · " + COLORS[colour] : s;
+     }
+-    /** 랭크 화면·VS 띠에 쓰는 내 이름 — 기록의 me.name(없으면 «나») */
++    /** 랭크 화면·VS 띠·이름표·결판 띠·순위표에 쓰는 내 이름 — 기록의 me.name(없으면 «나») */
+     static String myNick() {
+         JSONObject me = me();
+-        String n = me != null ? me.optString("name", "") : "";
+-        return n.trim().isEmpty() ? "나" : n.trim();
++        String n = me != null ? cleanName(me.optString("name", "")) : "";
++        return n.isEmpty() ? "나" : n;
++    }
++    /** 168(11) 내 이름 길이 — 이름표(62px)·순위표(54px) 칸에 «…» 없이 드는 갈무리 글자 수 근처 */
++    static final int NAME_MAX = 8;
++    /** 내 이름으로 쓸 수 있는 글자만 — 한글 음절·영문·숫자·밑줄·붙임표·마침표(픽셀 글꼴 갈무리7·11 에 다 있는 것) · 앞뒤·겹친 빈칸 정리 · NAME_MAX 자.
++     *  다른 글자(이모지·한자·자모 따로 등)는 뺀다 — 덧판·VS 띠가 그리지 못하면 «?» 가 되기 때문 */
++    static String cleanName(String raw) {
++        if (raw == null) return "";
++        StringBuilder b = new StringBuilder();
++        boolean sp = false;
++        for (int i = 0; i < raw.length() && b.length() < NAME_MAX; ) {
++            int cp = raw.codePointAt(i); i += Character.charCount(cp);
++            boolean ok = (cp >= 0xAC00 && cp <= 0xD7A3) || (cp >= 'A' && cp <= 'Z') || (cp >= 'a' && cp <= 'z') || (cp >= '0' && cp <= '9')
++                    || cp == '_' || cp == '-' || cp == '.';
++            if (cp == ' ' || cp == 0x3000) { if (b.length() > 0) sp = true; continue; }
++            if (!ok) continue;
++            if (sp && b.length() < NAME_MAX - 1) b.append(' ');
++            sp = false;
++            b.appendCodePoint(cp);
++        }
++        return b.toString().trim();
++    }
++    /** 내 이름 바꾸기 — 다듬은 값(비면 «나»)을 me.name 에. 같으면 파일을 안 건드린다. 저장 실패면 false(메모리는 되돌림) */
++    static synchronized boolean setMyName(String raw) {
++        String n = cleanName(raw);
++        if (n.isEmpty()) n = "나";
++        try {
++            JSONObject me = me();
++            if (me == null) { me = new JSONObject(); db().put("me", me); }
++            String old = me.optString("name", "나");
++            if (n.equals(old)) return true;
++            me.put("name", n);
++            if (!save()) { me.put("name", old); return false; }
++            return true;
++        } catch (Exception e) { return false; }
+     }
+ 
+     /** 고른 배경을 실제 배경(0~7)으로 — 상대 기본·무작위 풀기 */
+@@ -513,7 +547,7 @@ final class League {
+         if (m == null || terminal(m.optString("status"))) return false;
+         try {
+             m.put("status", status);
+-            if ("playing".equals(status)) m.remove("resume_fail");     /* 다시 이어 하게 됐다 — 지난 이어 하기 실패 표시(voidKind 가 보는)는 지운다 */
++            if ("playing".equals(status)) { m.remove("resume_fail"); m.remove("suspend"); }   /* 다시 이어 하게 됐다 — 지난 이어 하기 실패·사용자 멈춤 표시(voidKind 가 보는)는 지운다(168 K3) */
+             if (why != null) {
+                 if (why.isEmpty()) { m.remove("why"); m.remove("fix"); }   /* 빈 사유 = 지난 사유를 지운다 */
+                 else m.put("why", why);
+@@ -538,6 +572,39 @@ final class League {
+         try { m.put(key, val); return save(); } catch (Exception e) { return false; }
+     }
+ 
++    /** 168 §A — 사용자가 멈춘 경기(리셋·«나중에»·연습으로 갈아타기): 복귀 대기 + 사유 + 사용자 멈춤 표지 + 그때까지 먹은 치트 비트를 «한 번의 저장»으로(K3 — 두 저장 사이에
++     *  죽으면 표지 없는 복귀 대기가 남아 «앱이 멈춤»으로 자동 무효될 수 있었다). 체크포인트는 부르는 쪽이 먼저 쓴다. 끝난 경기·저장 실패면 false(메모리 되돌림) */
++    static synchronized boolean suspendUser(String id, String why, int cheatBits) {
++        JSONObject m = matchById(id);
++        if (m == null || terminal(m.optString("status"))) return false;
++        String backup = db.toString();
++        try {
++            m.put("status", "resume"); m.put("why", why); m.put("suspend", "user");
++            if (cheatBits != 0) m.put("cheat_bits", m.optInt("cheat_bits") | cheatBits);
++            m.put("updated", System.currentTimeMillis());
++            if (!save()) { db = new JSONObject(backup); return false; }
++            return true;
++        } catch (Exception e) {
++            try { db = new JSONObject(backup); } catch (Exception ignored) { }
++            return false;
++        }
++    }
++    /** 사용자가 스스로 멈춘 경기인가(K3·K4) — 표지 «user» · 복귀 대기 · 경기를 시작한 앱 판 그대로(앱이 바뀌어 체크포인트를 못 읽는 건 사용자 탓이 아니다).
++     *  이런 경기는 «무효로 닫기»가 없고(이어 하기·기권만), 리그를 다시 열어도 바로 이어 하지 않고 타이틀에서 A 를 기다린다 */
++    static boolean userSuspended(JSONObject m) {
++        if (m == null || !"user".equals(m.optString("suspend")) || !"resume".equals(m.optString("status"))) return false;
++        return appVer <= 0 || !m.has("app") || m.optInt("app") == appVer;
++    }
++    /** 168 §9 — 이 경기에 먹은 치트 비트를 더한다(1 << Cheats 번호). 끝난 경기는 그대로. 같으면 파일을 안 건드린다 */
++    static synchronized boolean orCheat(String id, int bits) {
++        if (bits == 0) return true;
++        JSONObject m = matchById(id);
++        if (m == null || terminal(m.optString("status"))) return false;
++        int o = m.optInt("cheat_bits");
++        if ((o | bits) == o) return true;
++        try { m.put("cheat_bits", o | bits); return save(); } catch (Exception e) { return false; }
++    }
++
+     /** 오류 보류 — 원인과 복구 방법을 같이 남긴다(기획서 «판정 오류는 보류하고 원인과 복구 방법을 기록»). 점수는 안 움직인다. */
+     static synchronized boolean hold(String id, String why, String fix) {
+         JSONObject m = matchById(id);
+@@ -595,6 +662,7 @@ final class League {
+      *  appVer ≤ 0(모름)이면 판은 안 본다 */
+     static String voidKind(JSONObject m, int appVer) {
+         if (m == null) return null;
++        if (userSuspended(m)) return null;                    /* 168 K3: 사용자가 멈춘 판 — 이어 하기·기권만(지는 판을 멈추고 파일을 지워 빠지지 못하게) */
+         String s = m.optString("status");
+         if (!"playing".equals(s) && !"resume".equals(s)) return null;
+         if ("playing".equals(s) && liveHub) return null;      /* 체크포인트는 onPause 에서야 생긴다 — 지금 하는 판을 «앱이 멈춤»으로 보지 않게 */
+@@ -617,6 +685,7 @@ final class League {
+         String s = m.optString("status");
+         if (!"playing".equals(s) && !"resume".equals(s)) return false;
+         if ("playing".equals(s) && liveHub) return false;      /* 게임 속 리그가 지금 하는 판(voidKind 와 같게) */
++        if (userSuspended(m)) return false;                   /* 168 K3: 마지막 관문 — 사용자가 멈춘 판은 무효로 닫지 않는다 */
+         String k = "app".equals(kind) || "ckpt".equals(kind) ? kind : "crash";
+         String backup = db.toString();
+         try {
+@@ -700,12 +769,18 @@ final class League {
+      *   대진 불일치(결판 때 P2 블록 ≠ 표시한 상대) · 규칙 불일치(실효 포인트·시간 ≠ 랭크전 규칙 — 예: 무한 대전 1라운드 결판).
+      * 저장에 실패하면 메모리를 되돌리고 null — 호출자가 다시 시도한다(결과는 코어 쪽에 그대로 있다).
+      */
+-    static synchronized JSONObject settle(String matchId, int[] st) {
++    static synchronized JSONObject settle(String matchId, int[] st) { return settle(matchId, st, 0); }
++    /** 168 §9 — cheatBits = 이 판에 먹은 치트(Emu.nativeCheatMatch · 1 << Cheats 번호) | 경기에 적힌 cheat_bits. 치트 판도 LP·전적은 그대로 반영하고(D1)
++     *  «cheat» 표를 남긴다. 검사 면제는 그 치트가 설명하는 것만: 시간 무한(TIME) → 실효 시간 0x80 · CPU 세기(DIFF) → 손잡이·난도 확인. 대진·포인트·결판 비트는 그대로 */
++    static synchronized JSONObject settle(String matchId, int[] st, int cheatBits) {
+         JSONObject m = matchById(matchId);
+         if (m == null) return null;
+         if (terminal(m.optString("status"))) return m;
+         String backup = db.toString();
+         try {
++            int cb = cheatBits | m.optInt("cheat_bits");
++            boolean cTime = (cb & (1 << Cheats.TIME)) != 0, cDiff = (cb & (1 << Cheats.DIFF)) != 0;
++            if (cb != 0) { m.put("cheat", cb); m.put("cheat_bits", cb); }
+             JSONObject rule = m.optJSONObject("rule");
+             boolean rk = isRanked(m);
+             JSONObject o = rk ? null : oppById(m.optString("opp"));
+@@ -721,7 +796,7 @@ final class League {
+             if (st.length > 20) {                    /* 난도 적용 확인 — 1인 대전 첫 경기 CPU 단계 1+3×난도, 배율(하 00C0/0140 · 중 00D9/0126 · 상 00F3/010C) */
+                 res.put("cpu_level", st[18]);
+                 res.put("cpu_mult", String.format("%04X %04X", st[19], st[20]));
+-                res.put("diff_ok", rk ? rankedKnobWhy(rule, st) == null : st[18] == 1 + 3 * rule.optInt("diff"));
++                res.put("diff_ok", cDiff || (rk ? rankedKnobWhy(rule, st) == null : st[18] == 1 + 3 * rule.optInt("diff")));
+                 if (st.length > 21) res.put("cpu_cap", st[21]);
+             }
+             res.put("at", System.currentTimeMillis());
+@@ -730,7 +805,7 @@ final class League {
+             String why = null;
+             if ((p2 & 0xF8) != want)
+                 why = String.format("대진 불일치: 요청 %s·%s, 실제 P2 블록 0x%02X", CHAR[rule.optInt("char")], STYLE[rule.optInt("style")], p2);
+-            else if (need != rule.optInt("points") || time != rule.optInt("time"))
++            else if (need != rule.optInt("points") || (time != rule.optInt("time") && !(cTime && time == 0x80)))
+                 why = "규칙 불일치: 실효 포인트 " + need + "·시간 " + time + " (랭크전 " + rule.optInt("points") + "·" + rule.optInt("time")
+                     + ") — 1인 대전 첫 경기가 아닌 곳(무한 대전 등)에서 결판이 났습니다";
+             if (why != null) {
+@@ -750,8 +825,8 @@ final class League {
+             String why2 = null;
+             if (out == null)
+                 why2 = String.format("결판 판정 불일치: 결과 비트 0x%02X · 승수 %d:%d · 필요 승수 %d — 승패를 정할 수 없습니다", bits, w1, w2, need);
+-            else if (rk) why2 = rankedKnobWhy(rule, st);     /* 랭크: 손잡이(단계·상한·배율)가 실제로 먹었나 */
+-            else if (st.length > 20 && st[18] != 1 + 3 * rule.optInt("diff"))
++            else if (rk) { if (!cDiff) why2 = rankedKnobWhy(rule, st); }   /* 랭크: 손잡이(단계·상한·배율)가 실제로 먹었나 — CPU 세기 치트가 덮은 판만 면제 */
++            else if (!cDiff && st.length > 20 && st[18] != 1 + 3 * rule.optInt("diff"))
+                 why2 = "난도 불일치: CPU 단계 " + st[18] + " (요청 난도 " + DIFF[rule.optInt("diff")] + " → " + (1 + 3 * rule.optInt("diff")) + ")";
+             if (why2 != null) {
+                 m.put("status", "hold"); m.put("why", why2);
+@@ -816,10 +891,7 @@ final class League {
+         if (terminal(m.optString("status"))) return m;
+         String backup = db.toString();
+         try {
+-            m.put("forfeit", true);
+-            if (isRanked(m)) applyRanked(m, "L", true); else apply(m, me(), oppById(m.optString("opp")), "L");
+-            m.put("status", "forfeit");
+-            m.put("settled", System.currentTimeMillis());
++            forfeitMem(m);
+             if (isRanked(m) && liveHub) noteSessionMem(m);  /* 157 G2 */
+             if (!save()) throw new IOException("save");
+             ckpt(matchId).delete();
+@@ -830,6 +902,15 @@ final class League {
+         }
+     }
+ 
++    /** 기권 반영(메모리만 — 저장은 호출자). 먹은 치트가 적혀 있으면 «cheat» 표도 */
++    private static void forfeitMem(JSONObject m) throws Exception {
++        m.put("forfeit", true);
++        if (isRanked(m)) applyRanked(m, "L", true); else apply(m, me(), oppById(m.optString("opp")), "L");
++        if (m.optInt("cheat_bits") != 0) m.put("cheat", m.optInt("cheat_bits"));
++        m.put("status", "forfeit");
++        m.put("settled", System.currentTimeMillis());
++    }
++
+     /** 이 상대와의 최근 경기들(정산·기권만, 새것부터). */
+     static java.util.List<JSONObject> history(String oppId, int max) {
+         java.util.List<JSONObject> out = new java.util.ArrayList<>();
+@@ -1338,7 +1419,7 @@ final class League {
+         if (m.optInt("placement_left", 0) > 0 || "배치".equals(m.optString("tier_before"))) lp = "배치";
+         else if (RankCore.TIER[7].equals(m.optString("tier_before"))) lp = signed(m.optInt("mr_after") - m.optInt("mr_before")) + " MR";   /* 무쌍은 LP 가 9000 그대로 — MR 로 */
+         else lp = signed(d) + " LP";
+-        return outcomeKo(m) + sc + " · " + lp;
++        return outcomeKo(m) + sc + " · " + lp + (m.optInt("cheat") != 0 ? " · 치트" : "");
+     }
+     /** 내 랭크 한 줄 — «검객 ★3 · 2410 LP» / «배치 2/5» / «무쌍 MR 1712» */
+     static String myRankLabel(RankCore.Me me) {
+@@ -1413,6 +1494,14 @@ final class League {
+             save();
+         } catch (Exception ignored) { }
+     }
++    /** 168 M1 — 새 시즌·처음부터 뒤: 같은 날이어도 세션을 새로(«오늘 4승 1패 +152»·rank0 이 지난 시즌 값으로 남지 않게). 저장 실패해도 메모리 값으로 */
++    static synchronized void sessionReset() {
++        try {
++            ranked().put("session", new JSONObject().put("start", System.currentTimeMillis()).put("w", 0).put("l", 0).put("d", 0)
++                    .put("lp", 0).put("rank0", -1));
++            save();
++        } catch (Exception ignored) { }
++    }
+     /** 지금 세션(없으면 null) */
+     static synchronized Session session() {
+         JSONObject r = db().optJSONObject("ranked"), s = r != null ? r.optJSONObject("session") : null;
+@@ -1494,7 +1583,7 @@ final class League {
+         JSONObject p = db().optJSONObject("pref"), g = p != null ? p.optJSONObject("lgm") : null;
+         if (g == null) return MenuModel.Prefs.defaults();
+         int fx = g.optInt("fx", 0), loss = g.optInt("loss", 0), auto = g.optInt("auto", 0), tab = g.optInt("tab", 0);
+-        return new MenuModel.Prefs(fx >= 0 && fx <= 2 ? fx : 0, loss == 1 ? 1 : 0, auto == 10 ? 10 : 0, g.optBoolean("remember", true), tab >= 0 && tab <= 2 ? tab : 0);
++        return new MenuModel.Prefs(fx >= 0 && fx <= 2 ? fx : 0, loss == 1 ? 1 : 0, auto == 10 ? 10 : 0, g.optBoolean("remember", true), tab >= 0 && tab <= 3 ? tab : 0);   /* 168: 리그 탭 3 */
+     }
+     /** 바뀔 때만 저장 — 저장했거나 같으면 true */
+     static synchronized boolean setMenuPrefs(MenuModel.Prefs n) {
+@@ -1506,7 +1595,7 @@ final class League {
+         if (!had && n.fx == 0 && n.lossCursor == 0 && n.autoNextSec == 0 && n.rememberTab && n.lastTab == 0) return true;   /* 기본값 그대로 — 칸을 만들지 않는다 */
+         try {
+             pref().put("lgm", new JSONObject().put("fx", Math.max(0, Math.min(2, n.fx))).put("loss", n.lossCursor == 1 ? 1 : 0)
+-                    .put("auto", n.autoNextSec == 10 ? 10 : 0).put("remember", n.rememberTab).put("tab", Math.max(0, Math.min(2, n.lastTab))));
++                    .put("auto", n.autoNextSec == 10 ? 10 : 0).put("remember", n.rememberTab).put("tab", Math.max(0, Math.min(3, n.lastTab))));
+             return save();
+         } catch (Exception e) { return false; }
+     }
+@@ -1567,12 +1656,34 @@ final class League {
+     }
+     /** 새 시즌·처음부터를 지금 못 하는 이유(없으면 null) — 기록 파일 문제 · 게임 속 리그가 살아 있음 · 시작한 경기가 열려 있음.
+      *  «준비» 경기는 막지 않는다(랭크 «준비»는 먼저 무효로 닫고, 예전 칸 «준비»는 그대로 둔다). 배치 중 새 시즌은 newSeasonPreview()==null 로 따로 본다 */
+-    static synchronized String resetBlockedWhy() {
++    static synchronized String resetBlockedWhy() { return resetBlockedWhy(false, false); }
++    /** 168 §2-5 — inGame = 게임 속 리그(그 허브)가 부름: liveHub 는 안 본다(부르는 쪽이 그 판 · 준비 경기는 cancelReadyMem 이 닫는다).
++     *  forfeitOpen = 시작한 경기(멈춘 경기)는 기권패로 닫고 하겠다(M1 — 두 번 묻기 글이 그렇게 말했다) — 그때는 막지 않는다 */
++    static synchronized String resetBlockedWhy(boolean inGame, boolean forfeitOpen) {
+         if (dbProblem != null) return dbProblem;
+-        if (liveHub) return "게임 속 리그를 닫은 뒤에 할 수 있어요";
+-        if (startedOpen()) return "끝나지 않은 경기를 먼저 정리해 주세요";
++        if (liveHub && !inGame) return "게임 속 리그를 닫은 뒤에 할 수 있어요";
++        if (startedOpen() && !forfeitOpen) return "끝나지 않은 경기를 먼저 정리해 주세요";
+         return null;
+     }
++    /** 시작한(멈춘) 경기 — 진행 중·복귀 대기(새것부터 첫째). 없으면 null */
++    static synchronized JSONObject startedOpenMatch() {
++        JSONObject o = openMatch();
++        return o != null && !"ready".equals(o.optString("status")) ? o : null;
++    }
++    /** M1 — 시즌 도구 앞에서 멈춘 경기를 기권패로(메모리만 · 같은 저장 안). 닫은 id 목록(체크포인트는 저장 뒤 지운다) */
++    private static java.util.List<String> forfeitStartedMem() throws Exception {
++        java.util.List<String> ids = new java.util.ArrayList<>();
++        for (JSONArray a : new JSONArray[]{ matches(), rmatchesIfAny() })
++            for (int i = 0; i < a.length(); i++) {
++                JSONObject m = a.optJSONObject(i);
++                String st = m.optString("status");
++                if (!"playing".equals(st) && !"resume".equals(st)) continue;
++                forfeitMem(m);
++                if (isRanked(m) && liveHub) noteSessionMem(m);
++                ids.add(m.optString("id"));
++            }
++        return ids;
++    }
+ 
+     /** 새 시즌 미리보기 — 시즌 N · LP lp0 → lp1 (label0 → label1). 배치 중이면 null(새 시즌을 못 연다) */
+     static final class SeasonPreview { int season, lp0, lp1; String label0, label1; }
+@@ -1588,12 +1699,16 @@ final class League {
+ 
+     /** 새 시즌 — LP 를 배치 자리 쪽으로 반(RankCore.newSeasonLp), 무쌍 풂(MR 0 — 다시 오르면 새로), 승패·연승·최장·최고 LP·강등 위기 0부터.
+      *  MMR·판수·최근 상대·상대 전적·오늘 첫 승·씨앗·경기 기록은 그대로. 잡힌 상대는 푼다. 막히면(resetBlockedWhy·배치 중)·저장 실패면 false(기록 그대로) */
+-    static synchronized boolean newSeason() {
+-        if (resetBlockedWhy() != null) return false;
+-        if (rankMe().placementLeft > 0) return false;
++    static synchronized boolean newSeason() { return newSeason(false, false); }
++    /** 168 — inGame·forfeitOpen 은 resetBlockedWhy(inGame, forfeitOpen). 멈춘 경기 기권은 보관 파일보다 먼저(보관 = 기권 뒤 상태 — 기권패는 지난 시즌에 남는다) */
++    static synchronized boolean newSeason(boolean inGame, boolean forfeitOpen) {
++        if (resetBlockedWhy(inGame, forfeitOpen) != null) return false;
+         String backup = db.toString();
+         File arc = null;
++        java.util.List<String> ff = new java.util.ArrayList<>();
+         try {
++            if (forfeitOpen) ff = forfeitStartedMem();
++            if (rankMe().placementLeft > 0) { db = new JSONObject(backup); return false; }   /* 기권으로 배치가 끝날 수는 없지만(배치 1패) — 배치 중이면 새 시즌 없음 */
+             int n = season();
+             arc = writeArchive("season");                   /* 바꾸기 직전 그대로(준비 경기를 닫기 전) */
+             if (arc == null) { db = new JSONObject(backup); return false; }
+@@ -1611,6 +1726,7 @@ final class League {
+             r.put("season", n + 1); r.put("season_start", System.currentTimeMillis());
+             if (!save()) { db = new JSONObject(backup); arc.delete(); return false; }
+             for (String id : ready) ckpt(id).delete();
++            for (String id : ff) { ckpt(id).delete(); new File(ckpt(id).getPath() + ".tmp").delete(); }
+             return true;
+         } catch (Exception e) {
+             try { db = new JSONObject(backup); } catch (Exception ignored) { }
+@@ -1622,11 +1738,13 @@ final class League {
+     /** 처음부터 다시 — 같은 rv·gen·씨앗으로 랭크 칸을 새로(freshRanked: 배치 5판·LP 0·판수 0·상대 전적·최근 상대·경기 기록 없음),
+      *  시즌 번호는 이어서(+1), 지난 시즌 줄은 이어받고 이번 줄(restart)을 더한다. 잡힌 상대·옛 리그 이어받기(legacy)·오늘 첫 승은 없다.
+      *  저장되면 체크포인트(ckpt_*)를 지운다. 예전 칸(me·opps·matches·pref)은 그대로. 막히면·저장 실패면 false(기록 그대로) */
+-    static synchronized boolean restartRanked() {
+-        if (resetBlockedWhy() != null) return false;
++    static synchronized boolean restartRanked() { return restartRanked(false, false); }
++    static synchronized boolean restartRanked(boolean inGame, boolean forfeitOpen) {
++        if (resetBlockedWhy(inGame, forfeitOpen) != null) return false;
+         String backup = db.toString();
+         File arc = null;
+         try {
++            if (forfeitOpen) forfeitStartedMem();           /* 기권패는 보관 파일(지난 시즌 줄)에 — 처음부터는 어차피 배치부터라 피할 이득이 없다 */
+             arc = writeArchive("restart");                  /* 바꾸기 직전 그대로(준비 경기를 닫기 전) */
+             if (arc == null) { db = new JSONObject(backup); return false; }
+             cancelReadyMem("처음부터 다시 하며 정리(대진 전)");
+@@ -1682,6 +1800,107 @@ final class League {
+         return row;
+     }
+ 
++    /* ── 168 §2 게임 안 서랍 «리그» 탭 자료 ── */
++
++    /** 리그 탭 사본 — UI 스레드에서 한 번(MenuModel.LeagueInfo · 불변). pause = 쉼(경기 중)에서 연 서랍: 시즌 도구·내 캐릭터 줄은 안 넣는다 */
++    static synchronized MenuModel.LeagueInfo leagueInfo(boolean pause) {
++        MenuModel.LeagueInfo li = new MenuModel.LeagueInfo();
++        RankCore.Me me = rankMe();
++        li.season = season();
++        long t0 = seasonStart();
++        java.text.SimpleDateFormat md = new java.text.SimpleDateFormat("M월 d일", java.util.Locale.KOREA);
++        md.setTimeZone(java.util.TimeZone.getTimeZone("Asia/Seoul"));
++        li.since = t0 > 0 ? md.format(new java.util.Date(t0)) + "부터" : null;
++        li.wld = me.w + "승 " + me.l + "패" + (me.d > 0 ? " " + me.d + "무" : "");
++        java.util.List<JSONObject> past = seasons();
++        java.util.List<String> rows = new java.util.ArrayList<>();
++        for (int i = past.size() - 1; i >= 0 && rows.size() < 6; i--) {
++            JSONObject x = past.get(i);
++            String fin = x.optString("final_label");
++            rows.add("시즌 " + x.optInt("n", 1) + ("restart".equals(x.optString("kind")) ? " 처음부터" : "") + " · " + fin + " · "
++                    + x.optInt("w") + "승 " + x.optInt("l") + "패");
++        }
++        li.pastRows = rows.toArray(new String[0]);
++        li.placement = me.placementLeft > 0;
++        li.placementPlayed = 5 - me.placementLeft;
++        SeasonPreview sp = newSeasonPreview();
++        if (sp != null) { li.lp0 = sp.lp0; li.lp1 = sp.lp1; li.label0 = sp.label0; li.label1 = sp.label1; }
++        li.canSeason = !pause && dbProblem == null;
++        li.canMain = !pause;
++        JSONObject open = startedOpenMatch();
++        li.openVs = open != null ? oppNick(open) : null;
++        if (open != null && isRanked(open)) {
++            ForfeitPreview fp = forfeitPreview(open);
++            li.openForfeit = fp.kind == ForfeitPreview.PLACEMENT ? "배치 1패" : fp.kind == ForfeitPreview.LP && fp.lpDelta != 0 ? signed(fp.lpDelta) + " LP" : "기권패";
++        }
++        java.util.List<String> hs = new java.util.ArrayList<>();
++        for (JSONObject m : holds(5)) {
++            String w = m.optString("why", "");
++            if (w.length() > 40) w = w.substring(0, 40) + "…";
++            hs.add(statusKo(m.optString("status")) + " · " + oppNick(m) + (w.isEmpty() ? "" : " · " + w));
++        }
++        li.holds = hs.toArray(new String[0]);
++        Main mn = main();
++        li.mainLabel = mn != null ? mainLabel(mn, -1) : null;
++        li.name = myNick();
++        li.rules = rulesShort();
++        li.cheatGames = cheatGames();
++        return li;
++    }
++    /** 이번 시즌 «치트» 표가 붙은 랭크 경기 수(정산·기권) — 서랍 전적 «치트 n» */
++    static synchronized int cheatGames() {
++        long t0 = seasonStart();
++        int n = 0;
++        JSONArray a = rmatchesIfAny();
++        for (int i = 0; i < a.length(); i++) {
++            JSONObject m = a.optJSONObject(i);
++            String st = m.optString("status");
++            if (m.optInt("cheat") != 0 && ("settled".equals(st) || "forfeit".equals(st)) && m.optLong("settled") >= t0) n++;
++        }
++        return n;
++    }
++    /** 규칙 글 — 리그 화면(LeagueActivity 규칙 탭)과 게임 안 서랍 리그 탭이 같이 쓴다(168) */
++    static String rulesText() {
++        return "경기 · " + POINTS + "선승(3판 2승) · 라운드 " + TIME + "초 · 카드 전원 올카드 해금. "
++                + "랭크에 처음 들어오면 내 캐릭터·검질·카드를 한 번만 골라요 — 그다음부터는 상대를 찾자마자 그 캐릭터로 바로 붙어요(«새 캐릭터»로 다시 골라요 — 내 캐릭터부터 고르고 상대를 찾아요). "
++                + "리그 판엔 저장·불러오기가 없고, 리셋·«나중에»는 경기를 그 자리에 저장하고 타이틀로 가요 — 타이틀에서 A 로 그 자리부터 이어 해요. 리그 세이브는 원작 세이브와 따로예요. "
++                + "치트도 먹어요 — 그 판은 기록에 «치트»로 남아요.\n\n"
++                + "상대 · 씨앗 하나로 만든 가상 플레이어 약 4만 명(모두 게임 CPU)과 예전 리그 12명(라이벌). "
++                + "CPU 세기 = 원작 난도처럼(낮은 티어는 약하게) · 높은 티어는 자기 카드(효과 그대로). "
++                + "실력(숨은 MMR)에 따라 CPU 가 주는 피해·받는 피해가 원작 1인 대전의 «하» 첫 판부터 «상» 끝판 값까지 오르고, AI 단계도 같이 올라요 — 같은 티어면 비슷하게 세요. "
++                + "검호 위쪽부터는 CPU 도 자기 카드를 껴요 — 처음엔 ★ 카드 한 장, 검성쯤부터 ★★★ 카드 한 장을 더 껴요. 카드의 공격·방어 보너스는 원작처럼 그대로 붙어요.\n\n"
++                + "티어 · 수련생 · 낭인 · 무사 · 검객 · 검호 · 달인 · 검성(각 ★1~5) · 무쌍(MR). 처음 5판은 배치 경기 — 끝나면 첫 티어가 정해져요. "
++                + "이기면 LP 가 오르고(센 상대일수록 더), 지면 내려가요. 수련생은 안 깎이고 낭인은 반만. "
++                + "3연승부터 연승 보너스, 진 상대를 재대결로 이기면 설욕 +" + RankCore.BONUS_REVENGE + ", 오늘 첫 승 +" + RankCore.BONUS_DAILY + ". "
++                + "무사 이상은 바닥 아래로 떨어질 때 한 번 «강등 위기»로 버텨요. 무쌍은 강등이 없어요.\n\n"
++                + "매칭 · «상대 발견!»이 뜬 뒤 나가면, 그 상대와 붙을 때까지 다음 찾기에 같은 상대가 나와요 (최대 24시간). 찾는 중에 그만두면 잡히지 않아요. "
++                + "재대결은 같은 상대와 연속 3판까지.";
++    }
++    /** 서랍 리그 탭의 짧은 규칙 줄들(156px 갈무리7 한 줄씩 — LgmPages 가 넘치면 «…») */
++    static String[] rulesShort() {
++        return new String[]{
++            "2선승 · 라운드 " + TIME + "초 · 카드 전부 열림",
++            "상대 = 게임 CPU · 티어 따라 세기",
++            "첫 5판 배치 → 첫 티어",
++            "이기면 LP+ · 지면 LP− (수련생 그대로)",
++            "3연승 보너스 · 설욕 +" + RankCore.BONUS_REVENGE + " · 첫 승 +" + RankCore.BONUS_DAILY,
++            "무사 위는 한 번 «강등 위기»로 버팀",
++            "리셋·나중에 = 저장 후 타이틀 · A 로 이어서",
++            "치트 판은 기록에 «치트»",
++            "재대결은 같은 상대와 3판까지" };
++    }
++    /** 168 §10·S1 — 리그 판을 켤 때 쓸 언어: 시작한 경기(멈춘·이어 할)가 있으면 그 경기 롬 판(rom_md5 → 한글패치 판이면 ko · 순정 판이면 원어)으로 고정 —
++     *  언어를 바꿔 롬 사본이 달라지면 «롬이 바뀜»으로 막히기 때문. 그 밖(경기 없음·롬을 안 적은 옛 경기)은 지금 설정 그대로. 새 언어는 다음 리그 판부터 */
++    static String matchLang(JSONObject open, String cur) {
++        if (open == null || "ready".equals(open.optString("status"))) return cur;
++        String md5 = open.optString("rom_md5", "");
++        String lab = md5.isEmpty() ? null : romLabel(md5);
++        if (lab == null) return cur;
++        boolean ko = lab.contains("한글패치");
++        if (ko) return "ko";
++        return "ko".equals(cur) ? "ja" : cur;                 /* 순정 판 — ja·en 은 같은 롬(코어 언어만 다름) */
++    }
++
+     static File archiveDir() { File d = new File(dir(), "archive"); d.mkdirs(); return d; }
+     /** 보관 파일 — league/archive/ranked-s<N>-<season|restart>-<yyyyMMdd-HHmmss>.json 에 {"v":1, kind, archived_at, app, ranked: 지금 칸 전체}.
+      *  원자 저장 뒤 다시 읽어 풀어 보고 내용이 같을 때만 돌려준다(league.json 을 바꾸기 전에). 실패면 null — 쓰다 만 파일은 지운다 */
