@@ -1,0 +1,1643 @@
+diff --git a/app/src/main/cpp/CMakeLists.txt b/app/src/main/cpp/CMakeLists.txt
+index 7daeae0..294bf43 100644
+--- a/app/src/main/cpp/CMakeLists.txt
++++ b/app/src/main/cpp/CMakeLists.txt
+@@ -1,7 +1,7 @@
+ cmake_minimum_required(VERSION 3.22.1)
+ project(pocketcore C)
+ 
+-add_library(pocketcore SHARED native.c pace.c league.c practice.c look.c slash.c vpanel.c vsband.c cheat.c ovplane.c)
++add_library(pocketcore SHARED native.c pace.c league.c practice.c look.c slash.c vpanel.c vsband.c cheat.c ovplane.c uisfx.c)
+ 
+ target_compile_options(pocketcore PRIVATE -O2 -Wall)
+ 
+diff --git a/app/src/main/cpp/cheat.c b/app/src/main/cpp/cheat.c
+index ca11b10..e7ffc28 100644
+--- a/app/src/main/cpp/cheat.c
++++ b/app/src/main/cpp/cheat.c
+@@ -19,7 +19,9 @@
+             중간에 끄면 이번 판에서 8 로 덮은 램을 그 전 값(게임이 마지막에 세이브에서 읽은 값)으로 되돌린다 — 이미 게임이 저장했으면 세이브엔 남아 있다
+             (되돌리기는 실행 창의 «세이브 되돌리기» — Java 가 켤 때 .flash 를 따로 보관).
+      유가   캐릭터 고르기에서 가운데(쿠로코 · 커서 0x4E3C = 60) 칸으로 확정하면(0x5726 06→08), 검질 확정 뒤 0x57D5/0x57D6 = 14/검질.
+-            (15 간다라는 첫 라운드 끝에서 멈춤 — 안 씀) */
++            (15 간다라는 첫 라운드 끝에서 멈춤 — 안 씀)
++     보기   176: CH_FD(프레임 표시)·CH_DMG(대미지 미터)는 값만 둔다 — practice.c 가 cheat_view_bits 로 읽어 연습 대전의 두 표시를 그대로 켠다.
++            게임 램을 안 쓰니 MB(«치트» 기록·정산 면제)·S.used·v[1] 에 안 든다. */
+ 
+ #include <jni.h>
+ #include <pthread.h>
+@@ -276,7 +278,7 @@ void cheat_tick(uint8_t *ram, size_t n, int input)
+ 
+ void cheat_set(int key, int value)
+ {
+-   static const int MAXV[CH_N] = { 2, 1, 2, 2, 1, 1, 1, 5, 3, 2 };
++   static const int MAXV[CH_N] = { 2, 1, 2, 2, 1, 1, 1, 5, 3, 2, 1, 1 };
+    if (key < 0 || key >= CH_N) return;
+    pthread_mutex_lock(&C_mu);
+    if (!locked) CV[key] = value >= 0 && value <= MAXV[key] ? value : 0;
+@@ -336,6 +338,14 @@ void cheat_after_save(uint8_t *ram)
+    pthread_mutex_unlock(&C_mu);
+ }
+ 
++int cheat_view_bits(void)
++{
++   pthread_mutex_lock(&C_mu);
++   int b = locked ? 0 : (CV[CH_FD] ? 1 : 0) | (CV[CH_DMG] ? 2 : 0);
++   pthread_mutex_unlock(&C_mu);
++   return b;
++}
++
+ unsigned cheat_match_bits(int clear)
+ {
+    pthread_mutex_lock(&C_mu);
+@@ -349,7 +359,7 @@ void cheat_status(int v[CHEAT_NSTAT])
+ {
+    pthread_mutex_lock(&C_mu);
+    int on = 0, sum = 0;
+-   for (int i = 0; i < CH_N; i++) on += CV[i] != 0;
++   for (int i = 0; i < CH_FD; i++) on += CV[i] != 0;          /* 176: 보기(프레임·대미지)는 안 셈 — 왼쪽 위 «치트» 표시가 보기만 켰을 땐 안 뜨게 */
+    for (int i = 0; i < 120; i++) sum += S.snap[i];
+    v[0] = locked; v[1] = on; v[2] = S.used; v[3] = S.win; v[4] = sum; v[5] = S.perm_saved;
+    v[6] = S.yuga_pick; v[7] = S.why; v[8] = S.atk_last; v[9] = S.atk_base; v[10] = S.last_ko; v[11] = S.hp_fixes;
+diff --git a/app/src/main/cpp/cheat.h b/app/src/main/cpp/cheat.h
+index 7687ad7..eab014e 100644
+--- a/app/src/main/cpp/cheat.h
++++ b/app/src/main/cpp/cheat.h
+@@ -15,6 +15,8 @@ enum {
+    CH_DIFF,        /* CPU 세기 0 게임대로 · 1 아주 쉬움 · 2 하 · 3 중 · 4 상 · 5 최강 */
+    CH_POW,         /* 내 공격력 0 보통 · 1 1.5배 · 2 2배 · 3 3배 */
+    CH_YUGA,        /* 유가     0 끔 · 1 수라 · 2 나찰 — 캐릭터 고르기 가운데(쿠로코) 칸 = 유가 */
++   CH_FD,          /* 176 보기: 프레임 표시 0 끔 · 1 켬 — 연습 대전과 같은 프레임 미터(게임 화면 밖 앱 뷰 · practice.c) */
++   CH_DMG,         /* 176 보기: 대미지 미터 0 끔 · 1 켬 — 연습 대전과 같은 HUD 숫자(practice.c). 보기 둘은 게임 램을 안 써서 «치트» 기록·정산 면제가 없다 */
+    CH_N
+ };
+ 
+@@ -36,9 +38,11 @@ void cheat_forget(void);
+ void cheat_before_save(uint8_t *ram);
+ /* 상태 저장 직후(같은 잠금 안) — before_save 가 돌려 둔 경기 치트 값을 되쓴다 */
+ void cheat_after_save(uint8_t *ram);
++/* 176 보기 비트 — bit0 프레임 표시 · bit1 대미지 미터(잠겨 있으면 0). practice_tick 이 P_mu 를 잡기 전에 부른다(C_mu 단독) */
++int cheat_view_bits(void);
+ 
+ #define CHEAT_NSTAT 16
+-/* [0 잠김, 1 켜진 치트 수, 2 이번 세션에 경기 치트가 먹은 적 있음, 3 올카드 창 안(이번만), 4 보관한 개수 합,
++/* [0 잠김, 1 켜진 치트 수(176: 게임을 바꾸는 것만 — 보기 CH_FD·CH_DMG 는 안 셈), 2 이번 세션에 경기 치트가 먹은 적 있음, 3 올카드 창 안(이번만), 4 보관한 개수 합,
+     5 세이브에 이미 올카드(부팅·모드 고를 때 게임이 읽은 값이 모두 8 → 1 · 아님 0 · 올린 뒤·불러온 뒤 아직 모름 −1), 6 유가 고름,
+     7 막힌 이유(0 없음 · 1 잠김 · 2 (옛: 리그 세션 — 168 부터 안 씀) · 3 연습 대전 흐름 — 3 은 경기 치트만 · 4 리그 세션에서 먹음(막지 않음)), 8 마지막으로 쓴 P1 공격 배율(−1 없음), 9 공격 배율 기준값,
+     10 마지막 한 방 KO 프레임, 11 무한 체력으로 되돌린 횟수, 12 프레임, 13 지금 프로그램(0x57C6), 14 지금 단계(0x5726),
+diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
+index bc4c00f..9a60497 100644
+--- a/app/src/main/cpp/native.c
++++ b/app/src/main/cpp/native.c
+@@ -20,6 +20,7 @@
+ #include "look.h"
+ #include "cheat.h"
+ #include "ovplane.h"
++#include "uisfx.h"
+ #include "display_shaders.h"
+ #include <math.h>
+ 
+@@ -467,6 +468,7 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
+       }
+    }
+    g_rd = rd;
++   uisfx_mix(out, numFrames, mute, ov_active() || ov_hold());   /* 176: 덧판 메뉴 효과음 — 고리(게임 소리) 위에. 코어가 멈춰 고리가 비어도 난다 · 메뉴가 사라지면 결정의 메아리는 안 냄(잠금 없는 int 둘) */
+    return AAUDIO_CALLBACK_RESULT_CONTINUE;
+ }
+ 
+@@ -489,6 +491,7 @@ static void audio_start(int rate)
+    if (g_stream) { pthread_mutex_unlock(&g_audio_mx); return; }   /* 이미 열려 있다 — 두 번 열면 앞 스트림이 샌다 */
+    g_audio_rate = rate;
+    g_audio_dead = 0;
++   uisfx_reset(rate);                  /* 176: 콜백이 돌기 전 — 닫히기 전(onPause·끊김) 남은 효과음·요청은 버림 */
+    if (AAudio_createStreamBuilder(&b) != AAUDIO_OK) { pthread_mutex_unlock(&g_audio_mx); return; }
+    AAudioStreamBuilder_setFormat(b, AAUDIO_FORMAT_PCM_I16);
+    AAudioStreamBuilder_setChannelCount(b, 2);
+@@ -1136,6 +1139,7 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+             practice_tick(ram, ramsz, in);
+             /* 치트(일반 세션) — 가장 뒤. 리그 세션이면 아무것도 안 쓰고, 연습 대전 흐름이면 올카드·유가만 */
+             cheat_tick(ram, ramsz, in);
++            practice_view_post(ram);         /* 176 보기(치트 «대미지 미터») — 치트가 쓴 체력까지 지난 값으로 */
+             int ex = practice_take_exit();
+             if (ex) { c_reset(); league_practice_return(ex == 2); practice_forget(); look_forget(); cheat_forget(); }
+             stop = league_post_hold();       /* 153: 걸쇠가 이 진짜 프레임에 섰다(합성 호출에선 안 선다) */
+@@ -1182,6 +1186,19 @@ JNI(void, nativeAudioPause)(JNIEnv *env, jclass cls)
+ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
+ { (void)env; (void)cls; if (g_loaded && !g_stream) audio_start(g_audio_rate); }
+ 
++/* 176: 덧판 메뉴 효과음(uisfx.c — 사무쇼2 메뉴 소리 합성) — kind 1 커서 · 2 결정 · 3 뒤로 · 0 줄여 끔. 아무 스레드.
++   메뉴가 보이거나(OVF_VISIBLE) 메뉴 멈춤(ov_hold) 중일 때만 받는다 — 메뉴가 없으면 소리도 없다. 소리는 오디오 콜백이 낸다(스트림이 닫혀 있으면 안 남) */
++JNI(jboolean, nativeUiSfx)(JNIEnv *env, jclass cls, jint kind)
++{
++   (void)env; (void)cls;
++   if (kind != UISFX_STOP) {
++      int v[OV_NSTAT];
++      ov_status(v);
++      if (!(v[OVS_FLAGS] & (OVF_VISIBLE | OVF_HOLD))) return JNI_FALSE;
++   }
++   return uisfx_request(kind) ? JNI_TRUE : JNI_FALSE;
++}
++
+ /* 게임 속 리그: 결판 뒤 리셋하고 타이틀 «리그 대전»까지(rematch = 바로 다시 붙을 상대 캐릭터, −1 없음) */
+ JNI(void, nativeLeagueHubReturn)(JNIEnv *env, jclass cls, jint rematch)
+ { (void)env; (void)cls; CORE_LOCK(); if (g_loaded) c_reset(); league_hub_return(rematch); look_forget(); cheat_forget(); ov_clear(OV_CLR_ALL); ov_tag_clear(); CORE_UNLOCK(); }
+diff --git a/app/src/main/cpp/practice.c b/app/src/main/cpp/practice.c
+index 3a83942..b3bdbe9 100644
+--- a/app/src/main/cpp/practice.c
++++ b/app/src/main/cpp/practice.c
+@@ -29,6 +29,7 @@
+ #include <stddef.h>
+ #include "practice.h"
+ #include "league.h"
++#include "cheat.h"
+ #define PG_WANT_WINDOW
+ #include "practice_glyphs.h"
+ 
+@@ -45,6 +46,7 @@
+ #define R_CPUDEF A(0x57E4)
+ #define R_HSTOP  A(0x5DC7)   /* 히트스톱(두 사람 공통) */
+ #define R_PAUSE  A(0x61D4)   /* 일시정지 중 1 */
++#define R_PROG   A(0x57C6)   /* 메뉴 프로그램 — 06 1인 대전 · 0C 무한 대전(cheat.c 와 같은 주소) — 176 보기만 본다 */
+ #define R_FXX    A(0x41F8)   /* 첫째 판 효과 층(줄 19~31)을 보여 주는 틱의 가로 스크롤 — 게임이 효과 자리로 옮긴다(아수라 MAX 비오의 뒤 0xC9 로 남음, 실측) */
+ #define R_BAX    A(0x41F7)   /* 첫째 판 줄 4~16 을 보여 주는 틱의 가로 스크롤 — 보통 0 이지만 효과가 쓰고 남긴다(샬럿 CPU 의 ACT 0x1A0 · 효과 물체 0x1CC 뒤 0x1F, 실측).
+                                 게임은 틱마다 지금 띠의 값(0x41F7 / 0x41F8)을 0x41F9 로 옮겨 래스터로 줄 32~136 의 가로 스크롤에 쓴다 */
+@@ -259,6 +261,24 @@ static void request_reset(int pos)
+    P.rq = 1; P.rq_pos = pos; P.rq_f = P.f;
+ }
+ 
++/* F8 대미지 셈 — 맞은 쪽 콤보 수가 0→1 이면 새 콤보, 체력이 준 만큼 더한다. 콤보 수 없이 깎임(가드 깎임)은 40프레임 넘게 떨어지면 따로.
++   연습(game_writes · P 칸)과 176 보기(view_tick · AV 칸)가 같은 함수를 부른다. prev_hp 는 부르는 쪽이 이번 프레임에 램을 다 쓴 뒤 잡는다 */
++static void dmg_count(const uint8_t *ram, unsigned f, int prev_hp[2], int prev_combo[2], int rec_open[2],
++                      int dmg_cur[2], unsigned dmg_f[2], int *side, int *shown)
++{
++   for (int d = 0; d < 2; d++) {
++      int b = PB(d), hp = ram[b + O_HP], combo = ram[b + O_COMBO];
++      if (prev_combo[d] == 0 && combo > 0) { dmg_cur[d] = 0; rec_open[d] = 1; *side = d; }
++      if (hp < prev_hp[d]) {
++         if (!rec_open[d] && combo == 0 && f - dmg_f[d] > 40) dmg_cur[d] = 0;   /* 콤보 수 없이 깎임(가드 깎임) — 따로 센다 */
++         dmg_cur[d] += prev_hp[d] - hp; dmg_f[d] = f; *side = d;
++      }
++      if (combo == 0) rec_open[d] = 0;
++      prev_combo[d] = combo;
++   }
++   if (*side >= 0) *shown = dmg_cur[*side] > 999 ? 999 : dmg_cur[*side];
++}
++
+ /* ── 경기 램 쓰기(라운드 진행 · 일시정지 아님) ─────────────────────── */
+ static void game_writes(uint8_t *ram, int input)
+ {
+@@ -298,17 +318,7 @@ static void game_writes(uint8_t *ram, int input)
+       P.prev_hp[1] = P.set_hp2; P.calm[1] = 0; P.set_hp2 = 0;
+    }
+    /* F8 대미지(바닥을 쓰기 전에) */
+-   for (int d = 0; d < 2; d++) {
+-      int b = PB(d), hp = ram[b + O_HP], combo = ram[b + O_COMBO];
+-      if (P.prev_combo[d] == 0 && combo > 0) { P.dmg_cur[d] = 0; P.rec_open[d] = 1; P.shown_side = d; }
+-      if (hp < P.prev_hp[d]) {
+-         if (!P.rec_open[d] && combo == 0 && P.f - P.dmg_f[d] > 40) P.dmg_cur[d] = 0;   /* 콤보 수 없이 깎임(가드 깎임) — 따로 센다 */
+-         P.dmg_cur[d] += P.prev_hp[d] - hp; P.dmg_f[d] = P.f; P.shown_side = d;
+-      }
+-      if (combo == 0) P.rec_open[d] = 0;
+-      P.prev_combo[d] = combo;
+-   }
+-   if (P.shown_side >= 0) P.shown = P.dmg_cur[P.shown_side] > 999 ? 999 : P.dmg_cur[P.shown_side];
++   dmg_count(ram, P.f, P.prev_hp, P.prev_combo, P.rec_open, P.dmg_cur, P.dmg_f, &P.shown_side, &P.shown);
+ 
+    /* F2 체력 바닥·회복 */
+    for (int p = 0; p < 2; p++) {
+@@ -615,6 +625,34 @@ static int hud_layout(void)
+    if (!v_chr || !v_scr) return 0;
+    return (ent_rd(0, 12) & 0x1FF) == 0x049 && (ent_rd(0, 13) & 0x1FF) == 0x04A && (ent_rd(0, 7) & 0x1FF) == 0x03C;
+ }
++/* 대미지 숫자: 셋째 줄 검은 띠 가운데(칸 10 에 맞춰 오른쪽 정렬 — 두 자리 9·10, 세 자리 8~10), 게임 «N HITS» 숫자 타일 0x002~0x00B · 팔레트 4.
++   연습(hud_update · P 칸)과 176 보기(view_tick · AV 칸)가 같은 함수 — 같은 칸·같은 그림. want = 지금 보일지 · st/orig/ours = 그린 상태·원래 값·우리 값 */
++static void dig_draw(int want, int v, int *st, uint16_t orig[3], uint16_t ours[3])
++{
++   if (*st) for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) != ours[i]) orig[i] = ent_rd(3, 8 + i);
++   if (want) {
++      if (!*st) {
++         for (int i = 0; i < 3; i++) orig[i] = ent_rd(3, 8 + i);
++         if ((orig[0] & 0x1FF) != 0x001 || (orig[1] & 0x1FF) != 0x001 || (orig[2] & 0x1FF) != 0x001) return;   /* 검은 띠가 아니면 안 씀 */
++      }
++      int dg[3] = { v / 100, (v / 10) % 10, v % 10 }, nd = v >= 100 ? 3 : v >= 10 ? 2 : 1;
++      for (int i = 0; i < 3; i++) {
++         uint16_t w = i >= 3 - nd ? (uint16_t)((4 << 9) | (0x002 + dg[i])) : orig[i];
++         if (ent_rd(3, 8 + i) != w) ent_wr(3, 8 + i, w);
++         ours[i] = w;
++      }
++      *st = 1;
++   } else if (*st) {                               /* 끔 · HUD 가 사라짐 — 우리 숫자가 그대로 있는 칸만 되돌린다 */
++      for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) == ours[i]) ent_wr(3, 8 + i, orig[i]);
++      *st = 0;
++   }
++}
++/* 상태 저장 직전 — 우리 숫자가 그대로 있는 칸만 원래대로(다음 프레임에 dig_draw 가 다시 그린다) */
++static void dig_restore(int *st, uint16_t orig[3], uint16_t ours[3])
++{
++   if (v_scr && *st) for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) == ours[i]) ent_wr(3, 8 + i, orig[i]);
++   *st = 0;
++}
+ static void hud_update(void)
+ {
+    if (!v_chr || !v_scr) return;
+@@ -629,31 +667,14 @@ static void hud_update(void)
+       memcpy(P.com_ours, ours, 32); P.com_state = 1;
+    } else if (!want2p && P.com_state) { memcpy(t, P.com_orig, 32); P.com_state = 0; }
+ 
+-   /* 대미지: 셋째 줄 검은 띠 가운데(칸 10 에 맞춰 오른쪽 정렬 — 두 자리 9·10, 세 자리 8~10), 게임 «N HITS» 숫자 타일 0x002~0x00B · 팔레트 4 */
+-   if (P.dig_state) for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) != P.dig_ours[i]) P.dig_orig[i] = ent_rd(3, 8 + i);
+-   if (PS.num == 0 && P.shown >= 0 && hud_layout()) {
+-      if (!P.dig_state) {
+-         for (int i = 0; i < 3; i++) P.dig_orig[i] = ent_rd(3, 8 + i);
+-         if ((P.dig_orig[0] & 0x1FF) != 0x001 || (P.dig_orig[1] & 0x1FF) != 0x001 || (P.dig_orig[2] & 0x1FF) != 0x001) return;   /* 검은 띠가 아니면 안 씀 */
+-      }
+-      int v = P.shown, dg[3] = { v / 100, (v / 10) % 10, v % 10 }, nd = v >= 100 ? 3 : v >= 10 ? 2 : 1;
+-      for (int i = 0; i < 3; i++) {
+-         uint16_t w = i >= 3 - nd ? (uint16_t)((4 << 9) | (0x002 + dg[i])) : P.dig_orig[i];
+-         if (ent_rd(3, 8 + i) != w) ent_wr(3, 8 + i, w);
+-         P.dig_ours[i] = w;
+-      }
+-      P.dig_state = 1;
+-   } else if (P.dig_state) {                       /* 끔 · HUD 가 사라짐 — 우리 숫자가 그대로 있는 칸만 되돌린다 */
+-      for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) == P.dig_ours[i]) ent_wr(3, 8 + i, P.dig_orig[i]);
+-      P.dig_state = 0;
+-   }
++   dig_draw(PS.num == 0 && P.shown >= 0 && hud_layout(), P.shown, &P.dig_state, P.dig_orig, P.dig_ours);
+ }
+ static void hud_restore(void)
+ {
+    if (!v_chr || !v_scr) { P.com_state = 0; P.dig_state = 0; return; }
+    if (P.com_state && !memcmp(v_chr + 0x049 * 16, P.com_ours, 32)) memcpy(v_chr + 0x049 * 16, P.com_orig, 32);
+-   if (P.dig_state) for (int i = 0; i < 3; i++) if (ent_rd(3, 8 + i) == P.dig_ours[i]) ent_wr(3, 8 + i, P.dig_orig[i]);
+-   P.com_state = 0; P.dig_state = 0;
++   dig_restore(&P.dig_state, P.dig_orig, P.dig_ours);
++   P.com_state = 0;
+ }
+ 
+ /* ── 연습 메뉴 창(F7) ─────────────────────────────────────────────── */
+@@ -878,19 +899,71 @@ static void activate(const uint8_t *ram, int dummy, int dsty)
+    for (int p = 0; p < 2; p++) P.prev_x[p] = rd16(ram, PB(p) + O_X);
+ }
+ 
++/* ── 176 보기 — 치트 «프레임 표시»·«대미지 미터»: 연습 대전의 두 표시를 일반 판·리그 판 경기에 그대로 ─────────────
++   새 표시 코드는 없다: 연습이 쓰는 fd_tick(미터 자료) · dmg_count(셈) · dig_draw(HUD 숫자 칸 줄 3 칸 8~10)를 같은 함수로 부르고 상태만 AV 칸.
++   작업 램은 한 바이트도 안 쓴다(미터·셈은 읽기, 숫자는 화면 램 세 칸 — 연습과 같은 칸). 입력도 막거나 더하지 않는다.
++   켜짐: 1인 대전(06)·무한 대전(0C) 전투측(MODE 241) — 일반 판·리그 판(랭크·게임 속 리그, 보기는 «치트» 기록·정산 면제와 무관)·연습 흐름 밖.
++   연습 흐름(허브 연습 종류 — 상대 고르기~연습 경기)에선 꺼진다: 연습 자기 «표시» 설정만 따른다(미터 뷰·숫자 칸이 하나라 겹칠 일 없음).
++   라운드: 새 라운드 첫 조작 프레임에 미터·숫자를 지운다(기술 기억은 남김). KO·승리 포즈 동안은 마지막 값이 남는다.
++   prev_hp 는 cheat_tick 뒤 practice_view_post 가 — 무한 체력·한 방 치트가 쓴 체력이 대미지로 세지지 않게(연습이 자기 바닥·회복 뒤에 잡는 것과 같은 뜻).
++   disp(보이는 숫자): 셈(shown)이 0 보다 클 때만 따라간다 — 잡기·칼 맞물림은 콤보 수가 체력보다 먼저 올라 셈이 0 으로 새로 시작하는데,
++   그때 «0» 이 HUD 에 남아 지난 콤보 대미지를 지우지 않게(일반·리그 경기는 CPU 가 잡기를 자주 쓴다). 연습(P 칸)은 그대로 */
++static struct {
++   int active, bits, why, fd_now, prev_live, rounds, seen;
++   unsigned f;
++   int prev_hp[2], prev_combo[2], rec_open[2], dmg_cur[2], shown_side, shown, disp; unsigned dmg_f[2];
++   int dig_state; uint16_t dig_orig[3], dig_ours[3];
++} AV = { .shown = -1, .shown_side = -1, .disp = -1 };
++
++static void view_reset_dmg(const uint8_t *ram)
++{
++   for (int p = 0; p < 2; p++) {
++      AV.prev_hp[p] = ram[PB(p) + O_HP]; AV.prev_combo[p] = ram[PB(p) + O_COMBO];
++      AV.rec_open[p] = 0; AV.dmg_cur[p] = 0; AV.dmg_f[p] = 0;
++   }
++   AV.shown = -1; AV.shown_side = -1; AV.disp = -1;
++}
++static void view_release(void)                 /* 꺼짐·전투 화면 아님·연습 흐름 — 우리 숫자 칸 되돌림 · 미터 끔 */
++{
++   dig_restore(&AV.dig_state, AV.dig_orig, AV.dig_ours);
++   AV.active = 0; AV.fd_now = 0; AV.seen = 0;
++}
++/* own = league_session_owner()(0 그 밖 · 1 리그 · 2 연습 흐름) · bits = cheat_view_bits() */
++static void view_tick(uint8_t *ram, int bits, int own)
++{
++   int prog = ram[R_PROG], fight = ram[R_MODE] == 241 && (prog == 0x06 || prog == 0x0C);   /* 데모(03)·통신 대전 아님 — cheat.c fight_tick 의 «ours» 와 같은 판단 */
++   AV.bits = bits;
++   AV.why = !bits ? 0 : own == 2 ? 3 : !fight ? 4 : 0;
++   if (!bits || own == 2 || !fight) { if (AV.active) view_release(); return; }
++   if (!AV.active) { AV.active = 1; AV.prev_live = 0; AV.seen = 0; fd_reset(1); view_reset_dmg(ram); }
++   AV.f++;
++   int lv = live(ram), paused = ram[R_PAUSE] == 1;
++   if (lv && !AV.prev_live) { fd_reset(1); view_reset_dmg(ram); AV.rounds++; AV.seen = 1; }   /* 새 라운드 — 지난 라운드 미터·숫자 지움 */
++   AV.prev_live = lv;
++   if (lv && !paused) fd_tick(ram);                 /* practice_tick 의 연습 경기와 같은 조건 */
++   if (!paused) dmg_count(ram, AV.f, AV.prev_hp, AV.prev_combo, AV.rec_open, AV.dmg_cur, AV.dmg_f, &AV.shown_side, &AV.shown);
++   /* ↑ 셈은 전투측 내내(라운드 진행이 끝나는 KO 프레임의 마지막 한 대까지) — 라운드 밖엔 체력이 줄지 않는다(새 라운드 채움은 늘어남) */
++   if (AV.shown_side >= 0 && AV.dmg_cur[AV.shown_side] > 0) AV.disp = AV.shown;   /* 체력이 준 셈만 — 새 콤보의 «0» 은 안 보임(지난 숫자 그대로) */
++   dig_draw((bits & 2) && AV.disp >= 0 && hud_layout(), AV.disp, &AV.dig_state, AV.dig_orig, AV.dig_ours);
++   AV.fd_now = (bits & 1) && AV.seen;
++}
++
+ void practice_tick(uint8_t *ram, size_t n, int input)
+ {
+    int dummy = -1, dsty = 0;
+    if (!ram || n < 0x4000) return;
++   int vbits = cheat_view_bits(), own = vbits ? league_session_owner() : 0;   /* 176: 잠금 밖에서(C_mu·L_mu 단독 — 겹쳐 잡지 않음) */
+    int match = league_practice_match(&dummy, &dsty);
+    pthread_mutex_lock(&P_mu);
+    g_ram = ram;
+    if (!match || dummy < 0 || dummy > 14) {
+       if (P.active) { P.active = 0; W.open = 0; }   /* 게임 쪽에서 경기가 끝남 — 화면이 이미 바뀌었으니 되돌리지 않는다 */
+       practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
++      view_tick(ram, vbits, own);                   /* 176 보기(치트) */
+       pthread_mutex_unlock(&P_mu);
+       return;
+    }
++   if (AV.active) view_release();                   /* 176: 연습 경기 — 연습 자기 표시만(보통은 연습 흐름에서 이미 꺼져 있다) */
+    if (!P.active) activate(ram, dummy, dsty);
+    P.f++;
+    int lv = live(ram), paused = ram[R_PAUSE] == 1;
+@@ -959,6 +1032,22 @@ void practice_tick(uint8_t *ram, size_t n, int input)
+    pthread_mutex_unlock(&P_mu);
+ }
+ 
++void practice_view_post(const uint8_t *ram)
++{
++   if (!ram) return;
++   pthread_mutex_lock(&P_mu);
++   if (AV.active) for (int p = 0; p < 2; p++) AV.prev_hp[p] = ram[PB(p) + O_HP];
++   pthread_mutex_unlock(&P_mu);
++}
++
++void practice_view_status(int v[PRACTICE_VSTAT])
++{
++   pthread_mutex_lock(&P_mu);
++   v[0] = AV.bits; v[1] = AV.active; v[2] = AV.fd_now; v[3] = AV.dig_state; v[4] = AV.why; v[5] = AV.active ? AV.disp : -1;
++   v[6] = AV.rounds; v[7] = (int)AV.f;
++   pthread_mutex_unlock(&P_mu);
++}
++
+ int practice_take_exit(void)
+ {
+    pthread_mutex_lock(&P_mu);
+@@ -971,6 +1060,7 @@ void practice_forget(void)
+ {
+    pthread_mutex_lock(&P_mu);
+    P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
++   memset(&AV, 0, sizeof AV); AV.shown = AV.shown_side = AV.disp = -1;   /* 176 보기도 — 화면 램이 통째로 바뀌었으니 되돌리지 않고 잊는다 */
+    fd_reset(1);
+    practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
+    pthread_mutex_unlock(&P_mu);
+@@ -980,6 +1070,7 @@ void practice_before_save(void)
+ {
+    pthread_mutex_lock(&P_mu);
+    if (P.active) { window_restore(); hud_restore(); }   /* 메뉴가 열린 채면 다음 프레임에 window_draw 가 다시 빌려 그린다 */
++   if (AV.active) dig_restore(&AV.dig_state, AV.dig_orig, AV.dig_ours);   /* 176 보기 숫자도 — 다음 진짜 프레임에 다시 그린다 */
+    pthread_mutex_unlock(&P_mu);
+ }
+ 
+@@ -1061,7 +1152,7 @@ uint32_t practice_fd_get(uint8_t *cells, int *sum)
+    if (cells) memcpy(cells, FD.cell, sizeof FD.cell);
+    if (sum) {
+       for (int i = 0; i < PRACTICE_FD_NSUM; i++) sum[i] = 0;
+-      sum[0] = PS.fd && P.active; sum[1] = (int)FD.seq_id; sum[2] = FD.len; sum[3] = FD.seq_on; sum[4] = FD.frozen_n; sum[5] = FD.gap_n; sum[6] = (int)FD.ver; sum[7] = FD.focus;
++      sum[0] = (PS.fd && P.active) || AV.fd_now; sum[1] = (int)FD.seq_id; sum[2] = FD.len; sum[3] = FD.seq_on; sum[4] = FD.frozen_n; sum[5] = FD.gap_n; sum[6] = (int)FD.ver; sum[7] = FD.focus;
+       for (int p = 0; p < 2; p++) {
+          int *o = sum + 8 + 14 * p; const FdSum *s = &FD.sum[p];
+          FdMem *m = s->id ? fd_mem(s->kc, s->ka, s->ks, 0) : NULL;
+@@ -1094,6 +1185,19 @@ JNI(jintArray, nativePracticeStatus)(JNIEnv *env, jclass cls)
+    return a;
+ }
+ 
++/* 176 보기 상태(practice.h PRACTICE_VSTAT) — Java viewPoll(150ms) */
++JNI(jintArray, nativeViewStatus)(JNIEnv *env, jclass cls)
++{
++   (void)cls;
++   int v[PRACTICE_VSTAT];
++   jint jv[PRACTICE_VSTAT];
++   practice_view_status(v);
++   for (int i = 0; i < PRACTICE_VSTAT; i++) jv[i] = v[i];
++   jintArray a = (*env)->NewIntArray(env, PRACTICE_VSTAT);
++   if (a) (*env)->SetIntArrayRegion(env, a, 0, PRACTICE_VSTAT, jv);
++   return a;
++}
++
+ /* 프레임 미터 — Java 가 33ms 마다(연습 경기 · 미터 켬일 때만) 부른다. 배열은 Java 가 한 번 만들어 계속 쓴다(할당 없음). 돌려줌: 판 번호(바뀌었을 때만 다시 그림) */
+ JNI(jint, nativePracticeFrames)(JNIEnv *env, jclass cls, jbyteArray cells, jintArray sum)
+ {
+diff --git a/app/src/main/cpp/practice.h b/app/src/main/cpp/practice.h
+index d302229..0c3dcf9 100644
+--- a/app/src/main/cpp/practice.h
++++ b/app/src/main/cpp/practice.h
+@@ -15,8 +15,14 @@ extern volatile int practice_opt_mask;
+ int  practice_take_exit(void);
+ /* 리셋·상태 불러오기 뒤 — 램·화면이 통째로 바뀌었으니 되돌리지 않고 잊는다(설정은 남김) */
+ void practice_forget(void);
+-/* 상태 저장 직전·직후(코어 잠금 안) — 우리가 바꿔 그린 창·숫자·«2P» 를 원래대로 했다가 다음 프레임에 다시 그린다 */
++/* 상태 저장 직전·직후(코어 잠금 안) — 우리가 바꿔 그린 창·숫자·«2P» 를 원래대로 했다가 다음 프레임에 다시 그린다(176 보기 숫자도) */
+ void practice_before_save(void);
++/* 176 보기(치트 «프레임 표시»·«대미지 미터») — 진짜 프레임마다 cheat_tick 다음(코어 잠금 안): 이번 프레임에 누가 쓴 체력까지 «지난 값»으로 */
++void practice_view_post(const uint8_t *ram);
++#define PRACTICE_VSTAT 8
++/* [0 보기 비트(1 프레임 · 2 대미지), 1 켜짐(전투측), 2 미터 켬, 3 숫자 그림, 4 막힌 이유(0 없음 · 3 연습 흐름 · 4 전투 화면 아님), 5 보이는 대미지(−1 없음),
++    6 라운드 수, 7 보기 프레임] — practice_status(26칸)는 늘리지 않는다(시험 하네스가 26칸으로 받는다) */
++void practice_view_status(int v[PRACTICE_VSTAT]);
+ 
+ #define PRACTICE_NSTAT 26
+ /* [경기 중, 메뉴(0 닫힘·1 여는 중·2 열림·3 닫는 중), 메뉴 줄, 더미(0 서기·1 CPU), 가드(0 안 함·1 전부·2 첫 타 뒤·3 랜덤),
+@@ -37,7 +43,7 @@ void practice_state_set(const void *buf);
+ 
+ /* 프레임 데이터 — SF6 식 미터(두 줄 × 80칸)와 요약. 칸 값: 0 움직일 수 있음 · 1 움직임(점프·대시) · 2 발동 · 3 지속 · 4 경직 · 5 판정 없는 동작
+    · 6 맞음 · 7 막음 · 8 다운 · 9 줄임 | 0x40 튕겨내기 판정 | 0x80 장풍이 닿을 수 있음 · 0xFF 빈칸.
+-   sum: [0] 켬 [1] 순서 번호 [2] 쌓인 칸 수(80 넘으면 감김) [3] 순서 진행 중 [4] 얼린 프레임(히트스톱) [5] 줄인 프레임 [6] 판 번호 [7] 숫자 줄이 볼 사람(0 나 · 1 상대 · −1 없음)
++   sum: [0] 켬(연습 «표시» · 176 치트 «프레임 표시») [1] 순서 번호 [2] 쌓인 칸 수(80 넘으면 감김) [3] 순서 진행 중 [4] 얼린 프레임(히트스톱) [5] 줄인 프레임 [6] 판 번호 [7] 숫자 줄이 볼 사람(0 나 · 1 상대 · −1 없음)
+         [8..21] P1 마지막 동작 · [22..35] P2 마지막 동작 = { 번호, 발동, 지속(−1 없음 · −2 장풍), 경직, 전체, 닿음(0 헛침 1 히트 2 가드 3 잡기 4 상쇄 5 다운),
+                     튕겨내기 시작, 튕겨내기 길이, 기억(헛침) 지속, 기억 경직, 기억 유불리 히트·다운·가드·잡기(0x7FFF 모름) }
+         [36] 유불리(P1 기준, + = 내가 먼저 · 0x7FFF 없음) [37] 그 닿음 종류 [38] 공격한 쪽(0·1·−1) [39] 유불리 번호 */
+diff --git a/app/src/main/cpp/uisfx.c b/app/src/main/cpp/uisfx.c
+new file mode 100644
+index 0000000..c25ae6e
+--- /dev/null
++++ b/app/src/main/cpp/uisfx.c
+@@ -0,0 +1,154 @@
++/* 176 덧판 메뉴 효과음 — uisfx.h 참고.
++ *
++ * 잰 것(u176s/ref/params.md · 호스트 코어 173 · JUE = 한글판 = 배경음악 끈 판 같은 바이트):
++ *   소리칩 T6W28 3.072MHz 사각파 채널 2 하나 · 잡음·DAC 없음 · 왼쪽 = 오른쪽.
++ *   f = 3072000 / (32·N) Hz · 감쇠 att → 볼륨 VOL[att](≈2dB 한 칸, 15 = 끔) · 코어 int16 출력에서 ±34·VOL(고리 버퍼는 이득 없음) —
++ *   띠 제한 사각파 RMS 를 맞추려면 33·VOL.
++ *   주기·감쇠가 바뀌어도(다시 울려도) 위상은 이어진다 · 앞뒤는 정확히 0.
++ *   한 채널에 소리 하나: 새 소리는 우선순위가 같거나 높으면 바꾸고, 낮으면 버린다(커서 1 < 뒤로 2 < 결정 3).
++ *   게임은 소리 끝 뒤 조용한 꼬리까지 막지만(결정 576ms · 뒤로 363ms), 여기서는 «머리»(결정 = 첫 메아리 전 208ms · 뒤로 = 들리는 166ms)
++ *   동안만 낮은 소리를 막는다 — 결정 뒤 바로 옮긴 커서가 소리 없이 지나가지 않게.
++ *   게임은 장면이 바뀌면 0xFF 로 결정 소리를 끊는다(뒤로는 끝까지). 여기서는 메뉴가 사라지면(덧판 안 보임 · 메뉴 멈춤 풂 = 경기·다음 화면)
++ *   결정의 메아리를 내지 않는다 — 몸통(머리 208ms)은 다 내고 메아리 자리에서 4ms 로 줄여 끔(이어하기·다음 상대 뒤 경기 위로 새지 않게).
++ * 합성: 표의 {샘플@44.1k, N, att} 를 출력 샘플레이트로 늘려 그대로 · PolyBLEP 사각파 · 볼륨이 바뀔 때 0.5ms 직선(딸깍 없앰) ·
++ *       끌 때(STOP·음소거) 4ms 로 줄임. */
++#include "uisfx.h"
++#include <stdatomic.h>
++#include <string.h>
++#include <math.h>
++
++typedef struct { uint16_t at; uint16_t n; uint8_t att; } sfx_ev;   /* 44.1kHz 샘플(시작부터) · 주기 N · 감쇠 — 다음 줄까지 그대로, 마지막 줄 = 끔 */
++
++static const sfx_ev EV_CURSOR[] = {   /* 0x0E */
++   {0,183,0}, {445,183,1}, {985,183,2}, {1740,183,3}, {2246,183,4}, {3001,183,5}, {3541,183,6}, {4227,183,7}, {4767,183,8}, {5342,183,9},
++   {6028,183,10}, {6568,183,11}, {7322,183,12}, {7829,183,13}, {8550,183,15}
++};
++static const sfx_ev EV_SELECT[] = {   /* 0x02 */
++   {0,115,0}, {341,115,1}, {678,91,1}, {748,91,0}, {1241,91,1}, {1533,91,2}, {1754,86,2}, {1824,86,0}, {2254,86,1}, {2655,68,1},
++   {2725,68,0}, {3155,68,1}, {3572,57,1}, {3642,57,0}, {4089,57,1}, {4235,57,2}, {4594,57,3}, {4990,57,4}, {6575,57,5}, {7116,57,6},
++   {7476,57,7}, {7835,57,8}, {8376,57,9}, {8771,57,10}, {9158,115,10}, {9228,115,6}, {9705,115,7}, {10041,91,7}, {10111,91,6},
++   {10606,91,7}, {10897,91,8}, {11120,86,8}, {11190,86,6}, {11618,86,7}, {12019,68,7}, {12089,68,6}, {12517,68,7}, {12935,57,7},
++   {13005,57,6}, {13454,57,7}, {13598,57,8}, {13959,57,9}, {14353,57,10}, {15940,57,11}, {16479,57,12}, {16840,57,13}, {17200,57,14},
++   {17740,57,15}, {18521,115,15}, {18591,115,11}, {19069,115,12}, {19407,91,12}, {19477,91,11}, {19970,91,12}, {20261,91,13},
++   {20482,86,13}, {20551,86,11}, {20981,86,12}, {21382,68,12}, {21452,68,11}, {21882,68,12}, {22299,57,12}, {22369,57,11}, {22817,57,12},
++   {22962,57,13}, {23323,57,14}, {23718,57,15}
++};
++static const sfx_ev EV_BACK[] = {     /* 0x06 */
++   {0,367,0}, {107,367,1}, {347,327,1}, {417,327,0}, {708,291,0}, {993,291,1}, {1247,259,1}, {1317,259,0}, {1534,259,1}, {1788,231,1},
++   {1858,231,0}, {2148,206,0}, {2434,206,1}, {2694,183,1}, {2765,183,0}, {3049,163,0}, {3334,163,1}, {3589,145,1}, {3659,145,0},
++   {3875,145,1}, {4129,129,1}, {4199,129,0}, {4512,115,0}, {4775,115,1}, {4989,115,3}, {5135,115,5}, {5349,115,6}, {5495,115,8},
++   {5676,115,10}, {5890,115,11}, {6062,115,12}, {6215,115,13}, {6790,115,14}, {7330,115,15}
++};
++#define NEV(a) ((int)(sizeof(a) / sizeof((a)[0])))
++/* head = 이만큼(44.1k 샘플) 낮은 소리를 막음 · cut = 메뉴가 사라졌으면 여기서 줄여 끔(0 = 끝까지) */
++static const struct { const sfx_ev *ev; int n, prio, head, cut; } PROG[UISFX_N] = {
++   { NULL, 0, 0, 0, 0 },
++   { EV_CURSOR, NEV(EV_CURSOR), 1, 8550, 0 },
++   { EV_SELECT, NEV(EV_SELECT), 3, 9158, 9158 },
++   { EV_BACK,   NEV(EV_BACK),   2, 7330, 0 },
++};
++static const uint8_t VOL[16] = { 64, 50, 39, 31, 24, 19, 15, 12, 9, 7, 5, 4, 3, 2, 1, 0 };
++#define AMP_UNIT 33.0f
++#define CHIP_HZ  3072000.0
++#define SRC_RATE 44100
++
++static _Atomic uint32_t g_req;        /* 1 << kind — 콜백 사이에 온 요청을 모은다(가장 센 것 하나만 낸다) */
++static struct {
++   int rate, rlen, flen;               /* 출력 샘플레이트 · 볼륨 바뀜 직선 · 끌 때 줄임(샘플) */
++   int kind, idx, fin;                 /* 지금 소리(0 없음) · 표 줄 · 1 = 마지막 줄(끔)에 닿음 · 2 = 줄여 끄는 중 */
++   uint32_t pos, step;                 /* 표 시각(44.1kHz 샘플, 16.16) · 출력 샘플마다 더함 */
++   double ph, dt;                      /* 사각파 위상(주기 단위) · 샘플마다 */
++   float amp, tgt, inc; int ramp;      /* 볼륨(int16 반 진폭) · 목표 · 직선 남은 샘플 */
++} S;
++
++int uisfx_request(int kind)
++{
++   if (kind < 0 || kind >= UISFX_N) return 0;
++   atomic_fetch_or_explicit(&g_req, 1u << kind, memory_order_release);
++   return 1;
++}
++
++void uisfx_reset(int rate)
++{
++   memset(&S, 0, sizeof S);
++   S.rate = rate >= 8000 && rate <= 192000 ? rate : SRC_RATE;
++   S.rlen = S.rate / 2000;             /* 0.5ms */
++   S.flen = S.rate / 250;              /* 4ms */
++   S.step = (uint32_t)(((uint64_t)SRC_RATE << 16) / (uint32_t)S.rate);
++   atomic_store_explicit(&g_req, 0, memory_order_relaxed);
++}
++
++int uisfx_active(void) { return S.kind; }
++
++static void ramp_to(float t, int len)
++{
++   S.tgt = t; S.ramp = len > 0 ? len : 1;
++   S.inc = (t - S.amp) / (float)S.ramp;
++}
++static void apply(const sfx_ev *e)
++{
++   S.dt = CHIP_HZ / (32.0 * e->n) / S.rate;
++   ramp_to(AMP_UNIT * VOL[e->att & 15], S.rlen);
++}
++static void stop(void)
++{
++   if (!S.kind || S.fin == 2) return;
++   S.fin = 2;
++   ramp_to(0.0f, S.flen);
++}
++static void start(int kind)
++{
++   int cur = S.fin == 2 ? 0 : S.kind;  /* 줄여 끄는 중이면 빈 채널 */
++   if (cur && PROG[kind].prio < PROG[cur].prio && (int)(S.pos >> 16) < PROG[cur].head) return;   /* 게임처럼 버림(줄 세우지 않음) */
++   if (!S.kind) S.ph = 0.0;            /* 쉬던 채널 — 첫 반 주기 +A(게임과 같음). 울리는 중이면 위상 그대로 */
++   S.kind = kind; S.idx = 0; S.pos = 0; S.fin = 0;
++   apply(&PROG[kind].ev[0]);
++}
++
++static inline float blep(double t, double dt)
++{
++   if (t < dt) { t /= dt; return (float)(t + t - t * t - 1.0); }
++   if (t > 1.0 - dt) { t = (t - 1.0) / dt; return (float)(t * t + t + t + 1.0); }
++   return 0.0f;
++}
++
++void uisfx_mix(int16_t *out, int frames, int mute, int menu)
++{
++   uint32_t req = atomic_exchange_explicit(&g_req, 0, memory_order_acquire);
++   if (!S.kind && (!req || mute)) return;
++   if (!S.rate) uisfx_reset(SRC_RATE);
++   if (mute) stop();                   /* 음소거(league_mute) — 새 요청은 버림 */
++   else if (req) {
++      int best = 0;
++      if (req & (1u << UISFX_STOP)) stop();
++      for (int k = 1; k < UISFX_N; k++) if ((req & (1u << k)) && PROG[k].prio > PROG[best].prio) best = k;
++      if (best) start(best);
++   }
++   if (!S.kind) return;
++   const sfx_ev *ev = PROG[S.kind].ev;
++   int n = PROG[S.kind].n;
++   unsigned cut = menu ? 0u : (unsigned)PROG[S.kind].cut;
++   for (int i = 0; i < frames; i++) {
++      if (!S.fin) {
++         unsigned at = S.pos >> 16;
++         if (cut && at >= cut) stop();    /* 메뉴가 사라짐 — 메아리는 안 냄 */
++         else {
++            while (S.idx + 1 < n && at >= ev[S.idx + 1].at) apply(&ev[++S.idx]);
++            if (S.idx + 1 >= n) S.fin = 1;
++            S.pos += S.step;
++         }
++      }
++      if (S.ramp > 0) { S.amp += S.inc; if (--S.ramp == 0) S.amp = S.tgt; }
++      double ph = S.ph, ph2 = ph + 0.5;
++      if (ph2 >= 1.0) ph2 -= 1.0;
++      float v = (ph < 0.5 ? 1.0f : -1.0f) + blep(ph, S.dt) - blep(ph2, S.dt);
++      ph += S.dt;
++      S.ph = ph >= 1.0 ? ph - 1.0 : ph;
++      int s = (int)lrintf(v * S.amp);
++      for (int c = 0; c < 2; c++) {
++         int o = out[i * 2 + c] + s;
++         out[i * 2 + c] = (int16_t)(o > 32767 ? 32767 : o < -32768 ? -32768 : o);
++      }
++      if (S.fin && S.ramp == 0 && S.tgt == 0.0f) { S.kind = 0; S.fin = 0; S.amp = 0.0f; break; }   /* 끝 — 다음 소리는 위상 0 부터 */
++   }
++}
+diff --git a/app/src/main/cpp/uisfx.h b/app/src/main/cpp/uisfx.h
+new file mode 100644
+index 0000000..c29bb43
+--- /dev/null
++++ b/app/src/main/cpp/uisfx.h
+@@ -0,0 +1,22 @@
++/* 176 덧판 메뉴 효과음 — 사무쇼2 메뉴 소리를 그대로 합성(롬 소리를 담지 않음).
++ * 호스트 코어에서 잰 Z80 소리 명령 0x0E(커서) · 0x02(결정) · 0x06(뒤로)의 T6W28 사각파 채널 2 쓰기를
++ * {44.1kHz 샘플, 주기 N, 감쇠} 표로 옮겨, 오디오 콜백(audio_cb)이 고리 버퍼 소리 위에 더한다 — 코어가 멈춰 있어도(ov_hold) 난다.
++ * 스레드: uisfx_request 는 아무 스레드(잠금 없음 — 비트 하나 OR). uisfx_mix 는 오디오 스레드만.
++ *         uisfx_reset 은 콜백이 돌지 않을 때만(스트림을 열기 전). */
++#ifndef UISFX_H
++#define UISFX_H
++#include <stdint.h>
++
++#define UISFX_STOP   0      /* 지금 소리를 짧게 줄여 끔 */
++#define UISFX_CURSOR 1      /* 0x0E — C5 사각파 하나, 194ms 감쇠 */
++#define UISFX_SELECT 2      /* 0x02 — G#5 C6 C#6 F6 G#6 오름 + 메아리 둘, 538ms */
++#define UISFX_BACK   3      /* 0x06 — C4 → G#5 온음 빠른 오름, 166ms */
++#define UISFX_N      4
++
++int  uisfx_request(int kind);                       /* 1 = 받음(다음 콜백이 소리 냄) · 0 = 모르는 kind */
++void uisfx_reset(int rate);                         /* 소리·요청 지움 + 출력 샘플레이트 */
++void uisfx_mix(int16_t *out, int frames, int mute, int menu); /* 스테레오 int16 위에 더함(포화) · mute = 요청 버리고 지금 소리는 짧게 줄여 끔 ·
++                                                                menu = 덧판 메뉴가 보이거나 멈춤 중 — 0 이면 결정은 메아리 전에 줄여 끔(게임이 장면 바뀔 때 끊듯) */
++int  uisfx_active(void);                            /* 소리 나는 중(지금 kind · 0 없음) — 시험용 */
++
++#endif
+diff --git a/app/src/main/java/com/dudu/pocketcore/Cheats.java b/app/src/main/java/com/dudu/pocketcore/Cheats.java
+index dae5e69..dad382d 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Cheats.java
++++ b/app/src/main/java/com/dudu/pocketcore/Cheats.java
+@@ -16,6 +16,8 @@ import java.util.Map;
+  * 마스터(«치트» 켬/끔, 기본 켬)를 끄면 native 에 모두 0 을 넣는다 — 고른 값은 그대로 남아 다시 켜면 돌아온다. 하나하나는 기본 끔.
+  * 168: 리그 판(랭크전·게임 속 리그)에서도 먹는다(유저 «리그 때도 쓸 수 있게») — 그 판에 실제로 먹은 치트(native cheat_match_bits)는 경기 기록에 «치트»로 남고,
+  * 정산 검사는 그 치트가 설명하는 것만 면제한다(시간 무한 → 실효 시간 · CPU 세기 → 손잡이). 연습 대전 흐름은 예전처럼 경기 치트를 쉰다.
++ * 176: 보기 둘(«프레임 표시»·«대미지 미터» — 연습 대전의 미터·숫자 그대로, native practice.c)은 게임을 안 바꾼다 — 리그 판에서도 보이고
++ * «치트» 기록·«치트 ON»·정산 면제에 안 든다(activeMask·native cheat_match_bits 둘 다). 창에선 마스터 바로 밑(ORDER).
+  */
+ final class Cheats {
+ 
+@@ -26,19 +28,21 @@ final class Cheats {
+     static final String GROUP = "치트";
+ 
+     /** native CH_* 순서 (cheat.h) */
+-    static final String[] KEYS = { "cards", "time", "hp1", "hp2", "rage1", "rage2", "cpu", "diff", "pow", "yuga" };
+-    static final int CARDS = 0, TIME = 1, HP1 = 2, HP2 = 3, RAGE1 = 4, RAGE2 = 5, CPU = 6, DIFF = 7, POW = 8, YUGA = 9;
++    static final String[] KEYS = { "cards", "time", "hp1", "hp2", "rage1", "rage2", "cpu", "diff", "pow", "yuga", "fd", "dmg" };
++    static final int CARDS = 0, TIME = 1, HP1 = 2, HP2 = 3, RAGE1 = 4, RAGE2 = 5, CPU = 6, DIFF = 7, POW = 8, YUGA = 9, FD = 10, DMG = 11;
++    /** 176 — 창에 보이는 차례(native 번호와 따로): 보기 둘을 마스터 바로 밑에 */
++    static final int[] ORDER = { FD, DMG, CARDS, TIME, HP1, HP2, RAGE1, RAGE2, CPU, DIFF, POW, YUGA };
+     static final String CARDS_KEY = PREFIX + "cards", CARDS_TEMP = "temp", CARDS_SAVE = "save";
+ 
+     private static final String[] OFF_INF = { "off", "inf" }, HP = { "off", "inf", "one" }, OFF_MAX = { "off", "max" };
+     private static final String[] HP_K = { "보통", "무한", "한 방" }, MAX_K = { "보통", "MAX" };
+     static final String[][] VALS = {
+         { "off", CARDS_TEMP, CARDS_SAVE }, OFF_INF, HP, HP, OFF_MAX, OFF_MAX, { "off", "idle" },
+-        { "game", "vease", "easy", "normal", "hard", "max" }, { "1", "1.5", "2", "3" }, { "off", "shura", "rasetsu" } };
++        { "game", "vease", "easy", "normal", "hard", "max" }, { "1", "1.5", "2", "3" }, { "off", "shura", "rasetsu" }, { "off", "on" }, { "off", "on" } };
+     static final String[][] NAMES = {
+         { "끔", "이번만", "세이브에 남기기" }, { "보통", "무한" }, HP_K, HP_K, MAX_K, MAX_K, { "보통", "가만히" },
+-        { "게임대로", "아주 쉬움", "하", "중", "상", "최강" }, { "보통", "1.5배", "2배", "3배" }, { "끔", "수라", "나찰" } };
+-    static final String[] LABELS = { "올카드", "시간", "내 체력", "상대 체력", "내 분노", "상대 분노", "상대", "CPU 세기", "내 공격력", "유가" };
++        { "게임대로", "아주 쉬움", "하", "중", "상", "최강" }, { "보통", "1.5배", "2배", "3배" }, { "끔", "수라", "나찰" }, { "끔", "켬" }, { "끔", "켬" } };
++    static final String[] LABELS = { "올카드", "시간", "내 체력", "상대 체력", "내 분노", "상대 분노", "상대", "CPU 세기", "내 공격력", "유가", "프레임 표시", "대미지 미터" };
+     /* 설명 — 짧게, 게임 말투. 올카드는 게임이 언제 저장하는지까지(사용자가 «세이브에 남기기» 뒤 바로 남기는 법을 알게) */
+     static final String[] HELPS = {
+         "이번만 = 고르는 동안만 120장 다 가진 걸로, 세이브엔 안 남아요. 세이브에 남기기 = 게임이 다음에 저장할 때(게임 오버·스토리 클리어·무한 대전 끝·게임 설정 저장) 모두 8장으로 남아요."
+@@ -51,7 +55,9 @@ final class Cheats {
+         "CPU 가 움직이지 않아요(막지도 않아요).",
+         "게임 설정은 그대로 — 공격·방어 배율과 AI 단계만 게임 표 값으로. 게임대로로 돌리면 다음 상대부터.",
+         "카드 효과에 곱해져요.",
+-        "캐릭터 선택 가운데(쿠로코) 칸이 유가가 돼요. 수라·나찰은 여기서 골라요." };
++        "캐릭터 선택 가운데(쿠로코) 칸이 유가가 돼요. 수라·나찰은 여기서 골라요.",
++        "경기 중 게임 화면 밖에 연습 대전과 같은 프레임 미터(발동·지속·경직·유불리). 끌어서 옮기기 · 톡 = 색 설명 · 두 번 톡 = 기본 자리. 보기만 해서 리그 기록에 «치트»로 안 남아요.",
++        "연습 대전처럼 체력 막대 아래 가운데에 콤보 대미지 숫자(체력 128 기준). 다음 라운드에 지워져요. 보기만 해서 리그 기록에 «치트»로 안 남아요." };
+     /** 치트 창 끝 한 줄 — 기록 경고 */
+     static final String WARN = "치트로 이겨도 스토리 클리어·연승·카드 상은 세이브에 남아요. 리그 대전에서도 먹어요 — 그 판은 기록에 «치트»로 남아요.";
+     /** 168 — 먹은 치트 비트(1 << 번호) → «시간·CPU 세기·상대 체력» (없으면 빈 글) */
+@@ -66,8 +72,10 @@ final class Cheats {
+         Settings.Item[] out = new Settings.Item[KEYS.length + 1];
+         out[0] = new Settings.Item(MASTER, "치트", "끄면 아래 것을 다 쉬어요(고른 건 그대로).",
+                 new String[]{ "enabled", "disabled" }, new String[]{ "켬", "끔" }, "enabled").g(GAME);
+-        for (int i = 0; i < KEYS.length; i++)
+-            out[i + 1] = new Settings.Item(PREFIX + KEYS[i], LABELS[i], HELPS[i], VALS[i], NAMES[i], VALS[i][0]).g(GAME);
++        for (int k = 0; k < ORDER.length; k++) {
++            int i = ORDER[k];
++            out[k + 1] = new Settings.Item(PREFIX + KEYS[i], LABELS[i], HELPS[i], VALS[i], NAMES[i], VALS[i][0]).g(GAME);
++        }
+         return out;
+     }
+ 
+@@ -85,13 +93,23 @@ final class Cheats {
+     }
+     /** 켜진(먹는) 치트 수 — 고리 글 «치트 · 3개 켬». 마스터 끔이면 0 */
+     static int count(Map<String, String> m) { int n = 0; for (int x : values(m)) if (x != 0) n++; return n; }
+-    static boolean any(Map<String, String> m) { return count(m) > 0; }
+-    /** 168 고침 — 먹는 치트 비트(1 << 번호). league = 리그 판: 올카드는 빼고(리그는 늘 카드 전부 열림 · pushCheats 가 0 을 넣는다) */
++    /** 게임을 바꾸는 치트가 켜졌나 — 런처 한 낱말 «치트» · 모르는 롬 알림(176: 보기 «프레임 표시»·«대미지 미터»는 안 셈) */
++    static boolean any(Map<String, String> m) { return activeMask(m, false) != 0; }
++    /** 168 고침 — 먹는 치트 비트(1 << 번호). league = 리그 판: 올카드는 빼고(리그는 늘 카드 전부 열림 · pushCheats 가 0 을 넣는다).
++     *  176: 보기(프레임 표시·대미지 미터)는 게임을 안 바꾸니 안 든다(«치트 ON»·리그 첫 라운드 한 줄 없음) */
+     static int activeMask(Map<String, String> m, boolean league) {
+         int[] v = values(m); int b = 0;
+-        for (int i = 0; i < v.length; i++) if (v[i] != 0 && !(league && i == CARDS)) b |= 1 << i;
++        for (int i = 0; i < FD; i++) if (v[i] != 0 && !(league && i == CARDS)) b |= 1 << i;
+         return b;
+     }
++    /** 176 검토 — 게임 치트 값(보기 뺌 · league 면 올카드 0 — pushCheats 가 리그 판에 넣는 것과 같게). 창을 닫을 때 «치트 적용»은 이게 바뀐 때만 */
++    static int[] gameVals(Map<String, String> m, boolean league) {
++        int[] g = java.util.Arrays.copyOf(values(m), FD);
++        if (league) g[CARDS] = 0;
++        return g;
++    }
++    /** 176 — 보기 비트: 1 프레임 표시 · 2 대미지 미터(마스터 끔이면 0 — values 가 이미) */
++    static int views(Map<String, String> m) { int[] v = values(m); return (v[FD] != 0 ? 1 : 0) | (v[DMG] != 0 ? 2 : 0); }
+     /** 경기 치트(시간~공격력)가 하나라도 켜졌나 — 연습 대전 중엔 이것들이 쉰다(띠 안내) */
+     static boolean fight(Map<String, String> m) { int[] v = values(m); for (int i = TIME; i <= POW; i++) if (v[i] != 0) return true; return false; }
+     /** native 에 값만 넣는다(코어를 다시 올리지 않음 — 다음 진짜 프레임부터 먹는다). 168: 리그 판도 먹는다(why 4) — 올카드만 EmuActivity.pushCheats 가 0 으로 덮음 */
+diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
+index 26a0684..e687a50 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Emu.java
++++ b/app/src/main/java/com/dudu/pocketcore/Emu.java
+@@ -114,6 +114,8 @@ public final class Emu {
+     public static native int[] nativePracticeStatus();
+     /** 연습 대전 프레임 미터 — cells[160](나 80칸 · 상대 80칸) · sum[40](practice.h PRACTICE_FD_NSUM). 돌려줌: 바뀔 때마다 오르는 판 번호 */
+     public static native int nativePracticeFrames(byte[] cells, int[] sum);
++    /** 176 치트 보기(practice.c practice_view_status) — [0 보기 비트(1 프레임 · 2 대미지), 1 켜짐(전투측), 2 미터 켬, 3 숫자 그림, 4 막힌 이유, 5 보이는 대미지, 6 라운드 수, 7 프레임] */
++    public static native int[] nativeViewStatus();
+ 
+     /* 모든 모드 컬러(look.c) — 사무쇼2 확인한 판에서 캐릭터·검질 고르기 OPTION = 다음 컬러(길게 = 만들기 요청) · A+B = 베기 색 다음 것 · A·B = 결정(보통 색).
+        번호 0 기본 · 1 (옛 2P색 — 안 고름, 옛 기록 이름용) · 2~15 프리셋 · 16·17 내 색 1·2(Look.NAMES). 기억 칸 16개 = 캐릭터 0~13 · 14 안 씀 · 15 무작위 칸 */
+@@ -199,4 +201,9 @@ public final class Emu {
+     public static native void nativeOvTagOn(boolean on);
+     /** [OVT_*] — 아무 스레드 */
+     public static native int[] nativeOvTagStatus();
++    /* 176 덧판 메뉴 효과음(uisfx.c) — 사무쇼2 메뉴 소리(커서 0x0E · 결정 0x02 · 뒤로 0x06)를 native 가 합성해 오디오 콜백에서 게임 소리 위에 더한다
++       (코어가 멈춰 있어도 남 · 스트림이 닫히면(onPause) 안 남 · 미디어 음량을 따름). 메뉴가 보이거나 메뉴 멈춤 중일 때만 받는다(false = 안 받음).
++       아무 스레드 · 옛 native 면 UnsatisfiedLinkError(부르는 쪽이 받아 소리 없이) */
++    public static final int UI_SFX_STOP = 0, UI_SFX_CURSOR = 1, UI_SFX_SELECT = 2, UI_SFX_BACK = 3;
++    public static native boolean nativeUiSfx(int kind);
+ }
+diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+index 75cc9b7..4436f44 100644
+--- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
+@@ -186,8 +186,8 @@ public class EmuActivity extends Activity {
+             @Override public void onScreenDrop() { persistScreen(); }
+             /* 메뉴가 열려 있는 동안 게임을 멈춘다 — 고르는 사이 맞지 않게(Delta 의 멈춤 메뉴). 옵션 창이 떠 있으면 그 창이 멈춤을 쥔다 */
+             @Override public void onMenu(boolean open) {
+-                if (open) { releasePhysical(); refreshSlotInfo(); }
+-                if (fdView != null && fdWanted) fdView.setVisibility(open ? View.GONE : View.VISIBLE);   /* 프레임 미터가 버튼 아래 줄에 서면 메뉴 칸(저장·로드) 위를 덮는다 — 메뉴 동안 숨김 */
++                if (open) { releasePhysical(); refreshSlotInfo(); cheatCellSync(); }
++                if (fdView != null && fdWanted) fdView.setVisibility(open || sheetUp() ? View.GONE : View.VISIBLE);   /* 프레임 미터가 버튼 아래 줄에 서면 메뉴 칸(저장·로드) 위를 덮는다 — 메뉴 동안 숨김(176: 창이 떠 있어도) */
+                 if (!loaded) return;
+                 Emu.nativeSetPaused(open || (sheet != null && sheet.isShowing()) || (leagueDlg != null && leagueDlg.isShowing())
+                         || (leagueId != null && leagueArmed && nativeDone() && postState() != 1)   /* 결판이 잡혀 정산을 기다리는 동안은 멈춘 채로(153: 승리 대사 중엔 닫으면 대사가 이어 돈다 — 끝은 native 걸쇠가 멈춘다) */
+@@ -584,10 +584,11 @@ public class EmuActivity extends Activity {
+             sheet.cheatRom = new File(orig);                   /* 치트 «세이브에 남기기» — 세이브 보관 이름 */
+             sheet.leagueSession = ranked();                    /* 168: 리그 판 — 치트 창에 올카드 줄 없음 */
+             if (game != null && Cheats.GAME.equals(game.id) && !cheatOk) sheet.cheatOff = "이 롬 판에선 치트가 안 켜져요";
++            final int[] cg0 = cheatGame();
+             sheet.onClose = new Runnable() { @Override public void run() {
+                 Emu.nativeSetPaused(pad.isBarOpen());          /* 메뉴가 아직 열려 있으면 계속 멈춤 */
+                 applyDisplay(); pushCoreOpts();
+-                if (sheet != null && sheet.cheatsChanged() && pushCheats() && !ranked()) toast("치트 적용"); } };   /* 치트 창에서 바꾼 값 — 다시 열지 않고 바로 · 175: 리그 판은 글 없음(알약 «치트 ON») */
++                cheatClose(cg0, false); } };                   /* 치트 창에서 바꾼 값 — 다시 열지 않고 바로 · 175: 리그 판은 글 없음(알약 «치트 ON») */
+             break; }
+         case PadView.ACT_PICK:
+             goList();
+@@ -1902,8 +1903,8 @@ public class EmuActivity extends Activity {
+     /* ── 연습 대전 프레임 미터(SF6 식) ─────────────────────────────────
+        연습 메뉴 «표시: 프레임 · 둘 다» 일 때 경기 중에만 보인다. 자료는 practice.c 가 진짜 프레임마다 쌓고(런어헤드·프레임 생성의 숨은 프레임은 안 셈),
+        여기선 33ms 마다 판 번호가 바뀌었을 때만 다시 그린다(할당 없음).
+-       자리: 안내 띠와 같은 규칙 — 게임 그림 아래에서 패드 버튼과 안 겹치는 첫 줄(PadView.freeSpan, 칸 3dp 이상이 들어가는 폭) →
+-       없으면(가로 화면) 게임 그림 아래 끝에 반투명으로 겹친다(HUD 맨 아래 «PAUSE» 줄 · 분노 막대 아래 반). 안내 띠는 미터 아래로 비킨다.
++       자리(176): 폭은 게임 그림 폭 그대로 — 그림 바로 아래, 그 폭에 패드 버튼이 안 걸치는 줄(PadView.freeSpan) →
++       없으면 게임 그림 아래 끝에 반투명으로 겹친다(버튼이 그림 안으로 들어와 있으면 그 위로). 자세한 규칙은 placeFrameMeter. 안내 띠는 미터 아래로 비킨다.
+        손가락으로 끌면 그 자리를 기억(세로·가로 따로), 두 번 톡 = 자동 자리, 한 번 톡 = 색 설명 켜고 끄기. */
+     private FrameMeterView fdView;
+     private final byte[] fdCells = new byte[2 * FrameMeterText.VIEW];
+@@ -1922,7 +1923,7 @@ public class EmuActivity extends Activity {
+                         FrameLayout.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP | android.view.Gravity.LEFT));
+                 fdView.setOnTouchListener(fdDrag);
+             }
+-            fdView.setVisibility(pad != null && pad.isBarOpen() ? View.GONE : View.VISIBLE);
++            fdView.setVisibility(barOpen() || sheetUp() ? View.GONE : View.VISIBLE);
+             placeFrameMeter();
+             h.removeCallbacks(fdPoll); h.post(fdPoll);
+         } else {
+@@ -1933,6 +1934,9 @@ public class EmuActivity extends Activity {
+         placeHubBanner();
+     }
+ 
++    /** 176 — 창(설정·치트)이 떠 있나: 프레임 미터를 바처럼 숨긴다 */
++    private boolean sheetUp() { return sheet != null && sheet.isShowing(); }
++
+     private final Runnable fdPoll = new Runnable() { @Override public void run() {
+         if (!fdWanted || fdView == null || leaving || !loaded) return;
+         int v = Emu.nativePracticeFrames(fdCells, fdSum);
+@@ -1946,14 +1950,26 @@ public class EmuActivity extends Activity {
+         int W = root.getWidth(), H = root.getHeight();
+         if (W <= 0 || H <= 0) return;
+         float dp = getResources().getDisplayMetrics().density;
+-        boolean port = H > W;
+-        int edge = Math.round(8 * dp);
+-        int minW = Math.round(80 * 3 * dp + 40 * dp);            /* 칸 3dp × 80 + «상대» 이름 칸 */
+-        int maxW = Math.min(W - 2 * edge, port ? W - 2 * edge : Math.round(W * 0.62f));
+-        int left = -1, top = -1, width = maxW, hh = fdView.heightFor(maxW);
++        java.util.Map<String, String> st = Settings.load();
++        /* 176: 폭 = 게임 그림 폭 그대로 — 왼·오른 끝이 «보이는» 그림과 같다(유저 «프레임미터 가로길이 디스플레이랑 맞춰»). 전엔 화면 폭(세로 W−16dp · 가로 0.62W)이나
++           버튼 사이 빈 폭이라 그림과 어긋났다. 크기·자리를 바꾼 그림(scrPct·scrX·scrY)·회전도 placeScreen → 여기서 같은 규칙.
++           176 검토: 그림 = fdShown(정수배 맞춤(기본 켬)이면 GL 상자 gameBox 보다 작다 — 1080 폭 세로: 상자 1080 · 그림 160×6 = 960). 상자에 맞추면 미터가 양옆 60px 씩 삐져나왔다.
++           자리: ① 그림 바로 아래(4dp 띄움 · 버튼이 걸치면 24dp 까지 6dp 씩 내려 봄) — 그 줄의 [그림 왼끝, 오른끝]에 패드 버튼이 없어야(PadView.freeSpan 이 그 구간을 품음).
++           멀리 화면 아래(손이 덮는 줄)까지는 안 내려간다 — 그림에서 떨어지면 «그림과 같은 폭»이 안 보인다.
++           ② 없으면 그림 아래 끝에 겹침(반투명 · 같은 폭) — 버튼(가로 OPTION 알약 · 16:9 세로 SP)이 그림 아래로 들어와 있으면 그 위까지 올림(미터가 버튼을 덮어 못 누르게 되지 않게).
++              올려도 그림 아래 ⅓ 안까지만 — 더 올라가면 싸움꾼(그림 가운데)을 가린다.
++           ③ 그래도 버튼이 걸리면(그림을 버튼 줄까지 내려 둠 — 세로 70% 등) 그림 아래 더 먼 첫 빈 줄(같은 폭·같은 끝) — 미터는 손을 받으니 덮인 버튼(SP·A+B)은 안 눌린다(176 검토).
++           ④ 그 줄도 없으면(4:3 가로 등 — 그림이 화면 아래까지) 그림 아래 끝 그대로(옛 겹침 자리). 끌어 둔 자리는 가운데 점을 지키고 폭만 그림 폭.
++           그림이 칸 80개 × 2px 보다 좁으면(정수배 1× = 160px — 20% 로 줄인 그림) 미터는 그 최소 폭(FrameMeterView.minWidth)으로 그림 가운데에 — 칸이 잘리지 않게. */
++        int[] g = fdShown(st);
++        int gx0 = Math.max(0, Math.min(W, g[0])), gx1 = Math.max(0, Math.min(W, g[2]));
++        if (gx1 <= gx0) { gx0 = 0; gx1 = W; }                   /* 그림 자리가 아직 없다(첫 배치 전) — 화면 폭 */
++        int width = Math.max(gx1 - gx0, Math.min(W, fdView.minWidth()));
++        int hh = fdView.heightFor(width), left = Math.max(0, Math.min(W - width, (gx0 + gx1 - width) / 2)), top = -1, step = Math.max(1, Math.round(6 * dp));
++        int fx0 = left, fx1 = left + width;                      /* 버튼이 없어야 하는 가로 구간 = 미터 자리 */
+         boolean overlay = false;
+         float[] pos = null;
+-        String saved = Settings.load().get(fdKey());
++        String saved = st.get(fdKey());
+         if (saved != null) {
+             try { String[] a = saved.split(","); pos = new float[] { Float.parseFloat(a[0]), Float.parseFloat(a[1]) }; } catch (Exception e) { pos = null; }
+         }
+@@ -1962,24 +1978,18 @@ public class EmuActivity extends Activity {
+             left = Math.max(0, Math.min(W - width, Math.round(pos[0] * W - width / 2f)));
+             top = Math.max(0, Math.min(H - hh, Math.round(pos[1] * H - hh / 2f)));
+         } else {
+-            for (int y = gameBox[3] + Math.round(4 * dp); y < H; y += Math.round(6 * dp)) {
+-                if (y + hh > H - Math.round(4 * dp)) break;
+-                float[] sp = pad != null ? pad.freeSpan(y, y + hh) : new float[] { 0, W };
+-                int spW = Math.round(sp[1] - sp[0]) - 2 * edge;
+-                if (spW < minW) continue;
+-                width = Math.min(maxW, spW); hh = fdView.heightFor(width);
+-                float[] sp2 = pad != null ? pad.freeSpan(y, y + hh) : sp;          /* 좁아져 칸이 높아졌을 수 있다 — 그 높이로 다시 */
+-                if (Math.round(sp2[1] - sp2[0]) - 2 * edge < width) { width = maxW; hh = fdView.heightFor(maxW); continue; }
+-                left = Math.round((sp[0] + sp[1]) / 2f - width / 2f); top = y;
+-                break;
+-            }
+-            if (top < 0) {                                      /* 빈 줄이 없다 — 게임 그림 아래 끝에 겹쳐 */
+-                width = Math.min(maxW, gameBox[2] - gameBox[0] - Math.round(8 * dp));
+-                hh = fdView.heightFor(width);
+-                left = gameBox[0] + ((gameBox[2] - gameBox[0]) - width) / 2;
+-                top = gameBox[3] - hh - Math.round(2 * dp);
+-                overlay = true;
+-            }
++            int y0 = g[3] + Math.round(4 * dp), yEnd = H - Math.round(4 * dp);
++            for (int y = y0; y <= y0 + Math.round(24 * dp) && y + hh <= yEnd; y += step)
++                if (fdFree(y, y + hh, fx0, fx1)) { top = y; break; }
++            int y1 = g[3] - hh - Math.round(2 * dp);
++            if (top < 0)                                        /* ② 바로 아래 빈 줄이 없다 — 그림 아래 끝에 겹쳐(버튼이 들어와 있으면 그 위로 · 아래 ⅓ 안) */
++                for (int y = y1, yMin = g[1] + (g[3] - g[1]) * 2 / 3; y == y1 || y >= yMin; y -= step)
++                    if (fdFree(y, y + hh, fx0, fx1)) { top = y; overlay = true; break; }
++            if (top < 0)                                        /* ③ 그림 아래 끝도 버튼이 걸린다 — 더 아래 첫 빈 줄 */
++                for (int y = y0; y + hh <= yEnd; y += step)
++                    if (fdFree(y, y + hh, fx0, fx1)) { top = y; break; }
++            if (top < 0) { overlay = true; top = y1; }          /* ④ 옛 겹침 자리 */
++            top = Math.max(0, Math.min(H - hh, top));
+         }
+         fdView.setOverlay(overlay);
+         FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) fdView.getLayoutParams();
+@@ -1989,6 +1999,41 @@ public class EmuActivity extends Activity {
+         fdBox[0] = left; fdBox[1] = top; fdBox[2] = left + width; fdBox[3] = overlay || fdUserPos ? 0 : top + hh;   /* 겹친 자리·옮긴 자리는 안내 띠가 안 피함 */
+     }
+ 
++    /** 미터 줄 [t, b] × [l, r] 에 보이는 패드 버튼이 없나(PadView.freeSpan — 가장 넓은 빈 구간이 [l, r] 를 품음) */
++    private boolean fdFree(int t, int b, int l, int r) {
++        if (pad == null) return true;
++        float[] sp = pad.freeSpan(t, b);
++        return sp[0] <= l + 0.5f && sp[1] >= r - 0.5f;
++    }
++
++    /** 176 검토: 게임 그림이 화면에 실제로 그려지는 자리 {왼, 위, 오른, 아래} — native.c gl_draw 의 뷰포트 셈 그대로(GL 상자 = gameBox).
++     *  정수배 맞춤(설정 pocketcore_integer, 기본 켬)이면 도트 배수 s = min(상자 폭/160, 상자 높이/152) 로 그려 상자보다 작고 가운데(상자가 가로로 길면 세로도 가운데 ·
++     *  세로로 길면 위 7% 띄움). 끄면 상자를 채운다(코어 aspect = 프레임 폭/높이). 기둥(288폭) 프레임은 기둥까지 — 상자 밖은 잘린다. */
++    private int[] fdShown(java.util.Map<String, String> st) {
++        int[] o = { gameBox[0], gameBox[1], gameBox[2], gameBox[3] };
++        int gw = gameBox[2] - gameBox[0], gh = gameBox[3] - gameBox[1];
++        if (gw <= 0 || gh <= 0) return o;
++        int fw = Emu.nativeFrameWidth(), fh = Emu.nativeFrameHeight();
++        if (fw <= 0 || fh <= 0) { fw = 160; fh = 152; }
++        int sub = (fw >= 320 && fw % 160 == 0 && fh % (fw / 160) == 0 && fh / (fw / 160) >= 152 && fh / (fw / 160) <= 184) ? fw / 160 : 1;   /* 서기 그리기 4배 프레임 */
++        int lw = fw / sub, lh = fh / sub, gameW = (lw > 160 && lw <= 320) ? 160 : lw;
++        float ar = (float) lw / lh;
++        int dw, dh;
++        if (!"disabled".equals(st.get("pocketcore_integer"))) {
++            int s = Math.max(1, Math.min(gw / gameW, gh / lh));
++            dw = lw * s; dh = lh * s;
++        } else {
++            dh = gh; dw = (int) (gh * ar);
++            if (dh * gameW / lh > gw) { dh = gw * lh / gameW; dw = (int) (dh * ar); }
++        }
++        int y0 = gw > gh ? (gh - dh) / 2 : gh - dh - (int) (gh * 0.07f);   /* GL 아래 기준 */
++        if (y0 < 0) y0 = 0;
++        int x = (gw - dw) / 2, t = gh - (y0 + dh);
++        o[0] = gameBox[0] + Math.max(0, x); o[2] = gameBox[0] + Math.min(gw, x + dw);
++        o[1] = gameBox[1] + Math.max(0, t); o[3] = gameBox[1] + Math.min(gh, t + dh);
++        return o;
++    }
++
+     private final View.OnTouchListener fdDrag = new View.OnTouchListener() {
+         float x0, y0; int l0, t0; long lastUp = 0;
+         @Override public boolean onTouch(View v, android.view.MotionEvent e) {
+@@ -2378,6 +2423,7 @@ public class EmuActivity extends Activity {
+         private int sel = -1;
+         private Runnable onDismiss;
+         private Ask under;                           /* 이 카드가 뜰 때 떠 있던 카드 — 닫으면 그 카드가 다시 맨 위(먼저 카드를 닫지 않는다: 그 닫힘 리스너가 경기를 풀지 않게) */
++        private boolean sfx;                         /* 176: 덧판 메뉴 위 카드(내 이름) — 단추 옮김 = 커서 · 첫 단추 = 결정 · 다른 단추·취소 = 뒤로(메뉴 효과음) */
+         Ask(String title, String msg) {
+             float dp = getResources().getDisplayMetrics().density;
+             scrim = new FrameLayout(EmuActivity.this);
+@@ -2419,7 +2465,8 @@ public class EmuActivity extends Activity {
+         /** 단추 — r 은 누른 뒤(카드를 닫기 전에) 한 번. null = 닫기만(AlertDialog 의 null 리스너처럼) */
+         Ask btn(String label, final Runnable r) {
+             float dp = getResources().getDisplayMetrics().density;
+-            final TextView t = hubPill(label, new Runnable() { @Override public void run() { press(r); } });
++            final boolean first = list.isEmpty();
++            final TextView t = hubPill(label, new Runnable() { @Override public void run() { press(r, first); } });
+             android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                     android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
+             lp.topMargin = Math.round(6 * dp);
+@@ -2429,6 +2476,8 @@ public class EmuActivity extends Activity {
+             return this;
+         }
+         Ask cancelable(boolean c) { cancelable = c; return this; }
++        Ask sfx() { sfx = true; return this; }
++        private void sfx(int kind) { LeagueMenu mm = lgm; if (sfx && mm != null) mm.sfxNow(kind); }
+         /** 168(11) 글 칸 — 단추 줄 위에. 글자 키는 칸이 받는다(dispatchKeyEvent) · 키보드 «완료» = 첫 단추 */
+         private android.widget.EditText field;
+         Ask field(android.widget.EditText e) {
+@@ -2460,17 +2509,20 @@ public class EmuActivity extends Activity {
+             if (ask == this) { ask = under; while (ask != null && !ask.showing) ask = ask.under; }   /* 아래 카드 중 아직 떠 있는 것 */
+             if (onDismiss != null) onDismiss.run();
+         }
+-        void cancel() { if (cancelable) dismiss(); }
++        void cancel() { if (cancelable) { sfx(Emu.UI_SFX_BACK); dismiss(); } }
+         private boolean pressing;
+-        private void press(Runnable r) {
++        private void press(Runnable r, boolean first) {
+             if (!showing || pressing) return;        /* 두 번 눌러도 한 번만 */
++            sfx(first ? Emu.UI_SFX_SELECT : Emu.UI_SFX_BACK);
+             pressing = true;
+             try { if (r != null) r.run(); } finally { pressing = false; }
+             dismiss();                                /* AlertDialog 와 같은 차례 — 리스너 다음에 닫힘(닫힘 리스너가 리스너의 표시를 본다) */
+         }
+         private void select(int i) {
+             if (list.isEmpty()) return;
+-            sel = (i + list.size()) % list.size();
++            int s = (i + list.size()) % list.size();
++            if (s != sel) sfx(Emu.UI_SFX_CURSOR);
++            sel = s;
+             for (int k = 0; k < list.size(); k++) {
+                 TextView t = list.get(k);
+                 ((android.graphics.drawable.GradientDrawable) t.getBackground()).setStroke(k == sel ? Math.round(2 * getResources().getDisplayMetrics().density) : 0, 0xfffff3c4);
+@@ -3360,7 +3412,8 @@ public class EmuActivity extends Activity {
+         final MenuModel warm = lgmWarmModel(m);                         /* 165: 결판 장면을 한 번 미리(버림) — 정산 때 그림이 빨라 걸쇠를 안 놓치게 */
+         lgmRender(() -> {
+             LgmPages pg = lgmPages();
+-            final LgmPages.HudTag a = pg.hudTag(sd[0], false), b = pg.hudTag(sd[1], true);
++            final boolean dmg = (viewBits & 2) != 0;                     /* 176: 대미지 미터 숫자(줄 24~31 · x 64~87)와 안 겹치는 폭으로 */
++            final LgmPages.HudTag a = pg.hudTag(sd[0], false, LgmPages.tagRoom(false, dmg)), b = pg.hudTag(sd[1], true, LgmPages.tagRoom(true, dmg));
+             h.post(() -> {
+                 if (id.equals(lgmTagsId)) { lgmTagsPending = false; lgmTagsAt = android.os.SystemClock.uptimeMillis(); }
+                 if (!id.equals(leagueId) || leaving || leagueDone) return;
+@@ -3421,6 +3474,7 @@ public class EmuActivity extends Activity {
+         LeagueMenu mm = lgm;
+         boolean open = mm != null && (mm.isOpen() || lgmShown);
+         if (open != lgmOpen) lgmOpenUi(open);
++        cheatCellSync();                                                  /* 176: 바 «치트» 칸 — 결판 덧판 동안 숨김 */
+     }
+     private void lgmOpenUi(boolean open) {
+         lgmOpen = open;
+@@ -3884,7 +3938,7 @@ public class EmuActivity extends Activity {
+         e.setTextColor(0xfff3ead7); e.setTypeface(hubFont()); e.setTextSize(18);
+         final boolean[] done = { false };
+         Ask d = ask("내 이름", "한글·영문·숫자 " + League.NAME_MAX + "자까지 · 비우면 «나»\n이름표·VS 띠·결판·순위표에 나와요")
+-                .field(e)
++                .field(e).sfx()
+                 .btn("정하기", () -> {
+                     done[0] = true;
+                     String before = League.myNick();
+@@ -4013,7 +4067,7 @@ public class EmuActivity extends Activity {
+ 
+     /** 코어를 올린 뒤(loadCore — UI·GL 스레드 어느 쪽에서든) */
+     private void cheatSetup() {
+-        cheatOk = false; cheatActiveMask = 0;
++        cheatOk = false; cheatActiveMask = 0; viewBits = 0;
+         if (!loaded) { cheatPillPost(false); return; }
+         java.util.Map<String, String> m = Settings.load();
+         if (game == null || !Cheats.GAME.equals(game.id)) { cheatPillPost(false); return; }
+@@ -4025,19 +4079,43 @@ public class EmuActivity extends Activity {
+     }
+     private void cheatPillPost(final boolean on) { h.post(new Runnable() { @Override public void run() { if (pad != null) pad.setCheatPill(on); } }); }
+ 
+-    /** 168 §9 — «치트» 알약: 치트 창만 바로. 덧판 메뉴·확인 카드·컬러 만들기 창·다른 창이 떠 있으면 무시. 닫으면 값만 넣는다(코어를 다시 올리지 않음) */
++    /** 168 §9 — «치트» 알약(176: 바 «치트» 칸도): 치트 창만 바로. 확인 카드·컬러 만들기 창·다른 창이 떠 있으면 무시 —
++     *  게임 속 리그 덧판은 쉬는 메뉴(쉼·서랍·대기)면 그 위에 연다(cheatLgmOk). 닫으면 값만 넣는다(코어를 다시 올리지 않음) */
+     private void openCheatSheet() {
+-        if (!cheatOk || !loaded || leaving || ask != null || lookEditor != null || (sheet != null && sheet.isShowing())) return;
+-        if (lgm != null && (lgm.isOpen() || lgmShown)) return;
++        if (!cheatCellOk() || (sheet != null && sheet.isShowing())) return;
+         final String orig = getIntent().getStringExtra("rom");
+         padMask = 0; releasePhysical();
+         Emu.nativeSetPaused(true);
++        final int[] cg0 = cheatGame();
+         sheet = LaunchSheet.showCheats(this, game, orig != null ? new File(orig) : null, ranked());
++        if (fdView != null) fdView.setVisibility(View.GONE);             /* 176: 창이 떠 있는 동안 프레임 미터 숨김(바와 같게) */
+         sheet.onClose = new Runnable() { @Override public void run() {
+-            Emu.nativeSetPaused(barOpen() || hubCard != null || lgmShown);
+-            if (sheet != null && sheet.cheatsChanged()) pushCheats();     /* 175: 글 없음 — 알약 «치트 ON»·왼쪽 위 «치트» 가 보인다 */
++            Emu.nativeSetPaused(barOpen() || hubCard != null || lgmShown);   /* 덧판 쉼·대기는 native ov_hold 가 따로 멈춰 둔다 */
++            cheatClose(cg0, true);                                        /* 175: 알약 길은 글 없음 — 알약 «치트 ON»·왼쪽 위 «치트» 가 보인다 */
++            if (fdView != null && fdWanted) fdView.setVisibility(barOpen() ? View.GONE : View.VISIBLE);
+         } };
+     }
++    /** 176 검토 — 치트 창을 열 수 있나(알약·바 «치트» 칸 공통 · 설정 창은 따로 막지 않음). 바 칸은 못 열 때 숨긴다(cheatCellSync) — 눌러도 바만 접히던 칸 */
++    private boolean cheatCellOk() {
++        return cheatOk && loaded && !leaving && ask == null && lookEditor == null && cheatLgmOk();
++    }
++    /** 덧판이 없거나 쉬는 메뉴(쉼·쉼 확인·서랍·대기 — 코어는 ov_hold 로 멈춘 채, 창이 떠 있는 동안 키는 창으로)면 true.
++     *  결판(연속 대전 도화선이 돈다)·여는 중·닫는 중은 false */
++    private boolean cheatLgmOk() {
++        LeagueMenu mm = lgm;
++        if (mm == null) return true;
++        int s = mm.state();
++        if (s == LeagueMenu.ST_CLOSED || s == LeagueMenu.ST_ARMED) return !lgmShown;
++        return s == LeagueMenu.ST_PAUSE || s == LeagueMenu.ST_CONFIRM || s == LeagueMenu.ST_DRAWER || s == LeagueMenu.ST_LOBBY;
++    }
++    /** 바 «치트» 칸 보이기 — 바를 열 때·hubTick(덧판 상태)마다. 알약을 쓸 수 없는 판이면 칸은 원래 없다(setCheatPill) */
++    private void cheatCellSync() { if (pad != null) pad.setCheatCellOff(!cheatCellOk()); }
++    /** 176 검토 — 지금 옵션의 게임 치트 값(보기 «프레임 표시»·«대미지 미터» 뺌 · 리그 판은 올카드도 뺌) */
++    private int[] cheatGame() { return Cheats.gameVals(Settings.load(), ranked()); }
++    /** 치트 창을 닫을 때 — 바꾼 값을 넣고, 게임 치트가 바뀐 때만 «치트 적용»(보기만 바꿨으면 말없이) */
++    private void cheatClose(int[] before, boolean quiet) {           /* quiet = 알약 길(175: 글 없음) · 리그 판도 글 없음(175) */
++        if (sheet != null && sheet.cheatsChanged() && pushCheats() && !quiet && !ranked() && !java.util.Arrays.equals(before, cheatGame())) toast("치트 적용");
++    }
+     /** 168 §9 — 이 판에 먹은 치트(native 가 무장 때 비움 · 옛 native 면 0) */
+     private static boolean natCheatMatch = true;
+     private int cheatMatch() {
+@@ -4067,11 +4145,37 @@ public class EmuActivity extends Activity {
+                                                               넣으면 리그 세이브를 다시 읽는 순간(prog 03→06 · 카드 8 미만) 비트가 서서 매 판 «치트»로 적혔다. «세이브에 남기기»도 리그 세이브에 안 들어감 */
+         cheatFight = Cheats.fight(m);
+         cheatActiveMask = Cheats.activeMask(m, ranked());
++        final int vb0 = viewBits;
++        viewBits = Cheats.views(m);                                      /* 176 보기 — native 는 위 push 로 이미 받았다 */
++        final boolean retag = ((vb0 ^ viewBits) & 2) != 0;
++        h.post(new Runnable() { @Override public void run() {
++            h.removeCallbacks(viewPoll); h.post(viewPoll);
++            if (retag && lgmTagsId != null && lgmTagsId.equals(leagueId) && !leagueDone) lgmTagsArm();   /* 리그 경기 중 대미지 미터를 켜고 끔 — 이름표 폭 다시 */
++        } });
+         final boolean act = cheatActiveMask != 0;
+         h.post(new Runnable() { @Override public void run() { if (pad != null) pad.setCheatActive(act); } });   /* 168 고침: 알약 «치트 ON» — 리그 판의 경기 중 표시 */
+         return true;
+     }
+ 
++    /* ── 176 치트 보기 — «프레임 표시»·«대미지 미터»(practice.c 연습 표시 그대로) ─────────────────
++       숫자는 native 가 게임 HUD 칸에 그대로 그린다(연습과 같은 칸). 여기선 프레임 미터(연습과 같은 FrameMeterView · 자리·끌기·톡 그대로)만 켜고 끈다.
++       연습 허브가 도는 판(일반 판 «리그·연습» 켬)은 practicePoll 이 연습 «표시»와 함께 정하고, 안 도는 판(리그 판·«리그·연습» 끔)은 viewPoll 이.
++       게임 속 리그 덧판 메뉴(쉼·서랍·결판)가 떠 있으면 숨김 · 바·창이 떠 있으면 숨김(onMenu·sheetUp). 보기는 기록에 «치트»로 안 남는다(Cheats.activeMask). */
++    private volatile int viewBits = 0;                               /* 1 프레임 표시 · 2 대미지 미터 — pushCheats 가 정함(확인한 판만 · 아니면 0) */
++    private final Runnable viewPoll = new Runnable() { @Override public void run() {
++        if (leaving || !cheatOk || (viewBits & 1) == 0) { if (!practiceHub) setFrameMeter(false); return; }
++        if (!practiceHub && loaded) setFrameMeter(viewFdNow());
++        h.postDelayed(this, 150);                                    /* practicePoll 과 같은 박자 */
++    }};
++    /** native 가 지금 보기 미터를 켰나(1인·무한 대전 전투측 · 연습 흐름 밖) — 덧판 메뉴가 떠 있으면 false */
++    private boolean viewFdNow() {
++        if ((viewBits & 1) == 0 || !loaded || !cheatOk) return false;
++        if (lgm != null && (lgm.isOpen() || lgmShown)) return false;
++        if (hubCard != null || ask != null || (leagueDlg != null && leagueDlg.isShowing()) || postState() > 0) return false;   /* 176 검토: 옛 결과 카드·확인 카드·결판 뒤(정산 대기)도 */
++        int[] v = Emu.nativeViewStatus();
++        return v != null && v.length > 2 && v[2] == 1;
++    }
++
+     /** 1초마다 — 왼쪽 위 작은 «치트» 표시(먹는 치트가 있을 때 · 리그 이름표와 같은 자리, 색만 흐리게), «세이브에 남기기»가 세이브에 들어간 순간 한 번 알림 */
+     private final Runnable cheatPoll = new Runnable() { @Override public void run() {
+         if (leaving || !cheatOk) { showCheatTag(null); return; }
+@@ -4178,7 +4282,7 @@ public class EmuActivity extends Activity {
+             int[] hs = Emu.nativeLeagueHubStatus(), ps = Emu.nativePracticeStatus();
+             int[] dv = Emu.nativeHubDualStatus();                         /* 둘 다 꺼져 있어도 — 메뉴 화면(v[5])으로 띠를 고른다 */
+             if (practiceDual && dv != null && dv.length >= 5 && dv[2] == 1) { switchSession(true, false); return; }   /* 셋째 줄 «리그 대전» — 리그 판으로 */
+-            setFrameMeter(hs != null && ps != null && hs[0] == 4 && ps.length > 24 && ps[24] == 1);   /* 연습 메뉴 «표시: 프레임·둘 다» — 경기 중에만 */
++            setFrameMeter((hs != null && ps != null && hs[0] == 4 && ps.length > 24 && ps[24] == 1) || viewFdNow());   /* 연습 메뉴 «표시: 프레임·둘 다» — 경기 중에만 · 176 치트 «프레임 표시»(일반 경기) */
+             String t = (hs != null && ps != null) ? practiceText(hs[0], ps, dv) : null;
+             if (t == null && hs != null && hs[0] == 1) t = lookHint();   /* 허브는 타이틀 그대로 1인·무한 대전 — 고르기 화면이면 컬러 안내 */
+             /* 경기 중(메뉴 닫힘)엔 띠가 게임 그림 위로 올라가면(가로 화면 — 아래 자리가 없음) 숨긴다: 체력 막대·«2P» 를 연습 내내 가리지 않게 */
+diff --git a/app/src/main/java/com/dudu/pocketcore/FrameMeterView.java b/app/src/main/java/com/dudu/pocketcore/FrameMeterView.java
+index ded054e..9bb190e 100644
+--- a/app/src/main/java/com/dudu/pocketcore/FrameMeterView.java
++++ b/app/src/main/java/com/dudu/pocketcore/FrameMeterView.java
+@@ -43,8 +43,8 @@ public class FrameMeterView extends View {
+         label.setTextSize(android.util.TypedValue.applyDimension(android.util.TypedValue.COMPLEX_UNIT_SP, 10, c.getResources().getDisplayMetrics()));
+     }
+     private final Paint label = new Paint(Paint.ANTI_ALIAS_FLAG);
+-    /** 칸 높이 — 칸 폭 × 1.5(최소 5dp), 이름 글자(«나»·«상대»)보다 낮지 않게(낮으면 두 줄 이름이 겹친다 — 에뮬레이터 세로 화면에서 봄) */
+-    private float rowH(float cw) { return Math.max(Math.max(5 * dp, cw * 1.5f), -label.ascent() + label.descent()); }
++    /** 칸 높이 — 칸 폭 × 1.5(최소 5dp), 이름 글자(«나»·«상대»)보다 낮지 않게(낮으면 두 줄 이름이 겹친다 — 에뮬레이터 세로 화면에서 봄) · 이름 칸을 뺀 좁은 판은 글자 높이 안 봄 */
++    private float rowH(float cw, boolean names) { return Math.max(Math.max(5 * dp, cw * 1.5f), names ? -label.ascent() + label.descent() : 0); }
+ 
+     /** 새 자료 — 판 번호가 같으면 다시 그리지 않는다 */
+     public void set(byte[] c, int[] s, int v) {
+@@ -60,12 +60,19 @@ public class FrameMeterView extends View {
+ 
+     /** 폭 w 에서 필요한 높이(칸 높이 rowH) */
+     public int heightFor(int w) {
+-        float cw = cellW(w), ch = rowH(cw);
++        float cw = cellW(w), ch = rowH(cw, !narrow(w));
+         float th = -text.ascent() + text.descent();
+         return Math.round(6 * dp + 2 * ch + 2 * dp + 4 * dp + th * (legend ? 2.2f : 1.1f) + 4 * dp);
+     }
+     private float labelW() { return label.measureText("상대") + 6 * dp; }
+-    private float cellW(int w) { return Math.max(2, (w - 12 * dp - labelW()) / FrameMeterText.VIEW); }
++    /** 176: 미터 폭 = 게임 그림 폭이라 그림을 작게 줄이면 좁아진다 — 이름 칸(«나»·«상대»)과 옆 여백 6dp 를 두면 칸이 3px 아래로 내려갈 때는
++     *  이름 칸을 빼고 옆 여백을 2dp 로(위 줄 = 나 · 아래 줄 = 상대 차례는 그대로) — 칸을 되도록 넓게 */
++    boolean narrow(int w) { return (w - 12 * dp - labelW()) / FrameMeterText.VIEW < 3; }
++    private float padX(int w) { return narrow(w) ? 2 * dp : 6 * dp; }
++    float cellW(int w) { return Math.max(2, (w - 2 * padX(w) - (narrow(w) ? 0 : labelW())) / FrameMeterText.VIEW); }
++    /** 176 검토: 칸 80개가 2px 씩 다 들어가는 가장 좁은 폭(좁은 판 — 옆 여백 2dp · 이름 칸 없음). 그림이 이보다 좁으면(정수배 1× = 160px)
++     *  cellW 가 2 에 걸려 오른쪽 칸들이 미터 밖으로 잘렸다 → placeFrameMeter 가 이 폭으로 그림 가운데에 둔다 */
++    int minWidth() { return (int) Math.ceil(2 * FrameMeterText.VIEW + 4 * dp); }
+ 
+     @Override protected void onMeasure(int ws, int hs) {
+         int w = MeasureSpec.getSize(ws);
+@@ -79,10 +86,12 @@ public class FrameMeterView extends View {
+         fill.setStyle(Paint.Style.STROKE); fill.setStrokeWidth(Math.max(1, 1.5f * dp)); fill.setColor(EDGE);
+         c.drawRoundRect(r, 4 * dp, 4 * dp, fill);
+         fill.setStyle(Paint.Style.FILL);
+-        float x0 = 6 * dp + labelW(), cw = cellW(w), ch = rowH(cw), gap = cw >= 4 * dp ? 1 * dp : 0.5f * dp, y = 6 * dp;
++        boolean names = !narrow(w);
++        float px = padX(w), x0 = px + (names ? labelW() : 0), cw = cellW(w), ch = rowH(cw, names), y = 6 * dp;
++        float gap = cw >= 4 * dp ? 1 * dp : Math.min(0.5f * dp, cw * 0.25f);   /* 칸 사이 틈 — 좁은 칸은 칸 폭의 ¼ 까지만(색이 틈에 묻히지 않게) */
+         int len = sum[FrameMeterText.S_LEN];
+         for (int row = 0; row < 2; row++) {
+-            c.drawText(row == 0 ? "나" : "상대", 6 * dp, y + ch / 2 - (label.ascent() + label.descent()) / 2, label);
++            if (names) c.drawText(row == 0 ? "나" : "상대", px, y + ch / 2 - (label.ascent() + label.descent()) / 2, label);
+             for (int i = 0; i < FrameMeterText.VIEW; i++) {
+                 int v = cells[row * FrameMeterText.VIEW + i] & 0xFF;
+                 float L = x0 + i * cw, R = L + cw - gap;
+@@ -109,7 +118,10 @@ public class FrameMeterView extends View {
+         }
+         y += 2 * dp - text.ascent();
+         FrameMeterText.Part[] ps = FrameMeterText.parts(sum);
+-        float x = 6 * dp;
++        float x = px, avail = w - 2 * px;
++        float tw = ps.length == 0 ? text.measureText(FrameMeterText.HINT) : 0;
++        for (int i = 0; i < ps.length; i++) tw += (i > 0 ? text.measureText(" · ") : 0) + text.measureText(ps[i].text);
++        int keep = squeeze(c, tw, avail, px);                   /* 176: 좁은 그림 — 줄이 넘치면 가로로만 좁혀(0.6 배까지) 끝이 잘리지 않게 */
+         if (ps.length == 0) { text.setColor(0xA0E8DCC0); c.drawText(FrameMeterText.HINT, x, y, text); }
+         for (int i = 0; i < ps.length; i++) {
+             if (i > 0) { text.setColor(0x80E8DCC0); c.drawText(" · ", x, y, text); x += text.measureText(" · "); }
+@@ -118,15 +130,27 @@ public class FrameMeterView extends View {
+             c.drawText(ps[i].text, x, y, text); x += text.measureText(ps[i].text);
+             text.setAlpha(0xFF);
+         }
++        if (keep >= 0) c.restoreToCount(keep);
+         if (legend) {                                           /* 톡 = 색 설명 켜고 끄기 */
+             y += (-text.ascent() + text.descent()) * 1.1f;
+-            x = 6 * dp;
++            x = px;
++            float sq = -text.ascent() * 0.8f, lw = -6 * dp;
++            for (int i = 0; i < FrameMeterText.LEGEND.length; i++) lw += sq + 2 * dp + text.measureText(FrameMeterText.LEGEND[i]) + 6 * dp;
++            keep = squeeze(c, lw, avail, px);
+             for (int i = 0; i < FrameMeterText.LEGEND.length; i++) {
+-                float sq = -text.ascent() * 0.8f;
+                 fill.setColor(COL[FrameMeterText.LEGEND_K[i]]); c.drawRect(x, y - sq, x + sq, y, fill);
+                 x += sq + 2 * dp; text.setColor(TXT); c.drawText(FrameMeterText.LEGEND[i], x, y, text);
+                 x += text.measureText(FrameMeterText.LEGEND[i]) + 6 * dp;
+             }
++            if (keep >= 0) c.restoreToCount(keep);
+         }
+     }
++
++    /** 폭 need 인 줄이 avail 에 안 들어가면 왼끝 x0 을 축으로 가로만 좁힌다(0.6 배까지 — 그보다 좁으면 끝이 잘림). 돌려준 값으로 restoreToCount · 안 좁히면 −1 */
++    private static int squeeze(Canvas c, float need, float avail, float x0) {
++        if (need <= avail || need <= 0) return -1;
++        int k = c.save();
++        c.scale(Math.max(0.6f, avail / need), 1f, x0, 0);
++        return k;
++    }
+ }
+diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java b/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java
+index a9e0d44..224cd00 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java
++++ b/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java
+@@ -11,6 +11,7 @@ package com.dudu.pocketcore;
+  * 장면이 자리 잡기 전(readyT) A·B·방향·OPTION = 연출 건너뛰기만 · ▲▼ 첫 누름 한 칸, 18f 쥐면 5f 마다(60Hz 시계 — vsync 수 아님).
+  * 닫힌 동안 쉼 자격(setPauseEligible)이면 OPTION(비트 3)을 늘 지우고, 다른 버튼 없이 눌렀다 30f 안에 떼면(탭) 쉼을 연다.
+  * 화면 그림은 모두 장면(LgmPages)이 미리 만든 것 — 여기서는 올리고(층·창유리·쿼드·바탕·대본) 커서 줄의 팔레트만 바꾼다(recolor).
++ * 176 효과음: 사무쇼2 메뉴 소리 — 커서 옮김(목록 넘김·탭·무대 ◀▶) = 커서 · 고름 = 결정 · 뒤로·거둠·나가기 = 뒤로. 받지 않은 누름(연출 건너뛰기·무장 전·바쁨·못 고르는 줄)은 소리 없음.
+  */
+ final class LeagueMenu {
+     /* NGPC 버튼 = libretro 비트(Emu) */
+@@ -57,6 +58,8 @@ final class LeagueMenu {
+         default boolean tag(int side, byte[] pix, int w, int h, int x, int y, short[] pals) { return false; }
+         default void tagOn(boolean on) { }
+         default int[] tagStatus() { return null; }
++        /** 176 메뉴 효과음(Emu.UI_SFX_*) — 옛 native·시험 받침은 없음. 이것만 아무 스레드(내 이름 카드는 UI 스레드) */
++        default void sfx(int kind) { }
+         /** Emu.nativeOv* 로 — 옛 native(UnsatisfiedLinkError)면 null */
+         static OvPort emu() {
+             try { if (Emu.nativeOvStatus() == null) return null; } catch (UnsatisfiedLinkError e) { return null; }
+@@ -87,6 +90,11 @@ final class LeagueMenu {
+                     if (!natTag) return null;
+                     try { return Emu.nativeOvTagStatus(); } catch (UnsatisfiedLinkError e) { natTag = false; return null; }
+                 }
++                private boolean natSfx = true;          /* 효과음 native(176)가 없으면 끄고 소리 없이 */
++                @Override public void sfx(int kind) {
++                    if (!natSfx) return;
++                    try { Emu.nativeUiSfx(kind); } catch (UnsatisfiedLinkError e) { natSfx = false; }
++                }
+             };
+         }
+     }
+@@ -171,6 +179,8 @@ final class LeagueMenu {
+     private int listY, listTarget, listMin, listMax;
+     /* 터치 */
+     private int touchKind = 0, touchIdx = -1;   // DOWN 때 맞힌 것(1 줄 · 2 무대 왼쪽 · 3 무대 오른쪽 · 4 탭 · 5 칼집 밖)
++    /* 176 효과음 — 입력 한 번에 하나(센 것 = 게임 우선순위 커서 < 뒤로 < 결정) · feed·onTouch·back 끝에, 닫기(close)면 덧판을 지우기 전에 보낸다(native 는 메뉴가 보일 때만 받음) */
++    private int sfxReq;
+ 
+     LeagueMenu(OvPort ov, Actions actions, android.os.Handler ui) {
+         this.ov = ov; this.act = actions; this.ui = ui;
+@@ -394,10 +404,12 @@ final class LeagueMenu {
+                 && t >= curReadyT + AUTO_NEXT_FRAMES && !running) {
+             autoOff = true;
+             select(rowById(cur, MenuModel.ROW_NEXT));
++            sfxReq = 0;                                                  /* 저절로 고름 — 누름이 아니라 소리 없음 */
+             return 0;
+         }
+         if (guard) return 0;                                             /* 무장 전 — 연타가 고르지 않게(건너뛸 연출도 없으면 그냥 삼킴) */
+         handle(rise, held);
++        flushSfx();
+         return 0;
+     }
+ 
+@@ -433,23 +445,23 @@ final class LeagueMenu {
+                 if (!row.enabled) return;
+                 if (idx == cursor) select(idx);                       /* 같은 줄 다시 탭 = 결정(기권은 맥박으로 한 번 더 — 그 줄을 또 탭하면 기권) */
+                 else if (st == ST_CONFIRM) { collapseConfirm(); moveCursorTo(idx); }
+-                else if (st == ST_LOBBY && lobbyMode == 1) { collapseLobby(idx); }
+-                else if (st == ST_DRAWER && drawerConfirm != 0) { collapseDrawerConfirm(idx); }
++                else if (st == ST_LOBBY && lobbyMode == 1) { sfx(Emu.UI_SFX_CURSOR); collapseLobby(idx); }
++                else if (st == ST_DRAWER && drawerConfirm != 0) { sfx(Emu.UI_SFX_CURSOR); collapseDrawerConfirm(idx); }
+                 else moveCursorTo(idx);
+                 break;
+             }
+             case 2: case 3:
+-                if (st == ST_RESULT) post(() -> act.lgmStage(kind == 2 ? -1 : 1));
++                if (st == ST_RESULT) { sfx(Emu.UI_SFX_CURSOR); post(() -> act.lgmStage(kind == 2 ? -1 : 1)); }
+                 break;
+             case 4:
+                 if (st == ST_DRAWER && cur.tabs != null && idx < cur.tabs.length) switchTab(cur.tabs[idx].id);
+                 break;
+             case 5:
+-                if (st == ST_PAUSE) resume();
+-                else if (st == ST_LOBBY && lobbyMode == 0) resume();
++                if (st == ST_PAUSE || (st == ST_LOBBY && lobbyMode == 0)) { sfx(Emu.UI_SFX_BACK); resume(); }
+                 break;
+             default: break;
+         }
++        flushSfx();
+     }
+     /** UI 스레드 — 게임 px 가 메뉴가 받을 자리인가(줄·탭·칼집·무대 줄, 세로 화면 쉼은 칼집 밖도). 장면이 바뀔 때 GL 스레드가 고친 불변 스냅숏을 읽는다 */
+     boolean hitTest(int x, int y) {
+@@ -472,6 +484,7 @@ final class LeagueMenu {
+         if ((fl & Emu.OVF_RUNNING) != 0 && t >= 0 && t < curReadyT) { ov.cue(null, Emu.OV_SKIP_TO_END); return; }
+         if (guard) return;
+         handle(IN_B, 0);
++        flushSfx();
+     }
+     boolean isOpen() { int s = st; return s != ST_CLOSED && s != ST_ARMED; }
+     int state() { return st; }
+@@ -479,6 +492,7 @@ final class LeagueMenu {
+     boolean resultUp() { int s = st; return s == ST_ARMED || s == ST_RESULT || s == ST_QUIT || (s == ST_DRAWER && sResult != null) || (s == ST_CLOSING && sResult != null); }
+     /** 바로 닫기 — 덧판 지움(OV_CLR_ALL: 멈춤·막기도 풂). hubReturn·나가기 전에 GL 스레드에서 */
+     void close() {
++        flushSfx();                                                      /* 176: 뒤로·이어하기가 바로 닫으면 — 지우기 전에(지운 뒤엔 native 가 안 받음) */
+         ov.clear(Emu.OV_CLR_ALL);
+         resetClosed(prev);
+     }
+@@ -490,7 +504,7 @@ final class LeagueMenu {
+         sResult = sQuit = sPause = sConfirm = sDrawer = null; drawerTab = -1; drawerWaiting = false;
+         sLobby = sLobbyConfirm = sLobbyQuit = null; lobbyMode = 0; drawerConfirm = 0;
+         busy = false; afterClose = null; capture = false; ignore = 0; repDir = 0; autoOn = false;
+-        optDown = false; lastPatch = null; cursor = -1; armed = true; opening = false; quadHidden = false;
++        optDown = false; lastPatch = null; cursor = -1; armed = true; opening = false; quadHidden = false; sfxReq = 0;
+         updateHit();
+     }
+     /** 결판·쉼을 닫힌 데서(또는 기권 뒤 결판을) 열었다 — 무장 전으로 */
+@@ -604,35 +618,35 @@ final class LeagueMenu {
+         switch (st) {
+             case ST_RESULT:
+                 if (step != 0) moveCursor(step);
+-                if (lr != 0) { final int d = lr; post(() -> act.lgmStage(d)); }
++                if (lr != 0) { final int d = lr; if (sc.stageRow != null) sfx(Emu.UI_SFX_CURSOR); post(() -> act.lgmStage(d)); }
+                 if ((rise & IN_A) != 0) select(cursor);
+                 else if ((rise & IN_B) != 0) {
+                     int q = rowById(sc, MenuModel.ROW_QUIT);
+                     if (q >= 0 && cursor != q) moveCursorTo(q);       /* 처음: 커서만 «그만하기» */
+                     else if (q >= 0) select(q);                        /* 그 위에서 또: 그만하기(타이틀로 — 157 post: «그만할까요?» 목록 없음) */
+-                } else if ((rise & IN_OPT) != 0) openDrawer(firstTab());
++                } else if ((rise & IN_OPT) != 0) { sfx(Emu.UI_SFX_SELECT); openDrawer(firstTab()); }
+                 break;
+             case ST_QUIT:
+                 if (step != 0) moveCursor(step);
+                 if ((rise & IN_A) != 0) select(cursor);
+-                else if ((rise & IN_B) != 0) backToResult();
++                else if ((rise & IN_B) != 0) { sfx(Emu.UI_SFX_BACK); backToResult(); }
+                 break;
+             case ST_PAUSE:
+                 if (step != 0) moveCursor(step);
+                 if ((rise & IN_A) != 0) select(cursor);
+-                else if ((rise & (IN_B | IN_OPT)) != 0) resume();
++                else if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); resume(); }
+                 break;
+             case ST_CONFIRM:                                               /* 157 post: 기권 줄이 맥박 — A = 기권 · ▲▼ = 거두고 옮김 · B/OPTION = 거둠 */
+                 if (step != 0) { collapseConfirm(); moveCursor(step); break; }
+                 if ((rise & IN_A) != 0) select(cursor);
+-                else if ((rise & (IN_B | IN_OPT)) != 0) collapseConfirm();
++                else if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); collapseConfirm(); }
+                 break;
+             case ST_DRAWER:
+-                if (drawerWaiting) { if ((rise & (IN_B | IN_OPT)) != 0) closeDrawer(); break; }
++                if (drawerWaiting) { if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); closeDrawer(); } break; }
+                 if (drawerConfirm != 0) {                                  /* 168 리그 탭 두 번 묻기 펼침 — A = 그 일 · ▲▼ = 거두고 옮김 · B/OPTION/◀▶ = 거둠 */
+-                    if (step != 0) { int to = Math.floorMod(cursor + step, Math.max(1, sc.rows.length)); collapseDrawerConfirm(to); break; }
++                    if (step != 0) { int to = Math.floorMod(cursor + step, Math.max(1, sc.rows.length)); if (to != cursor) sfx(Emu.UI_SFX_CURSOR); collapseDrawerConfirm(to); break; }
+                     if ((rise & IN_A) != 0) select(cursor);
+-                    else if ((rise & (IN_B | IN_OPT)) != 0 || lr != 0) collapseDrawerConfirm(cursor);
++                    else if ((rise & (IN_B | IN_OPT)) != 0 || lr != 0) { sfx(Emu.UI_SFX_BACK); collapseDrawerConfirm(cursor); }
+                     break;
+                 }
+                 if (lr != 0) switchTab(nextTab(drawerTab, lr));
+@@ -645,18 +659,18 @@ final class LeagueMenu {
+                     } else scrollList(step);
+                 }
+                 if ((rise & IN_A) != 0 && sc.rows != null && sc.rows.length > 0) select(cursor);
+-                else if ((rise & (IN_B | IN_OPT)) != 0) closeDrawer();
++                else if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); closeDrawer(); }
+                 break;
+             case ST_LOBBY:
+                 if (lobbyMode == 1) {                                      /* 기권 펼침 — A = 기권 · ▲▼ = 거두고 옮김 · B/OPTION = 거둠 */
+-                    if (step != 0) { int to = Math.floorMod(cursor + step, Math.max(1, sc.rows.length)); collapseLobby(to); break; }
++                    if (step != 0) { int to = Math.floorMod(cursor + step, Math.max(1, sc.rows.length)); if (to != cursor) sfx(Emu.UI_SFX_CURSOR); collapseLobby(to); break; }
+                     if ((rise & IN_A) != 0) select(cursor);
+-                    else if ((rise & (IN_B | IN_OPT)) != 0) collapseLobby(cursor);
++                    else if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); collapseLobby(cursor); }
+                     break;
+                 }
+                 if (step != 0) moveCursor(step);
+                 if ((rise & IN_A) != 0) select(cursor);
+-                else if ((rise & (IN_B | IN_OPT)) != 0) { if (lobbyMode == 2) backToLobby(); else resume(); }
++                else if ((rise & (IN_B | IN_OPT)) != 0) { sfx(Emu.UI_SFX_BACK); if (lobbyMode == 2) backToLobby(); else resume(); }
+                 break;
+             default: break;
+         }
+@@ -670,6 +684,7 @@ final class LeagueMenu {
+         switch (st) {
+             case ST_RESULT:
+                 resultCursor = i;
++                sfx(id == MenuModel.ROW_QUIT ? Emu.UI_SFX_BACK : Emu.UI_SFX_SELECT);   /* 그만하기 = 게임 GAME OPTION «おわり» 처럼 뒤로 */
+                 switch (id) {
+                     case MenuModel.ROW_NEXT: closeThen(() -> act.lgmNext(false)); break;
+                     case MenuModel.ROW_NEWCHAR: closeThen(() -> act.lgmNext(true)); break;
+@@ -680,12 +695,14 @@ final class LeagueMenu {
+                 }
+                 break;
+             case ST_QUIT:
++                sfx(Emu.UI_SFX_BACK);                                        /* 취소·나가기 */
+                 if (id == MenuModel.QUIT_CANCEL) { backToResult(); break; }
+                 setBusy();
+                 post(() -> act.lgmQuit(id));
+                 break;
+             case ST_PAUSE:
+                 pauseCursor = i;
++                sfx(Emu.UI_SFX_SELECT);
+                 switch (id) {
+                     case MenuModel.ROW_RESUME: resume(); break;
+                     case MenuModel.ROW_DRAWER: openDrawer(firstTab()); break;
+@@ -696,23 +713,27 @@ final class LeagueMenu {
+                 }
+                 break;
+             case ST_CONFIRM:
+-                if (id != MenuModel.ROW_FORFEIT) { collapseConfirm(); break; }
++                if (id != MenuModel.ROW_FORFEIT) { sfx(Emu.UI_SFX_BACK); collapseConfirm(); break; }
+                 if (now - confirmAt < CONFIRM_MIN) break;                    /* 첫 A 의 튐 — 안 받음 */
++                sfx(Emu.UI_SFX_SELECT);
+                 setBusy(); post(act::lgmForfeit);
+                 break;
+             case ST_LOBBY:
+                 if (lobbyMode == 2) {                                      /* 리그 나가기 — 내 게임 · 게임 목록 · 취소 */
++                    sfx(Emu.UI_SFX_BACK);
+                     if (id == MenuModel.QUIT_CANCEL) { backToLobby(); break; }
+                     setBusy(); post(() -> act.lgmQuit(id));
+                     break;
+                 }
+                 if (lobbyMode == 1) {
+-                    if (id != MenuModel.ROW_OPEN_FORFEIT) { collapseLobby(i); break; }
++                    if (id != MenuModel.ROW_OPEN_FORFEIT) { sfx(Emu.UI_SFX_BACK); collapseLobby(i); break; }
+                     if (now - confirmAt < CONFIRM_MIN) break;
++                    sfx(Emu.UI_SFX_SELECT);
+                     setBusy(); post(act::lgmOpenForfeit);
+                     break;
+                 }
+                 lobbyCursor = i;
++                sfx(Emu.UI_SFX_SELECT);
+                 switch (id) {
+                     case MenuModel.ROW_SEARCH: closeThen(act::lgmSearch); break;
+                     case MenuModel.ROW_RESUME_OPEN: closeThen(act::lgmResumeOpen); break;
+@@ -730,12 +751,13 @@ final class LeagueMenu {
+                     if (drawerConfirm == id) {
+                         if (now - confirmAt < CONFIRM_MIN) break;
+                         final int kind = id == LgmPages.LG_NEW_SEASON ? 1 : 2;
++                        sfx(Emu.UI_SFX_SELECT);
+                         setBusy(); post(() -> act.lgmSeason(kind));
+-                    } else openDrawerConfirm(id);
++                    } else { sfx(Emu.UI_SFX_SELECT); openDrawerConfirm(id); }
+                     break;
+                 }
+-                if (id == LgmPages.LG_MAIN) { closeThen(act::lgmMain); break; }
+-                if (id == LgmPages.LG_NAME) { setBusy(); post(act::lgmName); break; }
++                if (id == LgmPages.LG_MAIN) { sfx(Emu.UI_SFX_SELECT); closeThen(act::lgmMain); break; }
++                if (id == LgmPages.LG_NAME) { sfx(Emu.UI_SFX_SELECT); setBusy(); post(act::lgmName); break; }
+                 MenuModel.Prefs p = model.prefs, n = p;
+                 switch (id) {
+                     case LgmPages.SET_FX: n = p.withFx((p.fx + 1) % 3); break;
+@@ -745,6 +767,7 @@ final class LeagueMenu {
+                     default: break;
+                 }
+                 if (n != p) {
++                    sfx(Emu.UI_SFX_SELECT);                                  /* 설정 값 바꿈 = 게임 GAME OPTION ◀▶ 처럼 결정 */
+                     model = model.withPrefs(n);
+                     if (id == LgmPages.SET_AUTO) autoOff = true;            /* 이 결판에서는 켜지 않는다(바꾼 것도 입력) */
+                     final MenuModel.Prefs np = n;
+@@ -929,6 +952,7 @@ final class LeagueMenu {
+     }
+     private void switchTab(int tab) {
+         if (tab == drawerTab && sDrawer != null) return;
++        sfx(Emu.UI_SFX_CURSOR);
+         drawerTab = tab; drawerWaiting = true; drawerConfirm = 0;
+         if (model != null && model.prefs.rememberTab && model.prefs.lastTab != tab) {
+             model = model.withPrefs(model.prefs.withTab(tab));
+@@ -1083,7 +1107,9 @@ final class LeagueMenu {
+ 
+     /* 서랍 목록 넘기기 — 목표를 8px 씩, 화면은 vsync 마다 2px(쥐면 4px) */
+     private void scrollList(int step) {
+-        listTarget = Math.max(listMin, Math.min(listMax, listTarget + step * LIST_STEP));
++        int t = Math.max(listMin, Math.min(listMax, listTarget + step * LIST_STEP));
++        if (t != listTarget) sfx(Emu.UI_SFX_CURSOR);                   /* 끝에서 더 누르면 소리 없음 */
++        listTarget = t;
+     }
+     private void stepList(int held) {
+         if (cur == null || cur.l == null || listY == listTarget) return;
+@@ -1114,7 +1140,8 @@ final class LeagueMenu {
+         if (!fresh && i == cursor) return;
+         if (cursor >= 0 && cursor < sc.rows.length && cursor != i) { LgmPages.Row o = sc.rows[cursor]; ov.recolor(Emu.OV_W, o.c0, o.r0, o.c1 - o.c0 + 1, o.r1 - o.r0 + 1, o.palOff); }
+         LgmPages.Row r = sc.rows[i];
+-        if (fresh) for (int k = 0; k < sc.rows.length; k++) if (k != i) { LgmPages.Row o = sc.rows[k]; ov.recolor(Emu.OV_W, o.c0, o.r0, o.c1 - o.c0 + 1, o.r1 - o.r0 + 1, o.palOff); }
++        if (fresh) { for (int k = 0; k < sc.rows.length; k++) if (k != i) { LgmPages.Row o = sc.rows[k]; ov.recolor(Emu.OV_W, o.c0, o.r0, o.c1 - o.c0 + 1, o.r1 - o.r0 + 1, o.palOff); } }
++        else sfx(Emu.UI_SFX_CURSOR);                                     /* 사용자가 옮김(장면을 새로 올릴 때는 소리 없음) */
+         ov.recolor(Emu.OV_W, r.c0, r.r0, r.c1 - r.c0 + 1, r.r1 - r.r0 + 1, r.palOn);
+         int[] q = quadDef(sc, LgmPages.Q_CURSOR);
+         if (q != null) ov.quad(q[0], q[1], r.quadX, r.quadY, q[4], r.palOn, quadHidden ? q[6] & ~Emu.OV_Q_SHOW : q[6] | Emu.OV_Q_SHOW);
+@@ -1180,6 +1207,12 @@ final class LeagueMenu {
+         if (h != null) ov.pane(h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], true);
+     }
+     private void setBusy() { busy = true; busyT0 = now; }
++    /* 176 효과음 */
++    private void sfx(int kind) { if (sfxRank(kind) > sfxRank(sfxReq)) sfxReq = kind; }
++    private static int sfxRank(int k) { return k == Emu.UI_SFX_SELECT ? 3 : k == Emu.UI_SFX_BACK ? 2 : k == Emu.UI_SFX_CURSOR ? 1 : 0; }
++    private void flushSfx() { int k = sfxReq; sfxReq = 0; if (k != 0) ov.sfx(k); }
++    /** 메뉴 위에 뜬 안드로이드 카드(내 이름)의 단추 소리 — 바로 native 로(받는 문은 같다: 메뉴가 보이거나 멈춤일 때만). UI 스레드에서도(OvPort.sfx 는 native 한 줄) */
++    void sfxNow(int kind) { if (kind != 0) ov.sfx(kind); }
+     /** 동작 뒤 아무 일도 없었다(UI 가 못 받음) — 부른 장면을 끝 상태로 다시 */
+     private void recover() {
+         busy = false;
+diff --git a/app/src/main/java/com/dudu/pocketcore/LgmPages.java b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
+index 8f96db3..dc72458 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LgmPages.java
++++ b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
+@@ -1605,11 +1605,21 @@ final class LgmPages {
+      *  라운드 표지 P1 x0..12(이기면 ★ x0..6) · P2 x146..158(★ x152..158) · 히트 수 P1 x34..63 · P2 x98..127(그때는 native 가 비켜 줌).
+      *  P1 = 표지 뒤 x16 부터 왼쪽 맞춤 · P2 = 표지 앞 x142 까지 오른쪽 맞춤 · 한쪽 62px(가운데 80 을 안 넘음) */
+     static final int TAG_Y = 24, TAG_X_P1 = 16, TAG_X1_P2 = 142, TAG_MAXW = 62, HUD_GAP = 3;
++    /** 176 — 치트 «대미지 미터» 숫자 칸(practice.c dig_draw: 줄 3 칸 8~10 = 게임 x 64~87, 칸 10 오른쪽 맞춤 — 한 자리 x80.. · 두 자리 x72.. · 세 자리 x64..,
++     *  같은 줄 24~31). 켜져 있으면 이름표를 숫자 칸과 안 겹치는 폭으로 — native 비켜 주기 살핌이 이름표 둘레 1px 까지 보므로 그 1px 도 비운다:
++     *  P1 x16..70(55 — 두 자리까지) · P2 x89..142(54). 세 자리(100 넘는 콤보 — 드묾)는 P1 이름표가 비켜 주기로 잠깐 숨는다 */
++    static final int DMG_X2 = 72, DMG_X1 = 87;
++    static int tagRoom(boolean opp, boolean dmg) {
++        if (!dmg) return TAG_MAXW;
++        return Math.min(TAG_MAXW, opp ? TAG_X1_P2 - (DMG_X1 + 1) : (DMG_X2 - 1) - TAG_X_P1);
++    }
+     /** 강조(라운드 시작 2초) 닉 금빛 · 보통 닉 밝은 회색 */
+     static final int TAG_NICK_EMPH = 0x7DF, TAG_NICK = 0xBBB;
+     /** 이름표 «검객★1 닉…» — 티어 이름(갈무리7) + 작은 별(STAR5)·숫자(mini3)로 짧게(닉 자리를 늘림) · 티어 빛(배치는 수련생 빛 «배치» · 무쌍 «무쌍») ·
+      *  닉은 남는 폭에 «…»로. 강조(라운드 시작 2초) = 닉 금빛 · 티어 제 빛 → 보통 = 닉 밝은 회색 · 티어 빛을 그림자 쪽으로 ⅓. opp = 오른쪽(P2) */
+-    HudTag hudTag(MenuModel.Side s, boolean opp) {
++    HudTag hudTag(MenuModel.Side s, boolean opp) { return hudTag(s, opp, TAG_MAXW); }
++    /** maxW = 이름표 폭 상한(176: 대미지 미터를 켜면 tagRoom) */
++    HudTag hudTag(MenuModel.Side s, boolean opp, int maxW) {
+         if (s == null) return null;
+         TileCanvas cv = new TileCanvas(8, 1);
+         int t = s.placement ? 0 : Math.max(0, Math.min(7, s.tier));
+@@ -1623,7 +1633,7 @@ final class LgmPages {
+             label = name + "★" + st;
+         }
+         String nick = null;
+-        int nx = x + HUD_GAP, room = TAG_MAXW - nx;
++        int nx = x + HUD_GAP, room = maxW - nx;
+         if (room >= 12 && s.nick != null && !s.nick.isEmpty()) {
+             nick = fit(cover7(s.nick), room, ink.g7);
+             cv.text(nick, nx, 1, 2, ink.g7);
+@@ -1631,7 +1641,7 @@ final class LgmPages {
+         int w = 0;
+         for (int yy = 0; yy < 8; yy++) for (int xx = 0; xx < 64; xx++) if (cv.get(xx, yy) != 0 && xx + 1 > w) w = xx + 1;
+         if (w <= 0) return null;
+-        w = Math.min(w, TAG_MAXW);
++        w = Math.min(w, maxW);
+         HudTag g = new HudTag();
+         g.w = w; g.h = 8; g.y = TAG_Y; g.x = opp ? TAG_X1_P2 + 1 - w : TAG_X_P1;
+         g.px = new byte[w * 8];
+diff --git a/app/src/main/java/com/dudu/pocketcore/PadView.java b/app/src/main/java/com/dudu/pocketcore/PadView.java
+index 9fd2039..1ce1c81 100644
+--- a/app/src/main/java/com/dudu/pocketcore/PadView.java
++++ b/app/src/main/java/com/dudu/pocketcore/PadView.java
+@@ -148,18 +148,18 @@ public class PadView extends View {
+          상태(슬롯·저장·로드·리셋) · 설정·배치 · 나가기(목록·종료). 한 줄로 들어가면 한 줄(폴드 큰 화면), 좁으면 두 줄.
+        뺀 것: 샷(폰 화면 캡처로 충분) · 띠·앱보간·코어120 즉석 토글(설정에 있음, 실험용이었다) ·
+        화면 구석의 둥근 「목록」 버튼(메뉴 칸과 겹쳐 그려졌다 — 이제 메뉴 안 「목록」) */
+-    private final RectF[] util = new RectF[10];
++    private final RectF[] util = new RectF[11];
+     /* 「종료」= 게임을 닫고 고르는 창으로 (제보: 「롬」은 사실 종료 버튼인데 이름이 달랐다).
+        「배치」= 버튼 자리·크기 + 게임 화면 상자까지 한꺼번에 편집(제보: 「키」란 이름이 좁았다). */
+     /* 세 무리로 묶어 둔다 — 두 줄로 접힐 때 무리가 갈리지 않게 순서가 곧 배치다.
+          ① 상태  슬롯·저장·로드·샷·리셋
+          ② 이 게임(코어 기능)  띠 — 게임마다 있는 것만 칸이 생긴다 (기둥은 2026-09-07 폐기)
+          ③ 마무리  설정·배치·종료
+-         ④ 그때그때 칸  컬러 만들기·리그 대전(148) — 앞 칸 번호가 안 바뀌게 맨 끝에 붙인다 */
+-    private final String[] utilLabel = { "슬롯 1", "저장", "로드", "리셋", "설정", "버튼 배치", "목록", "종료", "컬러 만들기", "리그 대전" };
++         ④ 그때그때 칸  컬러 만들기·리그 대전(148)·치트(176) — 앞 칸 번호가 안 바뀌게 맨 끝에 붙인다 */
++    private final String[] utilLabel = { "슬롯 1", "저장", "로드", "리셋", "설정", "버튼 배치", "목록", "종료", "컬러 만들기", "리그 대전", "치트" };
+     /* 칸 아래 작은 줄 — 저장 칸 «빈 칸/덮어쓰기», 로드 칸 «3분 전/없음». 불러오기 전에 무엇을 불러오는지 보이게(2026-10-11) */
+-    private final String[] utilSub = new String[10];
+-    private final int[] utilAct = { ACT_SLOT, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_CFG, 0, ACT_PICK, ACT_QUIT, ACT_LOOK, ACT_LEAGUE };
++    private final String[] utilSub = new String[11];
++    private final int[] utilAct = { ACT_SLOT, ACT_SAVE, ACT_LOAD, ACT_RESET, ACT_CFG, 0, ACT_PICK, ACT_QUIT, ACT_LOOK, ACT_LEAGUE, ACT_CHEAT };
+     private static final int UTIL_EDIT = 5;   /* 「배치」 칸 = 편집 토글 (액션이 아니다) */
+     /* 「컬러 만들기」(사무쇼2 look) — 맨 끝 칸, 고르기 화면일 때만 보인다(EmuActivity 가 setLookCell). 앞 칸 번호(저장·로드 아래 줄 등)를 안 바꾸려고 끝에 붙였다 */
+     private static final int UTIL_LOOK = 8;
+@@ -167,6 +167,9 @@ public class PadView extends View {
+     /* 148 「리그 대전」(아래 줄 «랭크 매치») — 컬러 만들기 뒤 맨 끝 칸. 사무쇼2 일반 판에서만 보인다(EmuActivity.leagueCellSetup → setLeagueCell) */
+     private static final int UTIL_LEAGUE = 9;
+     private boolean leagueCell = false;
++    /* 176 「치트」 — 맨 끝 칸. «치트» 알약을 쓸 수 있는 판이면(사무쇼2 · 확인한 롬 — 리그 판도) 늘 보인다(알약을 배치에서 숨겨도). 누르면 알약과 같은 ACT_CHEAT */
++    static final int UTIL_CHEAT = 10;
++    private boolean cheatCellOff = false;    /* 176 검토: 지금은 치트 창을 못 엶(결판 덧판·확인 카드·컬러 만들기 창) — 칸을 잠시 숨김 */
+     private boolean hasCoreFg = false;
+     /* 168 — 리그 판(랭크) 바: 저장·로드·슬롯 칸 없음(숨김 — 눌러도 아무 일 없게) · 리셋 아래 줄 «저장 후 타이틀» · 메뉴 알약 길게 누르기(빠른 저장) 없음 */
+     private boolean rankedBar = false;
+@@ -364,10 +367,15 @@ public class PadView extends View {
+     }
+ 
+     /** 상단바 i번 칸이 이 게임에 존재하는가 — 「컬러 만들기」(고르기 화면)·「리그 대전」(사무쇼2 일반 판)만 그때그때, 나머지는 모든 게임에 있다(게임별 칸은 설정으로 옮겼다). */
+-    private boolean utilVisible(int i) {
+-        return i >= 0 && i < util.length && (i != UTIL_LOOK || lookCell) && (i != UTIL_LEAGUE || leagueCell)
+-                && !(rankedBar && (i == 0 || i == 1 || i == 2));     /* 168(3b): 리그 판엔 슬롯·저장·로드 칸이 없다 */
++    private boolean utilVisible(int i) { return i >= 0 && i < util.length && utilShown(i, lookCell, leagueCell, cheatPill && !cheatCellOff, rankedBar); }
++    /** 칸 i 가 보이나(정적 — 시험) · 168(3b): 리그 판엔 슬롯·저장·로드 칸이 없다 · 176: 치트 칸은 알약을 쓸 수 있는 판이면 */
++    static boolean utilShown(int i, boolean look, boolean league, boolean cheat, boolean ranked) {
++        return (i != UTIL_LOOK || look) && (i != UTIL_LEAGUE || league) && (i != UTIL_CHEAT || cheat)
++                && !(ranked && (i == 0 || i == 1 || i == 2));
+     }
++    /** 누르면 바를 접는 칸(정적 — 시험) — 목록·종료·리그 대전 = 판을 떠남 · 컬러 만들기 = 게임이 돌아야 미리보기 · 176 치트 = 창을 닫으면 바로 게임으로
++     *  (접기는 onAction 다음 — 치트 창이 이미 떠 있어 onMenu(false) 가 멈춤을 안 푼다) */
++    static boolean barFolds(int act) { return act == ACT_PICK || act == ACT_QUIT || act == ACT_LOOK || act == ACT_LEAGUE || act == ACT_CHEAT; }
+     /** 168(3b) — 리그 판 바: 슬롯·저장·로드 칸을 숨기고(바 배치가 개수로 다시 잡힘) 리셋 아래 줄 «저장 후 타이틀» · 메뉴 알약 길게 누르기 없음 */
+     public void setRankedBar(boolean on) {
+         if (rankedBar == on) return;
+@@ -390,7 +398,17 @@ public class PadView extends View {
+         if (cheatPill == on) return;
+         cheatPill = on;
+         if (!on) cheatPid = -1;
++        if (!on && barSel == UTIL_CHEAT) barSel = -1;
+         updateExclusion();
++        if (getWidth() > 0) layoutBar(getWidth(), getHeight());   /* 176: 바 «치트» 칸도 같이 */
++        invalidate();
++    }
++    /** 176 검토 — 바 «치트» 칸을 잠시 숨김(EmuActivity.cheatCellSync — 바를 열 때·덧판 상태가 바뀔 때). 전엔 눌러도 바만 접히고 창이 안 떴다 */
++    public void setCheatCellOff(boolean off) {
++        if (cheatCellOff == off) return;
++        cheatCellOff = off;
++        if (off && barSel == UTIL_CHEAT) barSel = -1;
++        if (getWidth() > 0) layoutBar(getWidth(), getHeight());
+         invalidate();
+     }
+     /** 「컬러 만들기」 칸을 보일지 — 사무쇼2 고르기 화면을 컬러 쪽이 쥐었을 때만(바가 열린 채 바뀌면 칸 자리를 다시 잡는다) */
+@@ -524,10 +542,10 @@ public class PadView extends View {
+             /* 148: 배치 편집 중 패드로 화면을 떠나는 칸(목록·종료·리그 대전)을 누르면 — 뒤로가기처럼 배치를 먼저 저장하고 끝낸다.
+                터치는 편집 중 칸이 안 눌려 해당 없다. 전엔 편집이 안 끝난 채 떠나 고친 배치가 날아갔다.
+                바는 연 채로 끝낸다 — 손잡이로 바를 접은 편집이어도 onMenu(false)(멈춤 풀기)가 동작보다 먼저 가지 않게(편집 아닐 때와 같은 차례) */
+-            if (edit && (act == ACT_PICK || act == ACT_QUIT || act == ACT_LEAGUE)) { barOpen = true; endEdit(); }
++            if (edit && (act == ACT_PICK || act == ACT_QUIT || act == ACT_LEAGUE || act == ACT_CHEAT)) { barOpen = true; endEdit(); }
+             if (listener != null) listener.onAction(act);
+-            if (act == ACT_PICK || act == ACT_QUIT || act == ACT_LOOK || act == ACT_LEAGUE) barOpen = false;   /* 컬러 만들기 = 게임이 돌아야 미리보기가 그려진다 · 리그 대전 = 판을 떠난다 */
+-            if (act == ACT_LOOK || act == ACT_LEAGUE) barSel = -1;
++            if (barFolds(act)) barOpen = false;   /* 컬러 만들기 = 게임이 돌아야 미리보기가 그려진다 · 리그 대전 = 판을 떠난다 · 치트 = 창 닫으면 바로 게임 */
++            if (act == ACT_LOOK || act == ACT_LEAGUE || act == ACT_CHEAT) barSel = -1;
+         }
+         menuChanged();
+         invalidate();
+@@ -818,7 +836,7 @@ public class PadView extends View {
+             }
+         } else if (barOpen || edit) {
+             fill.setColor(0x22ffffff);
+-            text.setTextSize(util[0].height() * 0.5f);
++            text.setTextSize(util[UTIL_EDIT].height() * 0.5f);      /* 176: 늘 있는 「배치」 칸 높이로 — 리그 판 바는 0번(슬롯) 칸이 없어 글 크기가 0 이었다(단순 모양) */
+             for (int i = 0; i < util.length; i++) {
+                 if (util[i].isEmpty()) continue;                     /* 이 프로필에 없는 기능 */
+                 boolean hl = (i == UTIL_EDIT && edit) || i == barSel;   /* 패드 커서 칸도 같은 강조색 */
+@@ -1137,7 +1155,7 @@ public class PadView extends View {
+                         if (listener != null) listener.onAction(ua);
+                         /* 순수 토글 — [≡]를 다시 눌러야 닫힌다. 저장·로드·샷은 연달아 쓰는데
+                            매번 다시 열어야 했다(제보). 다만 화면을 떠나는 「롬」만은 접는다(컬러 만들기도 — 창이 뜨는 동안 게임이 돌아야 한다). */
+-                        if (ua == ACT_PICK || ua == ACT_QUIT || ua == ACT_LOOK || ua == ACT_LEAGUE) { barOpen = false; barSel = -1; }
++                        if (barFolds(ua)) { barOpen = false; barSel = -1; }
+                         menuChanged();
+                         invalidate();
+                         return true;
