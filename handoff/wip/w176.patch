@@ -150,7 +150,7 @@ index bc4c00f..6c990d7 100644
     size_t sn = ok ? prac_side_make(side, buf, sz) : 0;
     uint8_t lside[LOOK_SIDE_MAX];         /* 경기 컬러 — 같은 잠금 안에서 */
 diff --git a/app/src/main/cpp/practice.c b/app/src/main/cpp/practice.c
-index 3a83942..d4e945b 100644
+index 3a83942..1f14fcc 100644
 --- a/app/src/main/cpp/practice.c
 +++ b/app/src/main/cpp/practice.c
 @@ -29,6 +29,7 @@
@@ -378,17 +378,22 @@ index 3a83942..d4e945b 100644
  int practice_take_exit(void)
  {
     pthread_mutex_lock(&P_mu);
-@@ -971,15 +1060,35 @@ void practice_forget(void)
- {
-    pthread_mutex_lock(&P_mu);
-    P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
-+   memset(&AV, 0, sizeof AV); AV.shown = AV.shown_side = AV.disp = -1;   /* 176 보기도 — 화면 램이 통째로 바뀌었으니 되돌리지 않고 잊는다 */
-    fd_reset(1);
-    practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
-    pthread_mutex_unlock(&P_mu);
+@@ -967,11 +1056,13 @@ int practice_take_exit(void)
+    return e;
  }
  
 +static int sv_win;                 /* 상태 저장 직전에 연습 메뉴 창이 열려 있었나 — practice_after_save 가 바로 다시 그린다 */
+ void practice_forget(void)
+ {
+    pthread_mutex_lock(&P_mu);
+    P.active = 0; P.menu = M_NONE; P.exit_req = 0; W.open = 0; W.npool = 0; W.fx_orig[0] = W.fx_orig[1] = -1;
+-   fd_reset(1);
++   memset(&AV, 0, sizeof AV); AV.shown = AV.shown_side = AV.disp = -1;   /* 176 보기도 — 화면 램이 통째로 바뀌었으니 되돌리지 않고 잊는다 */
++   fd_reset(1); sv_win = 0;
+    practice_in_block = 0; practice_in_or = 0; practice_opt_mask = 0;
+    pthread_mutex_unlock(&P_mu);
+ }
+@@ -979,7 +1070,25 @@ void practice_forget(void)
  void practice_before_save(void)
  {
     pthread_mutex_lock(&P_mu);
