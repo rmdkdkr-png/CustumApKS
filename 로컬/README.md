@@ -35,8 +35,11 @@ POCKETCORE=<pocketcore 클론> ANDROID_HOME=/opt/android-sdk SS2CORE=<ss2-sp-cor
 ```
 - 하네스 스크립트엔 클라우드 경로(`/tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad`)가 박혀 있어서, 고치지 않고 그 자리에 심볼릭 링크를 건다(`/home/user/pocketcore` · `/root/android-sdk` 도). WSL 을 다시 켜면 /tmp 가 비니 setup 을 한 번 더.
 - `w182` = 지금 판 트리 → pocketcore 클론을 가리킴.
-- 들어 있는 것: 스크립트·소스 9 416개(91 MB, 목록 `pc_harness_files.txt`) + 시험용 호스트 코어 .so(core182 = core181 + snd_only 등 — 리눅스 x86_64, WSL 에서 그대로 돎).
-  **안 넣은 것**: 롬 · 시험 결과(out/logs) · 옛 작업 트리(w149·w153 … — 옛 비교 시험 몇 개만 씀, 필요하면 `git worktree add` 로 그 커밋을).
+- 들어 있는 것(2판): 스크립트·소스 11 099개(117 MB, 목록 `pc_harness_files.txt`) · 하네스 안 심볼릭 링크 44개(`u182r/core181 → u182/core182`, `u182r/bin → u182/bin`, `…/nat/bin → ../../h/bin`, `…/render/mockdump → u157/impl/render/mockdump` 등) ·
+  시험용 호스트 코어 .so(core182 = core181 + snd_only 등 — 리눅스 x86_64, WSL 에서 그대로 돎) · host_base.so(381ece9 기준, 미리 구움) · 효과음 비교용 게임 소리 6개(`u182r/s/ref/game_*.wav` 등, t_uisfx 용 짧은 녹음).
+  sim 껍데기 `u182/sim/stub/android/app/Activity.java` 등(1판에서 `app/`·`src/` 폴더가 빠졌던 것) 포함 — android.jar 는 공식 platform 34 그대로, 껍데기가 클래스패스 앞이라 덮음.
+  **안 넣은 것**: 롬 · 세이브스테이트(.st) · 시험 결과(out/logs) · 옛 작업 트리(w149·w153 …, `w182` 도 — setup 이 pocketcore 클론으로 링크. 옛 비교 시험 몇 개만 씀, 필요하면 `git worktree add` 로 그 커밋을).
+- setup 은 묶음 sha 를 기억해서, 새 묶음을 당기면 다시 실행할 때 위에 덮어 푼다.
 - 롬: `roms.md5` 의 md5 와 같은 파일을 그 자리에(원판 JUE · 한글 bundled/101 · h1 · 소리 끈 _mute 판). setup 이 맞는지 찍어 줌. 없는 롬을 쓰는 시험만 실패.
 
 ## 4. 빌드·짧은 시험 (187 때 돌린 그대로)
