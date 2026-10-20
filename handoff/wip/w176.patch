@@ -1845,17 +1845,18 @@ index 9fd2039..1ce1c81 100644
                          invalidate();
                          return true;
 diff --git a/tools/check_golden.py b/tools/check_golden.py
-index 41520b5..fc27547 100644
+index 41520b5..5e408f6 100644
 --- a/tools/check_golden.py
 +++ b/tools/check_golden.py
-@@ -58,6 +58,12 @@ checks.append(('identity 게임 수 9 (lbj 포함)', len(D['games']) == 9))
+@@ -58,6 +58,13 @@ checks.append(('identity 게임 수 9 (lbj 포함)', len(D['games']) == 9))
  checks.append(('features 핵심', D['games']['svc']['features'] == ['sp:svc','band','basics','actshow','fastcd:svc']
                 and D['games']['kofr2']['features'] == ['sp:kof','fastcd:kof']
                 and D['games']['ss2']['features'] == ['sp:ss2','comm','sides']))
 +# 177: 컬러 표 — native look_tab.h 와 Java LookTab.java 가 같은 값인가(tools/check_looktab.py — 혼자 돌려도 됨)
-+from check_looktab import look_tables_equal as _look_tables
++from check_looktab import look_tables_equal as _look_tables, presets_style_free as _look_free
 +try:
 +    checks.append(('컬러 표 look_tab.h == LookTab.java (177)', _look_tables()))
++    checks.append(('컬러 프리셋 2~15 검질 무관 — 나찰 == 수라 (176c)', not _look_free()))
 +except (OSError, ValueError, AttributeError) as e:
 +    checks.append(('컬러 표 look_tab.h == LookTab.java (177): %s' % e, False))
  bad = 0
@@ -1863,10 +1864,10 @@ index 41520b5..fc27547 100644
      print(('  ✓ ' if ok else '  ✗✗ ') + name); bad += (not ok)
 diff --git a/tools/check_looktab.py b/tools/check_looktab.py
 new file mode 100644
-index 0000000..8462614
+index 0000000..5c1e7d4
 --- /dev/null
 +++ b/tools/check_looktab.py
-@@ -0,0 +1,21 @@
+@@ -0,0 +1,32 @@
 +#!/usr/bin/env python3
 +"""177: 컬러 표 대조 — native look_tab.h 와 Java LookTab.java(둘 다 tools/look_gen.py 산출)가 같은 값인가.
 +상대 컬러 쉼 견본(MenuModel — 대신 색 세 색)이 native 판정(look.c OPP_FB)과 어긋나지 않게. 사용: python3 tools/check_looktab.py (같으면 0)"""
@@ -1884,10 +1885,21 @@ index 0000000..8462614
 +    nrow = int(re.search(r'#define LOOK_NROW (\d+)', h).group(1))
 +    return th == tj and dh == dj and len(th) == nrow * 2 * 16 * 3 and nrow == int(re.search(r'NROW = (\d+)', j).group(1))
 +
++def presets_style_free():
++    """176c(175 사용자 보고 «수라나찰 변경시 컬러고정은 안되네 — 하오마루»): 캐릭터 0~13 × 프리셋 2~15 는 나찰 값 == 수라 값.
++    돌려줌: 다른 칸 목록 [(캐릭터, 프리셋)] — 비어야 한다(0 기본·1 2P색만 검질마다 게임 색)"""
++    import re
++    h = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'app', 'src', 'main', 'cpp', 'look_tab.h'), encoding='utf-8').read()
++    a = h.index('LOOK_TAB['); t = [int(x, 16) for x in re.findall(r'0x([0-9A-Fa-f]+)', h[a:h.index('};', a)])]
++    tri = lambda r, s, i: t[((r * 2 + s) * 16 + i) * 3:((r * 2 + s) * 16 + i) * 3 + 3]
++    return [(r, i) for r in range(14) for i in range(2, 16) if tri(r, 1, i) != tri(r, 0, i)]
++
 +if __name__ == '__main__':
 +    ok = look_tables_equal()
 +    print('look_tab.h == LookTab.java: %s' % ('같음' if ok else '다름 — tools/look_gen.py 로 둘 다 다시 만들 것'))
-+    sys.exit(0 if ok else 1)
++    bad = presets_style_free()
++    print('프리셋 2~15 검질 무관(캐릭터 0~13): %s' % ('그렇다' if not bad else '다른 칸 %d — %s' % (len(bad), bad[:8])))
++    sys.exit(0 if ok and not bad else 1)
 diff --git a/tools/colorgen.py b/tools/colorgen.py
 new file mode 100644
 index 0000000..497f60c
