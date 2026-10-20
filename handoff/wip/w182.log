@@ -1,1 +1,2 @@
+fa07518 182 앱: 메뉴 중 배경음 유지 · 4배속 넘김에도 소리 · 연습 메뉴·확인 카드·찾기 겹창 효과음 · 멈출 때 딸깍 없애기
 d18e429 182 코어 패치 zzzzzzzzzzzzz_snd_only — 메인 CPU 를 세운 채 소리 CPU 만 돌리기(retro_ngp_sndonly_run) + 소리만 1/d 빠르기(retro_ngp_snd_div)
