@@ -922,7 +922,7 @@ index 26a0684..2e5f164 100644
      public static native int[]  nativeLookTriples(int ch, int sty);
      /* 치트(cheat.c) — 사무쇼2 일반 세션. key = Cheats.KEYS 순서(CH_*), value 0..n — 다음 진짜 프레임부터 먹는다(코어를 다시 올리지 않음).
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 75cc9b7..2a13381 100644
+index 75cc9b7..7f2e814 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -1205,8 +1205,12 @@ public class EmuActivity extends Activity {
@@ -1027,7 +1027,28 @@ index 75cc9b7..2a13381 100644
          c.board = now != null ? BoardCache.get(now, true, 4) : null;
          c.boardBefore = lgmMeBefore != null ? BoardCache.get(lgmMeBefore, true, 4) : null;
          return c;
-@@ -4158,6 +4188,7 @@ public class EmuActivity extends Activity {
+@@ -3996,12 +4026,19 @@ public class EmuActivity extends Activity {
+             final int a = act == android.view.MotionEvent.ACTION_DOWN ? LeagueMenu.TOUCH_DOWN : act == android.view.MotionEvent.ACTION_UP ? LeagueMenu.TOUCH_UP
+                     : act == android.view.MotionEvent.ACTION_MOVE ? LeagueMenu.TOUCH_MOVE : act == android.view.MotionEvent.ACTION_CANCEL ? LeagueMenu.TOUCH_CANCEL : -1;
+             if (a < 0) return true;
+-            if (a == LeagueMenu.TOUCH_DOWN && !mm.hitTest(gx, gy)) return false;
++            if (a == LeagueMenu.TOUCH_DOWN && (padOwnsDown(v, e) || !mm.hitTest(gx, gy))) return false;   /* u177(B): 그림 위에 놓인 패드 단추(십자·버튼·알약)는 패드가 먼저 — 덧판은 그 밖만 */
+             if (a != LeagueMenu.TOUCH_MOVE) gl.queueEvent(() -> mm.onTouch(gx, gy, a));
+             return true;
+         }
+     };
+ 
++    /** u177(B) — 이 누름을 패드가 받을 자리인가. 패드는 root 를 꽉 채우고(0,0) 덧판 터치 층은 그림 자리에 놓이므로 패드 좌표 = 층 좌표 + 층 자리.
++     *  세로에서 그림을 키우거나 패드를 올리면 ▲ 등이 그림 안에 들어오는데, 쉼·대기의 «칼집 밖 탭 = 이어하기»가 그 누름을 먹어 메뉴가 닫혔다 */
++    private boolean padOwnsDown(View v, android.view.MotionEvent e) {
++        PadView p = pad;
++        return p != null && p.getVisibility() == View.VISIBLE && p.ownsDown(e.getX() + v.getLeft(), e.getY() + v.getTop());
++    }
++
+     /* ── 치트(cheat.c · Cheats) ─────────────────────────────────────────
+        일반 세션이고 사무쇼2이며 판정 주소를 확인한 롬 판(연습과 같은 판 확인 — practiceRomOk)이면 options 값을 native 에 넣는다.
+        리그 판(랭크전 한 경기·게임 속 리그)은 잠근다 — 값을 아예 안 넣고, native 도 허브 종류를 보고 한 번 더 막는다(기록이 깨끗하게).
+@@ -4158,6 +4195,7 @@ public class EmuActivity extends Activity {
          Emu.nativeHubDual(practiceDual);
          if (want) practiceAutoUsed = true;
          practiceHub = true;
@@ -1035,7 +1056,7 @@ index 75cc9b7..2a13381 100644
          h.post(new Runnable() { @Override public void run() {
              if (hubBanner == null) { addHubBanner(); hubBanner.setVisibility(View.GONE); }
              h.removeCallbacks(practicePoll); h.postDelayed(practicePoll, 200);
-@@ -4207,8 +4238,11 @@ public class EmuActivity extends Activity {
+@@ -4207,8 +4245,11 @@ public class EmuActivity extends Activity {
              if (dv != null && dv.length >= 5 && dv[0] == 1 && dv[3] == 1)
                  return "◀▶ 연습 대전 / 리그 대전  ·  A 시작" + (dv[1] == 0 ? "\n리그는 따로 세이브 판에서 해요" : "");
              return null;
@@ -1489,6 +1510,36 @@ index 0000000..6fdb102
 +        return new Col(idx, t, j.optString("n", ""), fx);
 +    }
 +}
+diff --git a/app/src/main/java/com/dudu/pocketcore/PadView.java b/app/src/main/java/com/dudu/pocketcore/PadView.java
+index 9fd2039..0e66929 100644
+--- a/app/src/main/java/com/dudu/pocketcore/PadView.java
++++ b/app/src/main/java/com/dudu/pocketcore/PadView.java
+@@ -1033,6 +1033,25 @@ public class PadView extends View {
+         return (float) Math.sqrt(dx * dx + dy * dy);
+     }
+ 
++    /** u177(B) — 이 점의 누름(DOWN)을 패드가 받나: onTouchEvent DOWN 의 차례 그대로(되돌리기 칩 · 메뉴 알약 · 열린 바·배치 = 전부 ·
++     *  숨긴 버튼 = 아님 · 치트 알약 · 배속 · 목록 · 십자 잡기 1.35R · 버튼 1.25R · OPTION 알약). 덧판 메뉴 터치 층(EmuActivity.lgmTouchL)이
++     *  게임 그림 위에 놓인 패드 단추를 먹지 않게 — 그 밖의 그림 자리는 덧판이 받는다 */
++    public boolean ownsDown(float x, float y) {
++        if (fx == null || getWidth() <= 0 || getHeight() <= 0) return false;
++        if (!undoChip.isEmpty() && undoLive() && !(barOpen || edit) && undoChip.contains(x, y)) return true;
++        if (handleHit(x, y)) return true;
++        if (barOpen || edit) return true;
++        if (hidesTouch()) return false;
++        if (cheatPid < 0 && cheatDownHit(x, y)) return true;
++        int fi = ffIndex();
++        if (fi >= 0 && dist(x, y, cx(fi), cy(fi)) < radOf(fi) * 1.3f) return true;
++        int xi = exitIndex();
++        if (xi >= 0 && dist(x, y, cx(xi), cy(xi)) < radOf(xi) * 1.3f) return true;
++        int di = dpadIndex();
++        if (di >= 0 && dist(x, y, cx(di), cy(di)) < radOf(di) * 1.35f) return true;
++        return hitButtons(x, y) != 0;
++    }
++
+     @Override public boolean onTouchEvent(MotionEvent e) {
+         int act = e.getActionMasked();
+         /* 버튼을 숨긴 동안은 눌림(DOWN)만 메뉴 알약·유틸 바·«다시 꺼내기»용으로 받는다 */
 diff --git a/app/src/main/java/com/dudu/pocketcore/RankUi.java b/app/src/main/java/com/dudu/pocketcore/RankUi.java
 index f0b02ad..81e51b8 100644
 --- a/app/src/main/java/com/dudu/pocketcore/RankUi.java
