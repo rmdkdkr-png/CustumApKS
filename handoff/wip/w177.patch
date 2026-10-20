@@ -922,7 +922,7 @@ index 26a0684..2e5f164 100644
      public static native int[]  nativeLookTriples(int ch, int sty);
      /* 치트(cheat.c) — 사무쇼2 일반 세션. key = Cheats.KEYS 순서(CH_*), value 0..n — 다음 진짜 프레임부터 먹는다(코어를 다시 올리지 않음).
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 75cc9b7..a6305e4 100644
+index 75cc9b7..7bfe193 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -1205,8 +1205,12 @@ public class EmuActivity extends Activity {
@@ -1070,8 +1070,8 @@ index 75cc9b7..a6305e4 100644
 +                return;
 +            }
 +            BoardCache.invalidate();
-+            if (kind != 3) League.sessionReset();
-+            else { lgmMeBefore = null; lgmMeAfter = null; rankPick = null; }  /* 179: 옛 리그의 나·뽑은 상대 사본 버림(대기 사본이 새 씨앗 순위표를 옛 LP 로 데우지 않게) */
++            League.sessionReset();                                            /* 179 리뷰 R1: 초기화도 — 초기화 기록엔 세션이 없어(wipedDb) 허브가 살아 있는 동안 그 뒤 판이 «오늘»·rank0 에 안 셈해졌다(noteSessionMem 은 세션이 있어야) */
++            if (kind == 3) { lgmMeBefore = null; lgmMeAfter = null; rankPick = null; }   /* 179: 옛 리그의 나·뽑은 상대 사본 버림(대기 사본이 새 씨앗 순위표를 옛 LP 로 데우지 않게) */
 +            hubResumePending = false;                                         /* 175: 알림 글 없음 */
 +            if (inMatch) {                                                    /* 179: 이 판의 경기는 닫혔거나(기권패·결판) 지워졌다 — 무장 풀고 타이틀로 */
 +                leagueDone = true; Emu.nativeLeagueDisarm();
@@ -1140,18 +1140,19 @@ index 75cc9b7..a6305e4 100644
          case 4:   /* 좁은 띠(버튼 사이)에서도 줄이 접히지 않게 두 줄로 */
              if (ps.length > 1 && ps[1] != 0) return "↑↓ 고르기 · ←→ 바꾸기\nA 실행 · B 닫기";
 diff --git a/app/src/main/java/com/dudu/pocketcore/League.java b/app/src/main/java/com/dudu/pocketcore/League.java
-index b03c645..6d6b9b4 100644
+index b03c645..011b606 100644
 --- a/app/src/main/java/com/dudu/pocketcore/League.java
 +++ b/app/src/main/java/com/dudu/pocketcore/League.java
-@@ -122,6 +122,7 @@ final class League {
+@@ -122,6 +122,8 @@ final class League {
      private static boolean dbFresh;
      static synchronized JSONObject db() {
          if (db != null && !(dbFresh && file().exists())) return db;
-+        if (db == null) wipeResume();                       /* 179: 리그 초기화가 중간에 끊겼으면 마저(같은 결과) — 읽기 전에 */
++        wipeResume();                                       /* 179: 리그 초기화가 중간에 끊겼으면 마저(같은 결과) — 읽기 전에. 리뷰 R2: 권한 전에 빈 기록으로 시작했다가
++                                                               진짜 파일이 나타난 때(아래 dbFresh 길)도 — 안 그러면 옛 기록을 읽고 .wipe 가 남아, 그 뒤 쌓은 기록을 다음 실행이 지웠다 */
          if (db != null) {                                   /* 진짜 파일이 나타났다 */
              JSONObject seen = read(file());
              if (seen == null) seen = read(bak());
-@@ -1235,9 +1236,23 @@ final class League {
+@@ -1235,9 +1237,23 @@ final class League {
                          .put("av", String.format("%016x", AvatarGen.fnv1a64("av:" + p.id)));
              }
              pf.put("persona", p.persona);
@@ -1175,7 +1176,7 @@ index b03c645..6d6b9b4 100644
      static String nickOf(android.content.Context c, RankCore.Player p) { return pfOf(c, p).optString("nick", p.nick); }
  
      /* ── 매칭 ── */
-@@ -1291,6 +1306,7 @@ final class League {
+@@ -1291,6 +1307,7 @@ final class League {
              if (openMatch() != null || p == null || k == null || !oppSupported(p.ch, p.sty)) return null;
              RankCore.Me me = rankMe();
              JSONObject pf = pfOf(c, p);
@@ -1183,7 +1184,7 @@ index b03c645..6d6b9b4 100644
              JSONObject m = new JSONObject();
              m.put("id", java.util.UUID.randomUUID().toString());
              m.put("mode", "ranked");
-@@ -1311,12 +1327,14 @@ final class League {
+@@ -1311,12 +1328,14 @@ final class League {
              m.put("opp_snap", new JSONObject().put("nick", pf.optString("nick", p.nick)).put("ch", p.ch).put("sty", p.sty).put("label", v.label)
                      .put("lp", v.lp).put("mr", v.master ? v.mr : 0).put("title", pf.optString("title")).put("region", ProfileGen.regionLabel(pf))
                      .put("av", pf.optString("av")).put("persona", p.persona).put("mood", pf.optString("mood")).put("legacy", p.legacy));
@@ -1198,7 +1199,7 @@ index b03c645..6d6b9b4 100644
              pr.put("at", System.currentTimeMillis());
              trimPlayers(ps);
              JSONArray rm = rmatches();
-@@ -1798,6 +1816,100 @@ final class League {
+@@ -1798,6 +1817,100 @@ final class League {
          }
      }
  
@@ -1299,7 +1300,7 @@ index b03c645..6d6b9b4 100644
      /** 시즌을 바꾸기 전 랭크 «준비» 경기를 무효로(사용자가 스스로 그만둔 것 — miss 아님). 메모리만 — 저장은 호출자. 닫은 id.
       *  예전 칸(위쪽 matches)의 «준비»는 안 건드린다(점수 없음 — 리그 화면 voidReady 가 닫는다) */
      private static java.util.List<String> cancelReadyMem(String why) throws Exception {
-@@ -1831,8 +1943,11 @@ final class League {
+@@ -1831,8 +1944,11 @@ final class League {
  
      /* ── 168 §2 게임 안 서랍 «리그» 탭 자료 ── */
  
@@ -1313,7 +1314,7 @@ index b03c645..6d6b9b4 100644
          MenuModel.LeagueInfo li = new MenuModel.LeagueInfo();
          RankCore.Me me = rankMe();
          li.season = season();
-@@ -1854,10 +1969,11 @@ final class League {
+@@ -1854,10 +1970,11 @@ final class League {
          li.placementPlayed = 5 - me.placementLeft;
          SeasonPreview sp = newSeasonPreview();
          if (sp != null) { li.lp0 = sp.lp0; li.lp1 = sp.lp1; li.label0 = sp.label0; li.label1 = sp.label1; }
@@ -1979,7 +1980,7 @@ index f0b02ad..81e51b8 100644
              if (subLine != null) { sub.setTextColor(subColor); set(sub, subLine); sub.setVisibility(View.VISIBLE); }
              if (hintLine != null) set(hint, hintLine);
 diff --git a/docs/157_contract.md b/docs/157_contract.md
-index 984d0e9..680914a 100644
+index 984d0e9..593aff7 100644
 --- a/docs/157_contract.md
 +++ b/docs/157_contract.md
 @@ -389,6 +389,7 @@ W 층 한 장면 ≤ 512 타일(권장 배분 §10.2) · 팔레트 ≤ 16(층마
@@ -2025,8 +2026,8 @@ index 984d0e9..680914a 100644
 +| 줄 자리 | 줄 넷까지 r4–11 · 설명 r12 · 목록 r13–16(4줄 · 자르기 104..135). 줄 다섯(대기 서랍 · 배치 끝난 뒤)이면 r4–13 · 설명 r14 · 목록 r15–16(2줄 · 자르기 120..135 — 넘김 그대로). 설명 창고 r21–25. 줄 이름 갈무리11(«리그 초기화» 64px — x12) ↔ 오른쪽 값 갈무리7(«모두 지움» 34px · 156 오른쪽 맞춤) 안 겹침. 칼집 줄 52px 규칙은 칼집(쉼·대기·결판)만 — 서랍 줄은 해당 없음(«처음부터 다시» 75px 그대로) |
 +| 펼침 글(r17) | `LgmPages.confirmWhat` — 새 시즌·처음부터: 열린 경기가 있으면 «지금 경기는(쉼 서랍 · `openLive`)/멈춘 경기는 기권패로 닫고 새 시즌/처음부터 · vs …», 없으면 예전 글. 초기화: «지금/멈춘 경기도 함께 지워요 · vs …» / «기록·시즌·상대 모두 지움 · 이름은 그대로». r18 «A 한 번 더 = 새 시즌/처음부터/초기화 · B 취소». 아래 목록의 열린 경기 줄 `LgmPages.openLine`: 쉼 서랍(`openLive`)은 «지금 경기 · vs …»(175 는 지금 하는 경기에도 «멈춘 경기 · … · 타이틀에서 A» — 유저 화면), 대기·결판 서랍은 그대로 |
 +| `League.wipeAll(inGame)` | 처음 설치한 때의 리그(`wipedDb`: fresh → upgrade → upgradeRanked — 새 SecureRandom 씨앗 = 새 상대 풀·새 상대 컬러(OppLook)·새 순위표 · 배치 5판 · LP 0 · 시즌 1). **지움**: 경기 기록 전부(정산·기권·보류·무효·치트 표 → 치트 판 수 0) · 랭크 칸(MMR·LP·시즌·지난 시즌 줄·상대 전적·최근 상대·잡힌 상대·세션·오늘 첫 승) · 예전 칸 전적 · 멈춘 경기 · 체크포인트·.look·.tmp · `archive/` · 못 읽어 옆에 둔 옛 파일 · 내 캐릭터(pref.main). **남김**: 내 이름(me.name) · pref 의 lgm(메뉴 설정)·stage·last_rom·color · `rom/`·`saves/` · 몸 컬러·베기 색(Look — 앱 설정). 막힘: 기록 파일 문제 · 게임 속 리그가 살아 있는데 inGame 아님(런처). 된 뒤 PF_CACHE·BoardCache 버림 |
-+| 죽어도 안전 | ① 새 기록을 `league/.wipe` 에 원자 저장(실패 = 아무 일 없음) ② league.json 원자 저장(실패 = .wipe 지우고 옛 기록 그대로 — false) · .bak(못 쓰면 옛 .bak 지움) ③ 리그 폴더에서 `WIPE_KEEP`(league.json · .bak · `rom/` · `saves/` · .wipe · .trash) 밖은 모두 → `.trash/`(체크포인트·.look·`archive/`·못 읽은 옛 파일·임시·끊긴 .wipe.tmp·모르는 파일까지 — 폴더 통째 옮기기와 같은 결과) ④ .wipe 지움 ⑤ .trash 지움(바로가기는 링크만 — 폴더 밖을 따라가 지우지 않음). `db()` 첫 읽기 전 `wipeResume`: .wipe 가 있으면 ②~⑤ 를 마저(못 쓰면 버림 — 나중에 저절로 지워지지 않게) · 깨진 .wipe 는 버림 · .wipe 없는 .trash 는 지움. 폴더를 통째로 이름 바꾸지 않는 것은 롬·세이브를 두려고(경기 중 서랍에서 부르면 게임이 `saves/` 를 쥐고 있다) |
-+| 쉼·결판 서랍에서 한 뒤 | `EmuActivity.lgmSeason`: (무장된 판이면 `leagueSyncStarted` · 결판이 막 잡혔으면 덧판만 닫고 poll 이 결과로) → 새 시즌·처음부터는 `newSeason/restartRanked(true, 열린 경기 있음)` = 지금 경기 기권패(지난 시즌 줄 · 처음부터면 보관 파일) · 초기화는 `wipeAll(true)` = 함께 지움 → `leagueDone`·`nativeLeagueDisarm` · `pushMain`(초기화면 대신 고르기 끔 · 옛 리그의 `lgmMeBefore/After`·`rankPick` 버림) · `hubReturn(-1)`(덧판 닫기 · 상대 컬러 끔 · 허브 타이틀) · **알림 글 없음**. 대기 서랍은 예전처럼 그 자리에서 다시 그림(`lobbyRedraw` · `lgmDrawer`). 실패 글은 저장 실패·기록 파일 문제만 |
++| 죽어도 안전 | ① 새 기록을 `league/.wipe` 에 원자 저장(실패 = 아무 일 없음) ② league.json 원자 저장(실패 = .wipe 지우고 옛 기록 그대로 — false) · .bak(못 쓰면 옛 .bak 지움) ③ 리그 폴더에서 `WIPE_KEEP`(league.json · .bak · `rom/` · `saves/` · .wipe · .trash) 밖은 모두 → `.trash/`(체크포인트·.look·`archive/`·못 읽은 옛 파일·임시·끊긴 .wipe.tmp·모르는 파일까지 — 폴더 통째 옮기기와 같은 결과) ④ .wipe 지움 ⑤ .trash 지움(바로가기는 링크만 — 폴더 밖을 따라가 지우지 않음). `db()` 첫 읽기 전(권한 전에 빈 기록으로 시작했다가 진짜 파일이 나타난 다시 읽기 때도 — 리뷰 R2: 안 그러면 옛 기록을 읽고 .wipe 가 남아 그 뒤 기록을 다음 실행이 지웠다) `wipeResume`: .wipe 가 있으면 ②~⑤ 를 마저(못 쓰면 버림 — 나중에 저절로 지워지지 않게) · 깨진 .wipe 는 버림 · .wipe 없는 .trash 는 지움. 폴더를 통째로 이름 바꾸지 않는 것은 롬·세이브를 두려고(경기 중 서랍에서 부르면 게임이 `saves/` 를 쥐고 있다) |
++| 쉼·결판 서랍에서 한 뒤 | `EmuActivity.lgmSeason`: (무장된 판이면 `leagueSyncStarted` · 결판이 막 잡혔으면 덧판만 닫고 poll 이 결과로) → 새 시즌·처음부터는 `newSeason/restartRanked(true, 열린 경기 있음)` = 지금 경기 기권패(지난 시즌 줄 · 처음부터면 보관 파일) · 초기화는 `wipeAll(true)` = 함께 지움 → `League.sessionReset()`(셋 다 — 리뷰 R1: 초기화 기록엔 세션이 없어 허브가 살아 있는 동안 그 뒤 판이 «오늘»·rank0 에 안 셈해졌다 · 대기 서랍도) → `leagueDone`·`nativeLeagueDisarm` · `pushMain`(초기화면 대신 고르기 끔 · 옛 리그의 `lgmMeBefore/After`·`rankPick` 버림) · `hubReturn(-1)`(덧판 닫기 · 상대 컬러 끔 · 허브 타이틀) · **알림 글 없음**. 대기 서랍은 예전처럼 그 자리에서 다시 그림(`lobbyRedraw` · `lgmDrawer`). 실패 글은 저장 실패·기록 파일 문제만 |
 +| 런처 시즌 도구 | `LeagueActivity` «리그 초기화» 단추(«처음부터 다시» 아래) — 두 번 묻는 창(«리그를 초기화할까요?» 무엇이 지워지고 남나 · 멈춘 경기도 함께 → [다음] → «정말 모두 지울까요?» [모두 지우기]) · 물은 뒤 멈춘 경기가 바뀌었으면 다시 그림 · 막힘은 `seasonToolWhy` · 된 때 글 없음 |
 +| (B) 그림 위 패드 단추 | 덧판 터치 층(`lgmTouch` — root 의 마지막 자식이라 PadView 위)이 그림 자리 터치를 먼저 받는데, 세로 쉼·대기는 `portraitOutside` 라 그림 전체가 메뉴 자리(hitTest 참) → «칼집 밖 탭 = 이어하기»(터치 종류 5)가 ▲·SP 등을 먹었다. 이제 `lgmTouchL` DOWN 에서 `PadView.ownsDown(x, y)` 가 참이면 안 받음 — onTouchEvent DOWN 차례 그대로: 되돌리기 칩 · 메뉴 알약(그 자리 탭 = 앱 바 — 서랍과 같게) · 열린 바/배치 = 전부 · 숨긴 버튼(«자동» 첫 터치 전·«숨김»)은 아님(덧판이 받음) · 치트 알약 · 배속/목록 1.3R · 십자 1.35R · 버튼 1.25R·OPTION 알약. 그 밖의 그림 자리(줄 탭·빈 그림 탭 = 이어하기)는 그대로 덧판. 키 길(feed → handle → moveCursor floorMod)은 원래 맞음 — 맨 위 ▲ = 감아 돎 |
 +
