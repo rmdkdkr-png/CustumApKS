@@ -1,3 +1,4 @@
+e0ee8d2 181 검토 고침 시험 줄: §24 에 sim v_lgmcell(쉼 확인 · 카드/컬러 창 막힘) · upexit*(그림 위 «치트» 알약 → 패드 → 쉬는 덧판 위 치트 창) 적음
 1814fb2 181 검토 고침: docs/157_contract.md §22 «치트» 알약 줄을 176 규칙으로 — 덧판 쉼·쉼 확인·서랍·대기 위에선 연다(cheatCellOk/cheatLgmOk) · 바 «치트» 칸(UTIL_CHEAT 10 · setCheatCellOff) · 그림 위 알약은 패드 먼저(ownsDown)
 8303a70 181 docs/157_contract.md §24 — 합침에서 정한 것: 상대 베기 색도 칼 궤적만(slash_build side 1) · 리그 초기화 줄 효과음 · ownsDown × 바 치트 칸·알약 · 숫자/미터 × 머리말·상대 컬러
 5917af7 Merge branch 'w177-oppcol' into w181-ship (177 상대 컬러·연습 순서·나/상대 머리말 + 179 경기 중 시즌 도구·리그 초기화·그림 위 패드) · versionCode 181
