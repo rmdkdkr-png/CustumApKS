@@ -1,5 +1,5 @@
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index 8abe79e..92ab2e9 100644
+index 8abe79e..815a475 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
 @@ -56,6 +56,8 @@ static void (*c_fg_state)(int *, int *, unsigned *);   /* retro_ngp_fg_state —
@@ -11,7 +11,7 @@ index 8abe79e..92ab2e9 100644
  static size_t (*c_get_memory_size)(unsigned);
  static size_t (*c_serialize_size)(void);
  static bool   (*c_serialize)(void *, size_t);
-@@ -438,18 +440,42 @@ static const int16_t *fx_apply(const int16_t *src, size_t n)
+@@ -438,18 +440,43 @@ static const int16_t *fx_apply(const int16_t *src, size_t n)
     return g_fx_buf;
  }
  
@@ -35,6 +35,7 @@ index 8abe79e..92ab2e9 100644
     size_t done = 0;
 -   if (league_mute) { g_mute_drop = 1; g_fx_cur = 0; return frames; }   /* 153: 랭크 자동 진행(4배속) 동안 — 고리에 안 넣는다(배속 소리가 남아 뒤에 나오지 않게) · 179 풀리면 음색 다듬기 꼬리 없이 */
 +   if (game_mute()) { g_mute_drop = 1; g_fx_cur = 0; return frames; }   /* 153: 랭크 자동 진행(4배속) 동안 — 고리에 안 넣는다(배속 소리가 남아 뒤에 나오지 않게) · 179 풀리면 음색 다듬기 꼬리 없이 · 182 옛 코어만 */
++   if (!g_stream) { g_mute_drop = 1; return frames; }   /* 182: 소리 카드가 없다(onPause·썸네일 부팅) — 고리에 쌓아 두면 다시 열 때 지난 소리가 늦게(최대 0.37 s) 나온다 */
     if (g_mute_drop) { g_mute_drop = 0; drc_reset(&g_drc); }
 +   if (frames) { g_last_in[0] = data[(frames - 1) * 2]; g_last_in[1] = data[(frames - 1) * 2 + 1]; }
     while (done < frames) {                       /* 큰 묶음은 나눠서(출력 칸 8192) */
@@ -55,7 +56,7 @@ index 8abe79e..92ab2e9 100644
        if (g_turbo_audio) ring_push(src, n);   /* 배속 중엔 그대로(넘치면 버림 — 예전과 같다) */
        else {
           size_t w = drc_run(&g_drc, src, n, g_drc_out, 8192, drc_ratio(g_pace.drc_base, fill, target));
-@@ -484,25 +510,52 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
+@@ -484,25 +511,52 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
  /* ------------------------------------------------------------------ */
  /* audio                                                               */
  /* ------------------------------------------------------------------ */
@@ -116,7 +117,7 @@ index 8abe79e..92ab2e9 100644
     return AAUDIO_CALLBACK_RESULT_CONTINUE;
  }
  
-@@ -510,7 +563,6 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
+@@ -510,7 +564,6 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
     AAudio 가 에러 콜백으로 알려 준다. 콜백 안에서는 그 스트림을 닫으면 안 되므로
     표시만 남기고, 프레임 루프(GL 스레드)가 새 스트림으로 다시 연다. */
  static volatile int g_audio_dead = 0;
@@ -124,15 +125,16 @@ index 8abe79e..92ab2e9 100644
  
  static void audio_err_cb(AAudioStream *s, void *ud, aaudio_result_t err)
  {
-@@ -526,6 +578,7 @@ static void audio_start(int rate)
+@@ -526,6 +579,8 @@ static void audio_start(int rate)
     g_audio_rate = rate;
     g_audio_dead = 0;
     uisfx_reset(rate);                  /* 176: 콜백이 돌기 전 — 닫히기 전(onPause·끊김) 남은 효과음·요청은 버림 */
 +   declick_reset();                    /* 182: 새 스트림은 0 에서 키워 시작 */
++   g_rd = g_wr;                        /* 182: 닫히기 전 남은 소리는 버림(콜백이 돌기 전 — 닫힌 스트림의 콜백은 끝났다) */
     if (AAudio_createStreamBuilder(&b) != AAUDIO_OK) { pthread_mutex_unlock(&g_audio_mx); return; }
     AAudioStreamBuilder_setFormat(b, AAUDIO_FORMAT_PCM_I16);
     AAudioStreamBuilder_setChannelCount(b, 2);
-@@ -945,6 +998,8 @@ static int bind_core(void)
+@@ -945,6 +1000,8 @@ static int bind_core(void)
     *(void **)&c_fg_state        = dlsym(g_lib, "retro_ngp_fg_state");
     *(void **)&c_fg_phase        = dlsym(g_lib, "retro_ngp_fg_phase");   /* 없으면(옛 코어·다른 게임) 업스케일러는 예전처럼 1배로 줄여서 */
     *(void **)&c_snd_noise       = dlsym(g_lib, "retro_ngp_snd_noise");  /* 179 음색 다듬기 «배경음만» — 없으면(SVC 코어·옛 코어) 통째로 */
@@ -141,7 +143,7 @@ index 8abe79e..92ab2e9 100644
     return 1;
  }
  
-@@ -1013,6 +1068,8 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
+@@ -1013,6 +1070,8 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
     jstr(env, jopts, opts, sizeof(opts));
  
     load_options(opts);
@@ -150,7 +152,7 @@ index 8abe79e..92ab2e9 100644
  
     g_lib = dlopen(core, RTLD_LAZY | RTLD_LOCAL);
     if (!g_lib) { LOGE("dlopen failed: %s", dlerror()); return -1; }
-@@ -1117,6 +1174,39 @@ static double now_s(void)
+@@ -1117,6 +1176,39 @@ static double now_s(void)
     return (double)ts.tv_sec + ts.tv_nsec * 1e-9;
  }
  
@@ -190,7 +192,7 @@ index 8abe79e..92ab2e9 100644
  JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
  {
     (void)env; (void)cls;
-@@ -1141,16 +1231,36 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+@@ -1141,16 +1233,36 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
           g_vsync_ema = g_vsync_ema > 0.0 ? g_vsync_ema * 0.9 + iv * 0.1 : iv;
     }
     g_last_vsync = t;
@@ -229,7 +231,7 @@ index 8abe79e..92ab2e9 100644
        if (g_loaded) {
           /* 코어가 2배 출력(120Hz) 중이면 호출 두 번에 한 번은 «합성» — 에뮬레이션도 입력 읽기도 없다(코어 retro_run: fg_active && fg_phase == 1).
              그때 허브·연습을 돌리면 프레임 셈이 두 배로 가고, 다음 프레임에 줄 입력(대신 누름)이 게임이 읽기 전에 바뀐다 — 진짜 프레임 뒤에만 돌린다 */
-@@ -1200,6 +1310,14 @@ JNI(jdouble, nativeCoreFps)(JNIEnv *env, jclass cls) { (void)env; (void)cls; ret
+@@ -1200,6 +1312,14 @@ JNI(jdouble, nativeCoreFps)(JNIEnv *env, jclass cls) { (void)env; (void)cls; ret
  JNI(void, nativeSetPaused)(JNIEnv *env, jclass cls, jboolean on)
  { (void)env; (void)cls; g_paused = on ? 1 : 0; }
  
@@ -244,7 +246,7 @@ index 8abe79e..92ab2e9 100644
  JNI(void, nativeSetPanelHz)(JNIEnv *env, jclass cls, jfloat hz)
  { (void)env; (void)cls; g_panel_hz_hint = hz; }
  
-@@ -1225,11 +1343,12 @@ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
+@@ -1225,11 +1345,12 @@ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
  { (void)env; (void)cls; if (g_loaded && !g_stream) audio_start(g_audio_rate); }
  
  /* 176: 덧판 메뉴 효과음(uisfx.c — 사무쇼2 메뉴 소리 합성) — kind 1 커서 · 2 결정 · 3 뒤로 · 0 줄여 끔. 아무 스레드.
