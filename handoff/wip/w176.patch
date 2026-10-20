@@ -217,10 +217,16 @@ index 7090003..7973212 100644
  /* 이름(앱 띠·기록과 같은 순서 — Java Look.NAMES) */
  static const char *const LOOK_NAME[LOOK_NPRE + 2] = { "기본", "2P색", "쪽빛", "비취", "보라", "다홍", "분홍", "먹빛", "흰옷", "황금", "은빛", "청동", "흑백", "그림자", "핏빛", "유령", "내 색 1", "내 색 2" };
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index 0fbf45b..b64d95a 100644
+index 0fbf45b..2d7758d 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
-@@ -21,6 +21,7 @@
+@@ -16,11 +16,13 @@
+ #include "libretro.h"
+ #include "pace.h"
+ #include "sndfx.h"
++#include <stdatomic.h>
+ #include "league.h"
+ #include "practice.h"
  #include "look.h"
  #include "cheat.h"
  #include "ovplane.h"
@@ -228,23 +234,88 @@ index 0fbf45b..b64d95a 100644
  #include "display_shaders.h"
  #include <math.h>
  
-@@ -475,6 +476,7 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
+@@ -451,11 +453,23 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
+ /* audio                                                               */
+ /* ------------------------------------------------------------------ */
+ /* 176 음색 다듬기(sndfx.c — 저음 보강·고음 눅이기·좌우 넓힘·방 울림, 유저 「2 가 나은 방식이네」). 소리 카드 콜백에서 고리에서 꺼낸 소리에 —
+-   게임 프레임 시간에 안 들어간다. g_fx 는 스트림이 없을 때(audio_start)만 만들고 바꾼다(콜백과 안 겹침). 켬/끔은 Java(nativeSetSoundFx) */
+-static sndfx_t *g_fx = NULL;
+-static int g_fx_rate = 0;
+-static volatile int g_fx_on = 1;
++   게임 프레임 시간에 안 들어간다. 켬/끔·세부 값은 Java(nativeSetSoundFx).
++   178 세부 값(「조절해 보게 해 줘」): 값이 바뀌면 UI 스레드가 새 fx 를 다 만들어 g_fx_next 에 두고, 콜백이 다음 묶음 머리에서 바꿔 낀다(락 없음).
++   내려놓은 옛것은 g_fx_old 에 — 푸는 건 fx_gc(UI·GL 스레드). 콜백은 g_fx_old 가 비었을 때만 바꿔 낀다(못 푼 옛것을 덮지 않게).
++   스트림이 없을 때는 audio_start 가 g_audio_mx 아래에서 바로 고친다(콜백이 안 돈다). */
++static sndfx_t *g_fx = NULL;                /* 콜백이 쓰는 것 — 스트림이 돌 때는 콜백만 바꾼다 */
++static sndfx_t *_Atomic g_fx_next = NULL;   /* UI 스레드가 새로 만든 것 */
++static sndfx_t *_Atomic g_fx_old = NULL;    /* 콜백이 내려놓은 옛것 */
++static sndfx_params g_fxp;                  /* 바라는 값 · g_fxb = 마지막으로 만든(올린) 것의 값과 빠르기 — g_audio_mx 아래 */
++static sndfx_params g_fxb;
++static int g_fxb_rate = 0, g_fxp_set = 0;
++static atomic_int g_fx_on = 1;              /* UI 스레드가 쓰고 콜백이 읽는다 */
+ static int g_fx_cur = 0;                    /* 콜백만 쓴다 — 지난 콜백에 돌렸나(꺼졌다 켜질 때 꼬리를 비우고 시작) */
++static void fx_gc(void)
++{
++   sndfx_t *o = atomic_exchange_explicit(&g_fx_old, NULL, memory_order_acq_rel);
++   if (o) sndfx_free(o);
++}
+ 
+ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
+                                               void *audioData, int32_t numFrames)
+@@ -475,9 +489,15 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
        }
     }
     g_rd = rd;
 +   uisfx_mix(out, numFrames, mute, ov_active() || ov_hold());   /* 176: 덧판 메뉴 효과음 — 고리(게임 소리) 위에, 음색 다듬기(sndfx) 앞(게임 소리와 같은 음색). 코어가 멈춰 고리가 비어도 난다 · 메뉴가 사라지면 결정의 메아리는 안 냄 */
     {
-       sndfx_t *fx = g_fx;
-       int on = g_fx_on && fx && !mute;      /* 무음 중엔 안 돌리고, 풀리면 꼬리 없이 새로 */
-@@ -503,6 +505,7 @@ static void audio_start(int rate)
+-      sndfx_t *fx = g_fx;
+-      int on = g_fx_on && fx && !mute;      /* 무음 중엔 안 돌리고, 풀리면 꼬리 없이 새로 */
++      sndfx_t *fx;
++      if (!atomic_load_explicit(&g_fx_old, memory_order_acquire)) {   /* 178: 새 값 — 갓 만든 것(비어 있음)으로 바꿔 낀다. 켜진 채면 꼬리만 끊기고 비울 일은 없다 */
++         sndfx_t *nx = atomic_exchange_explicit(&g_fx_next, NULL, memory_order_acq_rel);
++         if (nx) { atomic_store_explicit(&g_fx_old, g_fx, memory_order_release); g_fx = nx; }
++      }
++      fx = g_fx;
++      int on = atomic_load_explicit(&g_fx_on, memory_order_relaxed) && fx && !mute;      /* 무음 중엔 안 돌리고, 풀리면 꼬리 없이 새로 */
+       if (on) { if (!g_fx_cur) sndfx_reset(fx); sndfx_run(fx, out, (size_t)numFrames); }
+       g_fx_cur = on;
+    }
+@@ -503,7 +523,15 @@ static void audio_start(int rate)
     if (g_stream) { pthread_mutex_unlock(&g_audio_mx); return; }   /* 이미 열려 있다 — 두 번 열면 앞 스트림이 샌다 */
     g_audio_rate = rate;
     g_audio_dead = 0;
+-   if (!g_fx || g_fx_rate != rate) { sndfx_free(g_fx); g_fx = sndfx_new(rate); g_fx_rate = rate; }   /* 176 — 스트림이 없을 때만(콜백이 안 돈다) */
 +   uisfx_reset(rate);                  /* 176: 콜백이 돌기 전 — 닫히기 전(onPause·끊김) 남은 효과음·요청은 버림 */
-    if (!g_fx || g_fx_rate != rate) { sndfx_free(g_fx); g_fx = sndfx_new(rate); g_fx_rate = rate; }   /* 176 — 스트림이 없을 때만(콜백이 안 돈다) */
++   {  /* 176 — 스트림이 없을 때만(콜백이 안 돈다). 178: 올려 두고 못 바꿔 낀 것·내려놓은 것을 정리하고, 빠르기·값이 다르면 새로 */
++      sndfx_t *nx = atomic_exchange_explicit(&g_fx_next, NULL, memory_order_acq_rel);
++      if (!g_fxp_set) { sndfx_defaults(&g_fxp); g_fxp_set = 1; }
++      fx_gc();
++      if (nx) { sndfx_free(g_fx); g_fx = nx; }
++      if (!sndfx_same(g_fx, rate, &g_fxp)) { sndfx_free(g_fx); g_fx = sndfx_new(rate, &g_fxp); }
++      g_fxb = g_fxp; g_fxb_rate = rate;
++   }
     g_fx_cur = 0;
     if (AAudio_createStreamBuilder(&b) != AAUDIO_OK) { pthread_mutex_unlock(&g_audio_mx); return; }
-@@ -1152,6 +1155,7 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+    AAudioStreamBuilder_setFormat(b, AAUDIO_FORMAT_PCM_I16);
+@@ -527,6 +555,7 @@ static void audio_stop(void)
+       AAudioStream_close(g_stream);
+       g_stream = NULL;
+    }
++   fx_gc();                                  /* 178 */
+    pthread_mutex_unlock(&g_audio_mx);
+ }
+ 
+@@ -1103,6 +1132,9 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+       audio_stop();
+       audio_start(g_audio_rate);
+    }
++   if (atomic_load_explicit(&g_fx_old, memory_order_relaxed)) {   /* 178: 콜백이 내려놓은 옛 음색 다듬기 */
++      pthread_mutex_lock(&g_audio_mx); fx_gc(); pthread_mutex_unlock(&g_audio_mx);
++   }
+    /* 화면 vsync(60/120Hz)마다 불리지만, 코어는 게임 fps 로만 돌린다 —
+       120Hz 폰에서 두 배속으로 돌던 문제의 수정. 150: 몇 번 돌릴지는 pace.c — 화면 vsync 수가 게임 프레임의 정수배면
+       «k 번에 한 번»을 세어(예전 «시계가 마감을 넘었나»는 깨어나는 때가 조금만 흔들려도 한 번 거르고 두 번 돌았다),
+@@ -1152,6 +1184,7 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
              practice_tick(ram, ramsz, in);
              /* 치트(일반 세션) — 가장 뒤. 리그 세션이면 아무것도 안 쓰고, 연습 대전 흐름이면 올카드·유가만 */
              cheat_tick(ram, ramsz, in);
@@ -252,10 +323,13 @@ index 0fbf45b..b64d95a 100644
              int ex = practice_take_exit();
              if (ex) { c_reset(); league_practice_return(ex == 2); practice_forget(); look_forget(); cheat_forget(); }
              stop = league_post_hold();       /* 153: 걸쇠가 이 진짜 프레임에 섰다(합성 호출에선 안 선다) */
-@@ -1198,6 +1202,18 @@ JNI(void, nativeAudioPause)(JNIEnv *env, jclass cls)
+@@ -1198,9 +1231,42 @@ JNI(void, nativeAudioPause)(JNIEnv *env, jclass cls)
  JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
  { (void)env; (void)cls; if (g_loaded && !g_stream) audio_start(g_audio_rate); }
  
+-/* 176 음색 다듬기 켬/끔 — 소리 카드 콜백이 다음 묶음부터 본다 */
+-JNI(void, nativeSetSoundFx)(JNIEnv *env, jclass cls, jboolean on)
+-{ (void)env; (void)cls; g_fx_on = on ? 1 : 0; }
 +/* 176: 덧판 메뉴 효과음(uisfx.c — 사무쇼2 메뉴 소리 합성) — kind 1 커서 · 2 결정 · 3 뒤로 · 0 줄여 끔. 아무 스레드.
 +   메뉴가 보이거나(OVF_VISIBLE) 메뉴 멈춤(ov_hold) 중일 때만 받는다 — 메뉴가 없으면 소리도 없다. 소리는 오디오 콜백이 낸다(스트림이 닫혀 있으면 안 남) */
 +JNI(jboolean, nativeUiSfx)(JNIEnv *env, jclass cls, jint kind)
@@ -268,10 +342,34 @@ index 0fbf45b..b64d95a 100644
 +   }
 +   return uisfx_request(kind) ? JNI_TRUE : JNI_FALSE;
 +}
- /* 176 음색 다듬기 켬/끔 — 소리 카드 콜백이 다음 묶음부터 본다 */
- JNI(void, nativeSetSoundFx)(JNIEnv *env, jclass cls, jboolean on)
- { (void)env; (void)cls; g_fx_on = on ? 1 : 0; }
-@@ -1340,6 +1356,7 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
++
++/* 176 음색 다듬기 켬/끔 — 소리 카드 콜백이 다음 묶음부터 본다.
++   178 세부 값(설정 0..100, 50 = 들어 보기 ②): 바뀌었으면 여기(UI 스레드)서 새 fx 를 만들어 올린다 — 콜백이 다음 묶음에 바꿔 낀다.
++   스트림이 없으면 값만 두고 audio_start 가 만든다 */
++JNI(void, nativeSetSoundFx)(JNIEnv *env, jclass cls, jboolean on, jint bass, jint treble, jint width, jint reverb, jint room)
++{
++   sndfx_params p;
++   (void)env; (void)cls;
++   sndfx_from_pct(&p, bass, treble, width, reverb, room);
++   pthread_mutex_lock(&g_audio_mx);
++   fx_gc();
++   g_fxp = p; g_fxp_set = 1;
++   if (g_stream && !(g_fxb_rate == g_audio_rate && g_fxb.bass_db == p.bass_db && g_fxb.treble_db == p.treble_db
++                     && g_fxb.width == p.width && g_fxb.mix == p.mix && g_fxb.rt == p.rt)) {
++      sndfx_t *nf = sndfx_new(g_audio_rate, &p), *stale;
++      if (nf) {
++         stale = atomic_exchange_explicit(&g_fx_next, nf, memory_order_acq_rel);   /* 콜백이 아직 안 가져간 앞엣것은 한 번도 안 쓰였다 */
++         sndfx_free(stale);
++         g_fxb = p; g_fxb_rate = g_audio_rate;
++      }
++   }
++   pthread_mutex_unlock(&g_audio_mx);
++   atomic_store_explicit(&g_fx_on, on ? 1 : 0, memory_order_relaxed);
++}
+ 
+ /* 게임 속 리그: 결판 뒤 리셋하고 타이틀 «리그 대전»까지(rematch = 바로 다시 붙을 상대 캐릭터, −1 없음) */
+ JNI(void, nativeLeagueHubReturn)(JNIEnv *env, jclass cls, jint rematch)
+@@ -1340,6 +1406,7 @@ JNI(jint, nativeSaveState)(JNIEnv *env, jclass cls, jstring jpath)
     int ok = buf && c_serialize(buf, sz);
     look_after_save();                    /* 컬러: 되돌린 것을 바로 우리 것으로(다음 화면 한 프레임이 원래 색으로 안 나오게) */
     if (c_get_memory_data) cheat_after_save((uint8_t *)c_get_memory_data(RETRO_MEMORY_SYSTEM_RAM));   /* before_save 가 돌려 둔 치트 값을 되씀 */
@@ -610,6 +708,372 @@ index d302229..0de90ef 100644
          [8..21] P1 마지막 동작 · [22..35] P2 마지막 동작 = { 번호, 발동, 지속(−1 없음 · −2 장풍), 경직, 전체, 닿음(0 헛침 1 히트 2 가드 3 잡기 4 상쇄 5 다운),
                      튕겨내기 시작, 튕겨내기 길이, 기억(헛침) 지속, 기억 경직, 기억 유불리 히트·다운·가드·잡기(0x7FFF 모름) }
          [36] 유불리(P1 기준, + = 내가 먼저 · 0x7FFF 없음) [37] 그 닿음 종류 [38] 공격한 쪽(0·1·−1) [39] 유불리 번호 */
+diff --git a/app/src/main/cpp/sndfx.c b/app/src/main/cpp/sndfx.c
+index bdd2b5b..8df4f19 100644
+--- a/app/src/main/cpp/sndfx.c
++++ b/app/src/main/cpp/sndfx.c
+@@ -1,6 +1,7 @@
+ /* 음색 다듬기 — 설명은 sndfx.h. */
+ #include "sndfx.h"
+ #include "sndfx_ir.h"
++#include "sndfx_spec.h"
+ #include <math.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -13,16 +14,17 @@
+ #define N    (2 * B)          /* FFT 크기 */
+ #define NB   (B + 1)          /* 실수 신호 스펙트럼 칸 0..B */
+ 
+-#define RT_S     1.3          /* 울림 길이(−60dB 까지) */
+-#define TAIL_S   1.0          /* 응답을 이만큼까지 쓴다 — 1.0 뒤 꼬리는 −42dB 아래(1.3 과 견줘 출력 차이 −50dB), 계산 −20% */
++#define RT_S     1.3          /* ② 울림 길이(−60dB 까지) */
++#define TAIL_S   1.0          /* ② 응답을 이만큼까지 쓴다 — 1.0 뒤 꼬리는 −42dB 아래(1.3 과 견줘 출력 차이 −50dB), 계산 −20%. 다른 길이는 비례 */
+ #define PRE_S    0.02         /* 울림 앞 지연 */
+-#define DRY      0.8f
+-#define WET      0.32f        /* 0.2 × 1.6 — 들어 보기 ② 와 같다 */
+-#define GAIN     0.91f        /* 크기 맞춤 — 원래 소리와 RMS 가 같게(tools/sndfx_ref.py 실측: 데모 대전 0.883 · 대전곡만 0.932, 들어 보기 ② 가 그 구간에 쓴 배율 0.918) */
++#define DRY      0.8f         /* ② 마른 소리 — 1 − 0.4 × 0.5 */
++#define WET      0.32f        /* ② 울림 — 0.64 × 0.5 (0.2 × 1.6 — 들어 보기 ② 와 같다) */
++#define GAIN     0.91         /* ② 크기 맞춤 — 원래 소리와 RMS 가 같게(tools/sndfx_ref.py 실측: 데모 대전 0.883 · 대전곡만 0.932, 들어 보기 ② 가 그 구간에 쓴 배율 0.918) */
+ 
+ struct sndfx {
+    int rate, P, xpos, bpos, wlen, wpos, macp;
+-   float lb0, lb1, la1, hb0, hb1, ha1, gl, gh, gain;
++   sndfx_params prm;
++   float lb0, lb1, la1, hb0, hb1, ha1, gl, gh, gain, wl, wr, dry, wetg;
+    float lz[2], hz[2];
+    float *wbuf;
+    float *Hr[2], *Hi[2];      /* 칸 p 응답 스펙트럼: [p * NB + k] */
+@@ -36,6 +38,37 @@ struct sndfx {
+    size_t irlen;
+ };
+ 
++void sndfx_defaults(sndfx_params *p)
++{
++   p->bass_db = 3.5f; p->treble_db = -4.0f; p->width = 1.0f; p->mix = 0.5f; p->rt = (float)RT_S;
++}
++
++static int clampi(int v, int lo, int hi) { return v < lo ? lo : v > hi ? hi : v; }
++
++void sndfx_from_pct(sndfx_params *p, int bass, int treble, int width, int reverb, int room)
++{
++   bass = clampi(bass, 0, 100); treble = clampi(treble, 0, 100); width = clampi(width, 0, 100);
++   reverb = clampi(reverb, 0, 100); room = clampi(room, 0, 100);
++   p->bass_db = (float)(7.0 * bass / 100);
++   p->treble_db = (float)(-8.0 * treble / 100);
++   p->width = (float)(width / 50.0);
++   p->mix = (float)(reverb / 100.0);
++   p->rt = room == 50 ? (float)RT_S : (float)(RT_S * pow(2.0, (room - 50) / 40.0));
++}
++
++static int same_prm(const sndfx_params *a, const sndfx_params *b)
++{
++   return a->bass_db == b->bass_db && a->treble_db == b->treble_db && a->width == b->width && a->mix == b->mix && a->rt == b->rt;
++}
++
++int sndfx_same(const sndfx_t *f, int rate, const sndfx_params *p)
++{
++   sndfx_params d;
++   if (!f) return 0;
++   if (!p) { sndfx_defaults(&d); p = &d; }
++   return f->rate == rate && same_prm(&f->prm, p);
++}
++
+ static void fft(const sndfx_t *f, float *re, float *im, int inv)
+ {
+    int i, j, len;
+@@ -56,7 +89,7 @@ static void fft(const sndfx_t *f, float *re, float *im, int inv)
+    }
+ }
+ 
+-/* 44.1kHz 는 들어 보기 ② 의 응답을 그대로(sndfx_ir.h — tools/sndfx_ir_gen.py). 다른 빠르기만 여기서 만든다:
++/* 44.1kHz 는 들어 보기 ② 의 응답을 그대로(sndfx_ir.h — tools/sndfx_ir_gen.py). 다른 빠르기(와 ② 의 1.0초를 넘는 긴 꼬리)만 여기서 만든다:
+    결정적 잡음 — splitmix64 카운터(씨앗 + (i+1)·황금비)를 섞어 [0,1) → 박스-뮬러. 씨앗은 ② 응답과 옥타브 대역 에너지가 ±0.4dB 안인 것
+    (3000개 중 — 음 하나하나의 울림 크기까지 같진 않다) */
+ #define SEED_L 0x5EED0149ULL
+@@ -68,73 +101,156 @@ static double noise_u(uint64_t seed, uint64_t i)
+    return ((double)(z >> 11) + 0.5) * (1.0 / 9007199254740992.0);
+ }
+ 
+-sndfx_t *sndfx_new(int rate)
++/* 잡음 응답(② 길이 1.3초의 감쇠): 잡음 × exp(−6.9 t / 1.3) → 6kHz 2차 버터워스 저역 → 앞 1.3초 에너지 1. out[0..n) 에 */
++static int noise_ir(double *out, int n, int rate, uint64_t s)
++{
++   int L = (int)(RT_S * rate), m = n > L ? n : L, i;
++   double *g = (double *)malloc(sizeof(double) * (size_t)m), e = 0, z1 = 0, z2 = 0;
++   double Kq = tan(M_PI * 6000.0 / rate), q = sqrt(2.0), nn = 1 / (1 + Kq * q + Kq * Kq);
++   double b0 = Kq * Kq * nn, b1 = 2 * b0, b2 = b0, a1 = 2 * (Kq * Kq - 1) * nn, a2 = (1 - Kq * q + Kq * Kq) * nn;
++   if (!g) return 0;
++   for (i = 0; i < m; i += 2) {
++      double u1 = noise_u(s, (uint64_t)i), u2 = noise_u(s, (uint64_t)i + 1), r = sqrt(-2 * log(u1));
++      g[i] = r * cos(2 * M_PI * u2);
++      if (i + 1 < m) g[i + 1] = r * sin(2 * M_PI * u2);
++   }
++   for (i = 0; i < m; i++) {
++      double x = g[i] * exp(-6.9 * ((double)i / rate) / RT_S), y = b0 * x + z1;
++      z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y;
++      g[i] = y; if (i < L) e += y * y;
++   }
++   e = 1 / sqrt(e);
++   for (i = 0; i < n; i++) out[i] = g[i] * e;
++   free(g);
++   return 1;
++}
++
++/* 셸프 둘의 전력 응답 |H(f)|² — sndfx_new 의 계수와 같은 식 */
++static double eq_pow(const sndfx_t *f, double hz, double gl, double gh)
++{
++   double w = 2 * M_PI * hz / f->rate, cr = cos(w), ci = -sin(w);      /* z⁻¹ = e^{−jw} */
++   double nr, ni, dr, di, d2, lr, li, hr, hi, ar, ai, br, bi;
++   nr = f->lb0 + f->lb1 * cr; ni = f->lb1 * ci; dr = 1 + f->la1 * cr; di = f->la1 * ci; d2 = dr * dr + di * di;
++   lr = (nr * dr + ni * di) / d2; li = (ni * dr - nr * di) / d2;
++   nr = f->hb0 + f->hb1 * cr; ni = f->hb1 * ci; dr = 1 + f->ha1 * cr; di = f->ha1 * ci; d2 = dr * dr + di * di;
++   hr = (nr * dr + ni * di) / d2; hi = (ni * dr - nr * di) / d2;
++   ar = 1 + gl * lr; ai = gl * li; br = 1 + gh * hr; bi = gh * hi;
++   return (ar * ar + ai * ai) * (br * br + bi * bi);
++}
++
++/* 크기 모델: 다듬은 소리 전력 / 원래 전력 ≈ 셸프(스펙트럼 가중) × 넓힘 × (마른² + 울림² × K), K = 울림 응답의 대역 전력(같은 가중) */
++static double model_pow(const sndfx_t *f, const double *rb, double bass, double treble, double width, double mix)
++{
++   double gl = pow(10.0, bass / 20) - 1, gh = pow(10.0, treble / 20) - 1, s = 0, se = 0, sr = 0, fc = SNDFX_SPEC_F0, wl, wr, dry, wet;
++   int b;
++   for (b = 0; b < SNDFX_SPEC_N; b++, fc *= 1.122462048309373) {     /* 2^(1/6) */
++      double e;
++      if (fc * 1.0594630943592953 >= f->rate * 0.5) break;          /* 칸 윗끝이 나이퀴스트를 넘으면 그만 */
++      e = eq_pow(f, fc, gl, gh);
++      s += SNDFX_SPEC[b]; se += SNDFX_SPEC[b] * e; sr += SNDFX_SPEC[b] * e * rb[b];
++   }
++   wl = 0.35 * width; wr = 0.21 * width; dry = 1 - 0.4 * mix; wet = 0.64 * mix;
++   return se / s * (1 + (wl * wl + wr * wr) / 2) * (dry * dry + wet * wet * (sr / se));
++}
++
++sndfx_t *sndfx_new(int rate, const sndfx_params *pin)
+ {
+    sndfx_t *f;
+-   int c, i, p, D, L, Lt, Lg;
+-   double K;
++   sndfx_params p;
++   int c, i, pp, D, Lt, Ld, Lg, dflt_rt;
++   double K, rb[SNDFX_SPEC_N];
++   if (pin) p = *pin; else sndfx_defaults(&p);
+    if (rate < 22050 || rate > 192000) return NULL;
++   if (!(p.bass_db >= 0 && p.bass_db <= 12) || !(p.treble_db >= -12 && p.treble_db <= 0) || !(p.width >= 0 && p.width <= 2)
++       || !(p.mix >= 0 && p.mix <= 1) || !(p.rt >= 0.3f && p.rt <= 4.0f)) return NULL;
+    D = (int)(PRE_S * rate);
+    if (D < B) return NULL;
+    f = (sndfx_t *)calloc(1, sizeof *f);
+    if (!f) return NULL;
+-   f->rate = rate;
++   f->rate = rate; f->prm = p;
+    /* 셸프 — 1차 버터워스(쌍선형, 미리 휨): 저역 b0=b1=K/(1+K) · 고역 b0=1/(1+K), b1=−b0 · a1=(K−1)/(K+1) */
+    K = tan(M_PI * 180.0 / rate);
+    f->lb0 = f->lb1 = (float)(K / (1 + K)); f->la1 = (float)((K - 1) / (K + 1));
+    K = tan(M_PI * 4500.0 / rate);
+    f->hb0 = (float)(1 / (1 + K)); f->hb1 = -f->hb0; f->ha1 = (float)((K - 1) / (K + 1));
+-   f->gl = (float)(pow(10.0, 3.5 / 20) - 1); f->gh = (float)(pow(10.0, -4.0 / 20) - 1);
+-   f->gain = GAIN;
++   f->gl = (float)(pow(10.0, (double)p.bass_db / 20) - 1); f->gh = (float)(pow(10.0, (double)p.treble_db / 20) - 1);   /* double 로 나눔 — ② 에서 176 과 같은 값 */
++   f->wl = (float)(0.35 * p.width); f->wr = (float)(0.21 * p.width);
++   f->dry = (float)(1 - 0.4 * p.mix); f->wetg = (float)(0.64 * p.mix);
+    f->macp = 1;
+    f->wlen = (int)(9.0 / 1000 * rate);
+    f->wbuf = (float *)calloc((size_t)f->wlen, sizeof(float));
+    /* FFT 표 */
+    for (i = 0; i < N / 2; i++) { f->tw_re[i] = (float)cos(-2 * M_PI * i / N); f->tw_im[i] = (float)sin(-2 * M_PI * i / N); }
+    for (i = 0; i < N; i++) { int r = 0, b, v = i; for (b = 1; b < N; b <<= 1) { r = (r << 1) | (v & 1); v >>= 1; } f->rev[i] = r; }
+-   /* 울림 응답: 잡음 × exp(−6.9 t / RT) → 6kHz 2차 버터워스 저역 → 에너지 1 → 앞에 D 샘플 0 */
+-   L = (int)(RT_S * rate); Lt = (int)(TAIL_S * rate); if (Lt > L) Lt = L;
++   /* 울림 응답: ② = 잡음 × exp(−6.9 t / 1.3) → 6kHz 2차 버터워스 저역 → 에너지 1 → 앞 1.0초 → 앞에 D 샘플 0.
++      다른 길이 rt: 같은 응답에 exp(−6.9 t (1/rt − 1/1.3)) 를 곱해 감쇠만 바꾸고(1.0초 넘는 꼬리는 같은 방식의 잡음으로 이어 붙임),
++      길이는 1.0 × rt/1.3 초까지, 에너지는 ② 응답과 같게 */
++   dflt_rt = fabs(p.rt - RT_S) < 1e-4;
++   Ld = (int)(TAIL_S * rate);
++   Lt = dflt_rt ? Ld : (int)(TAIL_S / RT_S * p.rt * rate + 0.5);
+    f->irlen = (size_t)(D + Lt);
+    Lg = D + Lt - B;                                 /* 응답을 B 만큼 앞당긴 것(앞 B 칸은 늘 0) */
+    f->P = (Lg + B - 1) / B;
+    for (c = 0; c < 2; c++) {
+       uint64_t s = c ? SEED_R : SEED_L;
+-      double *g = (double *)malloc(sizeof(double) * (size_t)L), e = 0, z1 = 0, z2 = 0;
+-      double Kq = tan(M_PI * 6000.0 / rate), q = sqrt(2.0), nn = 1 / (1 + Kq * q + Kq * Kq);
+-      double b0 = Kq * Kq * nn, b1 = 2 * b0, b2 = b0, a1 = 2 * (Kq * Kq - 1) * nn, a2 = (1 - Kq * q + Kq * Kq) * nn;
+       float *re = (float *)malloc(sizeof(float) * N), *im = (float *)malloc(sizeof(float) * N);
+       f->ir[c] = (float *)calloc(f->irlen, sizeof(float));
+       f->Hr[c] = (float *)calloc((size_t)f->P * NB, sizeof(float)); f->Hi[c] = (float *)calloc((size_t)f->P * NB, sizeof(float));
+       f->Xr[c] = (float *)calloc((size_t)f->P * NB, sizeof(float)); f->Xi[c] = (float *)calloc((size_t)f->P * NB, sizeof(float));
+-      if (!g || !re || !im || !f->ir[c] || !f->Hr[c] || !f->Hi[c] || !f->Xr[c] || !f->Xi[c] || !f->wbuf) {
+-         free(g); free(re); free(im); sndfx_free(f); return NULL;
++      if (!re || !im || !f->ir[c] || !f->Hr[c] || !f->Hi[c] || !f->Xr[c] || !f->Xi[c] || !f->wbuf) {
++         free(re); free(im); sndfx_free(f); return NULL;
+       }
+-      if (rate == SNDFX_IR_RATE)                       /* 들어 보기 ② 응답 그대로 */
++      if (dflt_rt && rate == SNDFX_IR_RATE)            /* 들어 보기 ② 응답 그대로 */
+          for (i = 0; i < Lt; i++) f->ir[c][D + i] = i < SNDFX_IR_LEN ? SNDFX_IR[c][i] * SNDFX_IR_SCALE : 0.0f;
+-      else {
+-         for (i = 0; i < L; i += 2) {
+-            double u1 = noise_u(s, (uint64_t)i), u2 = noise_u(s, (uint64_t)i + 1), r = sqrt(-2 * log(u1));
+-            g[i] = r * cos(2 * M_PI * u2);
+-            if (i + 1 < L) g[i + 1] = r * sin(2 * M_PI * u2);
+-         }
+-         for (i = 0; i < L; i++) {
+-            double x = g[i] * exp(-6.9 * ((double)i / rate) / RT_S), y = b0 * x + z1;
+-            z1 = b1 * x - a1 * y + z2; z2 = b2 * x - a2 * y;
+-            g[i] = y; e += y * y;
+-         }
+-         e = 1 / sqrt(e);
+-         for (i = 0; i < Lt; i++) f->ir[c][D + i] = (float)(g[i] * e);
++      else if (dflt_rt) {                              /* 다른 빠르기의 ② — 176 과 같은 계산 */
++         double *g = (double *)malloc(sizeof(double) * (size_t)Lt);
++         if (!g || !noise_ir(g, Lt, rate, s)) { free(g); free(re); free(im); sndfx_free(f); return NULL; }
++         for (i = 0; i < Lt; i++) f->ir[c][D + i] = (float)g[i];
++         free(g);
++      } else {
++         int n = Lt > Ld ? Lt : Ld;
++         double *h = (double *)malloc(sizeof(double) * (size_t)n), eref = 0, e = 0, a = 6.9 * (1.0 / p.rt - 1.0 / RT_S) / rate, sc;
++         int emb = rate == SNDFX_IR_RATE ? SNDFX_IR_LEN : 0;
++         if (!h) { free(re); free(im); sndfx_free(f); return NULL; }
++         if (n > emb && !noise_ir(h, n, rate, s)) { free(h); free(re); free(im); sndfx_free(f); return NULL; }
++         for (i = 0; i < emb && i < n; i++) h[i] = SNDFX_IR[c][i] * SNDFX_IR_SCALE;
++         for (i = 0; i < Ld; i++) eref += h[i] * h[i];                  /* ② 응답(앞 1.0초)의 에너지 */
++         for (i = 0; i < Lt; i++) { h[i] *= exp(-a * i); e += h[i] * h[i]; }
++         sc = sqrt(eref / e);
++         for (i = 0; i < Lt; i++) f->ir[c][D + i] = (float)(h[i] * sc);
++         free(h);
+       }
+-      free(g);
+-      for (p = 0; p < f->P; p++) {
++      for (pp = 0; pp < f->P; pp++) {
+          int k;
+          memset(re, 0, sizeof(float) * N); memset(im, 0, sizeof(float) * N);
+-         for (k = 0; k < B; k++) { size_t t = (size_t)B + (size_t)p * B + (size_t)k; re[k] = t < f->irlen ? f->ir[c][t] : 0; }
++         for (k = 0; k < B; k++) { size_t t = (size_t)B + (size_t)pp * B + (size_t)k; re[k] = t < f->irlen ? f->ir[c][t] : 0; }
+          fft(f, re, im, 0);
+-         for (k = 0; k < NB; k++) { f->Hr[c][p * NB + k] = re[k]; f->Hi[c][p * NB + k] = im[k]; }
++         for (k = 0; k < NB; k++) { f->Hr[c][pp * NB + k] = re[k]; f->Hi[c][pp * NB + k] = im[k]; }
+       }
+       free(re); free(im);
+    }
++   /* 크기 맞춤: 울림 응답의 대역 전력(칸 스펙트럼 제곱합 — 평균이 응답 에너지) → ② 값과 이 값의 모델 전력 비 × ② 실측 배율.
++      ② 에서는 두 모델 값이 같은 계산이라 배율이 정확히 0.91(176 과 같은 출력) */
++   {
++      double fc = SNDFX_SPEC_F0, mp, m2;
++      int b;
++      for (b = 0; b < SNDFX_SPEC_N; b++, fc *= 1.122462048309373) {
++         double lo = fc / 1.0594630943592953, hi = fc * 1.0594630943592953, acc = 0;
++         int k0 = (int)ceil(lo * N / rate), k1 = (int)floor(hi * N / rate), k, cnt = 0;
++         if (k0 > k1) k0 = k1 = (int)floor(fc * N / rate + 0.5);
++         if (k1 > B) k1 = B;
++         for (k = k0; k <= k1; k++, cnt++)
++            for (c = 0; c < 2; c++)
++               for (pp = 0; pp < f->P; pp++) {
++                  double hr = f->Hr[c][pp * NB + k], hi2 = f->Hi[c][pp * NB + k];
++                  acc += 0.5 * (hr * hr + hi2 * hi2);
++               }
++         rb[b] = cnt ? acc / cnt : 0;
++      }
++      mp = model_pow(f, rb, p.bass_db, p.treble_db, p.width, p.mix);
++      m2 = model_pow(f, rb, 3.5, -4.0, 1.0, 0.5);
++      f->gain = (float)(GAIN * sqrt(m2 / mp));
++   }
+    return f;
+ }
+ 
+@@ -233,10 +349,10 @@ void sndfx_run(sndfx_t *f, int16_t *buf, size_t frames)
+          {
+             float m = 0.5f * (y[0] + y[1]), d = f->wbuf[f->wpos];
+             f->wbuf[f->wpos] = m; if (++f->wpos == f->wlen) f->wpos = 0;
+-            y[0] += 0.35f * d; y[1] -= 0.21f * d;
++            y[0] += f->wl * d; y[1] -= f->wr * d;
+          }
+          for (c = 0; c < 2; c++) {
+-            float o = f->gain * (DRY * y[c] + WET * f->wet[c][f->bpos]);
++            float o = f->gain * (f->dry * y[c] + f->wetg * f->wet[c][f->bpos]);
+             f->in[c][B + f->bpos] = y[c];
+             buf[2 * i + c] = (int16_t)(o > 32767.f ? 32767 : o < -32768.f ? -32768 : lrintf(o));
+          }
+@@ -249,3 +365,4 @@ void sndfx_run(sndfx_t *f, int16_t *buf, size_t frames)
+ 
+ const float *sndfx_ir(const sndfx_t *f, int ch, size_t *len) { if (len) *len = f->irlen; return f->ir[ch & 1]; }
+ float sndfx_gain(const sndfx_t *f) { return f->gain; }
++int sndfx_parts(const sndfx_t *f) { return f->P; }
+diff --git a/app/src/main/cpp/sndfx.h b/app/src/main/cpp/sndfx.h
+index aeb9fe3..df5a393 100644
+--- a/app/src/main/cpp/sndfx.h
++++ b/app/src/main/cpp/sndfx.h
+@@ -1,12 +1,16 @@
+ /* sndfx — 음색 다듬기 (내부 176). 유저 10-20 「소리가 역시 너무 심심한데」 → 들어 보기 넷 중 「2 가 나은 방식이네」.
++ * 178: 「음색 다듬기도 설정이 있잖아 조절해 보게 해 줘」 — 넷의 세기와 울림 길이를 값으로(sndfx_params). 기본값 = 들어 보기 ② = 176 그대로.
+  *
+  * 곡·효과음은 그대로 두고 게임 소리 위에 넷을 얹는다(들어 보기 ② 와 같은 계산 — tools/sndfx_test.c·tools/sndfx_ref.py 로 맞춤):
+- *   1. 저음 보강   180Hz 1차 저역 셸프 +3.5dB  — 얇은 사각파에 바닥
+- *   2. 고음 눅이기 4.5kHz 1차 고역 셸프 −4dB  — 사각파의 쨍한 날
+- *   3. 좌우 넓힘   가운데(L+R)/2 를 9ms 늦춰 왼쪽에 +0.35, 오른쪽에 −0.21
++ *   1. 저음 보강   180Hz 1차 저역 셸프 +3.5dB  — 얇은 사각파에 바닥                       (bass_db 0..+7)
++ *   2. 고음 눅이기 4.5kHz 1차 고역 셸프 −4dB   — 사각파의 쨍한 날                         (treble_db −8..0)
++ *   3. 좌우 넓힘   가운데(L+R)/2 를 9ms 늦춰 왼쪽에 +0.35, 오른쪽에 −0.21                  (width 배수 0..2)
+  *   4. 울림        방 울림 응답(좌우 따로 만든 잡음 × 지수 감쇠 1.3초 · 6kHz 2차 저역 — 앞 1.0초) 을 20ms 늦게 시작, 마른 소리 0.8 + 울림 0.32
+- *                  44.1kHz 응답은 들어 보기 ② 것 그대로(sndfx_ir.h ← tools/sndfx_ir_gen.py) — 사각파 음악은 응답 잡음이 다르면 음마다 울림 크기가 달라서
+- *   그리고 크기 맞춤(원래 소리와 같은 크기로 들리게 — 실측 배율).
++ *                  (mix 0..1: 마른 1−0.4m · 울림 0.64m — ② = 0.5 · rt 울림 길이 초 — ② = 1.3, 응답 길이는 rt 에 비례)
++ *                  44.1kHz 응답은 들어 보기 ② 것 그대로(sndfx_ir.h ← tools/sndfx_ir_gen.py) — 사각파 음악은 응답 잡음이 다르면 음마다 울림 크기가 달라서.
++ *                  길이를 바꾸면 그 응답의 감쇠만 다시 입히고(1.0초 넘는 꼬리는 같은 방식으로 만든 잡음) 에너지는 ② 와 같게.
++ *   그리고 크기 맞춤 — 값을 바꿔도 원래 소리와 같은 크기로 들리게: ② 에서 실측 배율 0.91, 다른 값은 그 비율을 모델로
++ *   (SS2 소리 평균 스펙트럼 sndfx_spec.h × 셸프 응답 × 넓힘 × (마른² + 울림² × 응답 대역 에너지) — 실측과 ±0.5dB, tools/sndfx_model.py).
+  * 울림은 응답을 512 칸씩 나눠 FFT(1024)로 곱해 더하는 «고르게 나눈 겹쳐 버리기»(UPOLS). 응답이 882 샘플(20ms) 늦게 시작해서
+  * 한 칸을 다 받은 뒤 계산해도 다음 칸에 늦지 않다 — 지연 0. 소리 카드 콜백(AAudio)에서 돈다(게임 프레임 시간에 안 들어간다).
+  * 안드로이드에 기대지 않는다(호스트 시험 tools/sndfx_test.c). */
+@@ -18,13 +22,27 @@
+ 
+ typedef struct sndfx sndfx_t;
+ 
+-sndfx_t *sndfx_new(int rate);                       /* 응답·필터를 만든다(약 1.8MB). 못 만들면 NULL */
++typedef struct {
++   float bass_db;      /* 저음 보강(dB, 0..7)        — ② 3.5 */
++   float treble_db;    /* 고음 눅이기(dB, −8..0)     — ② −4 */
++   float width;        /* 좌우 넓힘 배수(0..2)       — ② 1 */
++   float mix;          /* 울림 양(0..1)              — ② 0.5 */
++   float rt;           /* 울림 길이(초, 0.4..3.5)    — ② 1.3 */
++} sndfx_params;
++
++void     sndfx_defaults(sndfx_params *p);           /* 들어 보기 ② */
++/* 설정 값(0..100, 50 = ②) → 값. 저음 0..+7dB · 고음 눅이기 0..−8dB · 넓힘 0..2배 · 울림 0..1 · 울림 길이 1.3초 × 2^((v−50)/40) (0.55..3.1초) */
++void     sndfx_from_pct(sndfx_params *p, int bass, int treble, int width, int reverb, int room);
++int      sndfx_same(const sndfx_t *fx, int rate, const sndfx_params *p);   /* 같은 빠르기·값으로 만든 것인가 */
++
++sndfx_t *sndfx_new(int rate, const sndfx_params *p); /* 응답·필터를 만든다(약 1.8MB — 긴 울림은 더). p == NULL 이면 ②. 못 만들면 NULL */
+ void     sndfx_free(sndfx_t *fx);
+ void     sndfx_reset(sndfx_t *fx);                  /* 꼬리·필터 상태를 비운다(켤 때·소리를 버린 뒤) */
+ void     sndfx_run(sndfx_t *fx, int16_t *buf, size_t frames);   /* 제자리 — 스테레오 섞어 둔 s16 */
+ 
+-/* 시험용 — 만든 응답(마른 소리 뒤 울림, 앞 지연 포함)과 크기 맞춤 배율 */
++/* 시험용 — 만든 응답(마른 소리 뒤 울림, 앞 지연 포함)·크기 맞춤 배율·칸 수 */
+ const float *sndfx_ir(const sndfx_t *fx, int ch, size_t *len);
+ float        sndfx_gain(const sndfx_t *fx);
++int          sndfx_parts(const sndfx_t *fx);
+ 
+ #endif
+diff --git a/app/src/main/cpp/sndfx_spec.h b/app/src/main/cpp/sndfx_spec.h
+new file mode 100644
+index 0000000..345c68a
+--- /dev/null
++++ b/app/src/main/cpp/sndfx_spec.h
+@@ -0,0 +1,15 @@
++/* 자동 생성(tools/sndfx_model.py spec) — SS2 소리(데모 대전 + 대전곡 칸 12) 평균 전력, 1/6 옥타브 60칸(가운데 22.1~20159Hz), 합 1. 음색 다듬기 크기 맞춤 모델 */
++#define SNDFX_SPEC_N 60
++static const float SNDFX_SPEC_F0 = 22.097087f;   /* 첫 칸 가운데(Hz) — 칸마다 × 2^(1/6) */
++static const float SNDFX_SPEC[SNDFX_SPEC_N] = {
++   1.0390e-04f, 8.2395e-05f, 6.9783e-05f, 2.0994e-04f, 1.0125e-04f, 2.0747e-04f,
++   1.7312e-04f, 1.8613e-04f, 2.1466e-04f, 3.9708e-04f, 3.1975e-04f, 5.0658e-04f,
++   6.6134e-04f, 9.5106e-03f, 2.0258e-02f, 2.0410e-02f, 1.7228e-02f, 6.9552e-02f,
++   3.5276e-02f, 1.9539e-02f, 1.4940e-02f, 7.2673e-03f, 6.5884e-03f, 1.7255e-02f,
++   3.5218e-02f, 3.2785e-02f, 4.4871e-02f, 1.3848e-02f, 4.9488e-02f, 5.1749e-02f,
++   6.4533e-02f, 6.6629e-02f, 9.3235e-02f, 4.4648e-02f, 5.8567e-02f, 3.9366e-02f,
++   2.0566e-02f, 5.4378e-03f, 1.4689e-02f, 7.7297e-03f, 1.3294e-02f, 1.0007e-02f,
++   9.1714e-03f, 1.1076e-02f, 1.1953e-02f, 7.6679e-03f, 7.1477e-03f, 6.0768e-03f,
++   6.0852e-03f, 6.3949e-03f, 4.3954e-03f, 4.7451e-03f, 3.5094e-03f, 3.4701e-03f,
++   2.4938e-03f, 2.0521e-03f, 1.7341e-03f, 1.5963e-03f, 1.3770e-03f, 1.3352e-03f,
++};
 diff --git a/app/src/main/cpp/uisfx.c b/app/src/main/cpp/uisfx.c
 new file mode 100644
 index 0000000..c25ae6e
@@ -890,9 +1354,18 @@ index dae5e69..dad382d 100644
      static boolean fight(Map<String, String> m) { int[] v = values(m); for (int i = TIME; i <= POW; i++) if (v[i] != 0) return true; return false; }
      /** native 에 값만 넣는다(코어를 다시 올리지 않음 — 다음 진짜 프레임부터 먹는다). 168: 리그 판도 먹는다(why 4) — 올카드만 EmuActivity.pushCheats 가 0 으로 덮음 */
 diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
-index e8d017c..c2159b7 100644
+index e8d017c..e0aa2ec 100644
 --- a/app/src/main/java/com/dudu/pocketcore/Emu.java
 +++ b/app/src/main/java/com/dudu/pocketcore/Emu.java
+@@ -33,7 +33,7 @@ public final class Emu {
+     public static native void nativeAudioPause();   /* 백그라운드 — 오디오 장치를 놓는다 */
+     public static native void nativeAudioResume();  /* 복귀 — 새 스트림으로 다시 연다 */
+     /** 176 음색 다듬기(저음 보강·고음 눅이기·좌우 넓힘·방 울림) 켬/끔 — 소리 카드 콜백이 다음 묶음부터 */
+-    public static native void nativeSetSoundFx(boolean on);
++    public static native void nativeSetSoundFx(boolean on, int bass, int treble, int width, int reverb, int room);   /* 178: 세부 0..100(50 = 기본) */
+     public static native void nativeRunFrames(int n); /* GL 없이 n프레임 — 썸네일 캡처용 */
+     /* 151: 앱 보간(nativeSetFrameGen·nativeFrameGenActive) 폐기 — 120Hz 사이 칸은 코어의 프레임 패치만 */
+     /** 실측 전 대용 패널 주사율(Display.getRefreshRate) — 코어의 GET_TARGET_REFRESH_RATE 답에 쓴다. */
 @@ -116,6 +116,8 @@ public final class Emu {
      public static native int[] nativePracticeStatus();
      /** 연습 대전 프레임 미터 — cells[160](나 80칸 · 상대 80칸) · sum[40](practice.h PRACTICE_FD_NSUM). 돌려줌: 바뀔 때마다 오르는 판 번호 */
@@ -913,7 +1386,7 @@ index e8d017c..c2159b7 100644
 +    public static native boolean nativeUiSfx(int kind);
  }
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 6a6f0f6..70caa76 100644
+index 6a6f0f6..de66c50 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -186,8 +186,8 @@ public class EmuActivity extends Activity {
@@ -940,7 +1413,18 @@ index 6a6f0f6..70caa76 100644
              break; }
          case PadView.ACT_PICK:
              goList();
-@@ -1903,8 +1904,8 @@ public class EmuActivity extends Activity {
+@@ -674,7 +675,9 @@ public class EmuActivity extends Activity {
+         gl.queueEvent(new Runnable() { @Override public void run() {
+             Emu.nativeSetDisplay(up, mix, grid, scan, ghost, color, soft, integer);
+         }});
+-        Emu.nativeSetSoundFx(!"disabled".equals(m.get(Settings.SND_FX)));   /* 176 음색 다듬기 — 값 하나라 바로(소리 카드 콜백이 다음 묶음부터 봄) */
++        int[] fx = new int[Settings.SND_FX_KEYS.length];   /* 178 세부(50 = 기본 ②) — 바뀌었으면 native 가 새로 만들어 콜백이 다음 묶음에 바꿔 낀다 */
++        for (int i = 0; i < fx.length; i++) fx[i] = Settings.pctOf(m, Settings.SND_FX_KEYS[i], 50);
++        Emu.nativeSetSoundFx(!"disabled".equals(m.get(Settings.SND_FX)), fx[0], fx[1], fx[2], fx[3], fx[4]);   /* 176 음색 다듬기 켬/끔 — 소리 카드 콜백이 다음 묶음부터 봄 */
+     }
+ 
+     /* ── 게임 중에 바로 바꿀 수 있는 코어 옵션 ──
+@@ -1903,8 +1906,8 @@ public class EmuActivity extends Activity {
      /* ── 연습 대전 프레임 미터(SF6 식) ─────────────────────────────────
         연습 메뉴 «표시: 프레임 · 둘 다» 일 때 경기 중에만 보인다. 자료는 practice.c 가 진짜 프레임마다 쌓고(런어헤드·프레임 생성의 숨은 프레임은 안 셈),
         여기선 33ms 마다 판 번호가 바뀌었을 때만 다시 그린다(할당 없음).
@@ -951,7 +1435,7 @@ index 6a6f0f6..70caa76 100644
         손가락으로 끌면 그 자리를 기억(세로·가로 따로), 두 번 톡 = 자동 자리, 한 번 톡 = 색 설명 켜고 끄기. */
      private FrameMeterView fdView;
      private final byte[] fdCells = new byte[2 * FrameMeterText.VIEW];
-@@ -1923,7 +1924,7 @@ public class EmuActivity extends Activity {
+@@ -1923,7 +1926,7 @@ public class EmuActivity extends Activity {
                          FrameLayout.LayoutParams.WRAP_CONTENT, android.view.Gravity.TOP | android.view.Gravity.LEFT));
                  fdView.setOnTouchListener(fdDrag);
              }
@@ -960,7 +1444,7 @@ index 6a6f0f6..70caa76 100644
              placeFrameMeter();
              h.removeCallbacks(fdPoll); h.post(fdPoll);
          } else {
-@@ -1934,6 +1935,9 @@ public class EmuActivity extends Activity {
+@@ -1934,6 +1937,9 @@ public class EmuActivity extends Activity {
          placeHubBanner();
      }
  
@@ -970,7 +1454,7 @@ index 6a6f0f6..70caa76 100644
      private final Runnable fdPoll = new Runnable() { @Override public void run() {
          if (!fdWanted || fdView == null || leaving || !loaded) return;
          int v = Emu.nativePracticeFrames(fdCells, fdSum);
-@@ -1947,14 +1951,26 @@ public class EmuActivity extends Activity {
+@@ -1947,14 +1953,26 @@ public class EmuActivity extends Activity {
          int W = root.getWidth(), H = root.getHeight();
          if (W <= 0 || H <= 0) return;
          float dp = getResources().getDisplayMetrics().density;
@@ -1003,7 +1487,7 @@ index 6a6f0f6..70caa76 100644
          if (saved != null) {
              try { String[] a = saved.split(","); pos = new float[] { Float.parseFloat(a[0]), Float.parseFloat(a[1]) }; } catch (Exception e) { pos = null; }
          }
-@@ -1963,24 +1979,18 @@ public class EmuActivity extends Activity {
+@@ -1963,24 +1981,18 @@ public class EmuActivity extends Activity {
              left = Math.max(0, Math.min(W - width, Math.round(pos[0] * W - width / 2f)));
              top = Math.max(0, Math.min(H - hh, Math.round(pos[1] * H - hh / 2f)));
          } else {
@@ -1040,7 +1524,7 @@ index 6a6f0f6..70caa76 100644
          }
          fdView.setOverlay(overlay);
          FrameLayout.LayoutParams lp = (FrameLayout.LayoutParams) fdView.getLayoutParams();
-@@ -1990,6 +2000,41 @@ public class EmuActivity extends Activity {
+@@ -1990,6 +2002,41 @@ public class EmuActivity extends Activity {
          fdBox[0] = left; fdBox[1] = top; fdBox[2] = left + width; fdBox[3] = overlay || fdUserPos ? 0 : top + hh;   /* 겹친 자리·옮긴 자리는 안내 띠가 안 피함 */
      }
  
@@ -1082,7 +1566,7 @@ index 6a6f0f6..70caa76 100644
      private final View.OnTouchListener fdDrag = new View.OnTouchListener() {
          float x0, y0; int l0, t0; long lastUp = 0;
          @Override public boolean onTouch(View v, android.view.MotionEvent e) {
-@@ -2379,6 +2424,7 @@ public class EmuActivity extends Activity {
+@@ -2379,6 +2426,7 @@ public class EmuActivity extends Activity {
          private int sel = -1;
          private Runnable onDismiss;
          private Ask under;                           /* 이 카드가 뜰 때 떠 있던 카드 — 닫으면 그 카드가 다시 맨 위(먼저 카드를 닫지 않는다: 그 닫힘 리스너가 경기를 풀지 않게) */
@@ -1090,7 +1574,7 @@ index 6a6f0f6..70caa76 100644
          Ask(String title, String msg) {
              float dp = getResources().getDisplayMetrics().density;
              scrim = new FrameLayout(EmuActivity.this);
-@@ -2420,7 +2466,8 @@ public class EmuActivity extends Activity {
+@@ -2420,7 +2468,8 @@ public class EmuActivity extends Activity {
          /** 단추 — r 은 누른 뒤(카드를 닫기 전에) 한 번. null = 닫기만(AlertDialog 의 null 리스너처럼) */
          Ask btn(String label, final Runnable r) {
              float dp = getResources().getDisplayMetrics().density;
@@ -1100,7 +1584,7 @@ index 6a6f0f6..70caa76 100644
              android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
                      android.widget.LinearLayout.LayoutParams.WRAP_CONTENT);
              lp.topMargin = Math.round(6 * dp);
-@@ -2430,6 +2477,8 @@ public class EmuActivity extends Activity {
+@@ -2430,6 +2479,8 @@ public class EmuActivity extends Activity {
              return this;
          }
          Ask cancelable(boolean c) { cancelable = c; return this; }
@@ -1109,7 +1593,7 @@ index 6a6f0f6..70caa76 100644
          /** 168(11) 글 칸 — 단추 줄 위에. 글자 키는 칸이 받는다(dispatchKeyEvent) · 키보드 «완료» = 첫 단추 */
          private android.widget.EditText field;
          Ask field(android.widget.EditText e) {
-@@ -2461,17 +2510,20 @@ public class EmuActivity extends Activity {
+@@ -2461,17 +2512,20 @@ public class EmuActivity extends Activity {
              if (ask == this) { ask = under; while (ask != null && !ask.showing) ask = ask.under; }   /* 아래 카드 중 아직 떠 있는 것 */
              if (onDismiss != null) onDismiss.run();
          }
@@ -1133,7 +1617,7 @@ index 6a6f0f6..70caa76 100644
              for (int k = 0; k < list.size(); k++) {
                  TextView t = list.get(k);
                  ((android.graphics.drawable.GradientDrawable) t.getBackground()).setStroke(k == sel ? Math.round(2 * getResources().getDisplayMetrics().density) : 0, 0xfffff3c4);
-@@ -3361,7 +3413,8 @@ public class EmuActivity extends Activity {
+@@ -3361,7 +3415,8 @@ public class EmuActivity extends Activity {
          final MenuModel warm = lgmWarmModel(m);                         /* 165: 결판 장면을 한 번 미리(버림) — 정산 때 그림이 빨라 걸쇠를 안 놓치게 */
          lgmRender(() -> {
              LgmPages pg = lgmPages();
@@ -1143,7 +1627,7 @@ index 6a6f0f6..70caa76 100644
              h.post(() -> {
                  if (id.equals(lgmTagsId)) { lgmTagsPending = false; lgmTagsAt = android.os.SystemClock.uptimeMillis(); }
                  if (!id.equals(leagueId) || leaving || leagueDone) return;
-@@ -3422,6 +3475,7 @@ public class EmuActivity extends Activity {
+@@ -3422,6 +3477,7 @@ public class EmuActivity extends Activity {
          LeagueMenu mm = lgm;
          boolean open = mm != null && (mm.isOpen() || lgmShown);
          if (open != lgmOpen) lgmOpenUi(open);
@@ -1151,7 +1635,7 @@ index 6a6f0f6..70caa76 100644
      }
      private void lgmOpenUi(boolean open) {
          lgmOpen = open;
-@@ -3885,7 +3939,7 @@ public class EmuActivity extends Activity {
+@@ -3885,7 +3941,7 @@ public class EmuActivity extends Activity {
          e.setTextColor(0xfff3ead7); e.setTypeface(hubFont()); e.setTextSize(18);
          final boolean[] done = { false };
          Ask d = ask("내 이름", "한글·영문·숫자 " + League.NAME_MAX + "자까지 · 비우면 «나»\n이름표·VS 띠·결판·순위표에 나와요")
@@ -1160,7 +1644,7 @@ index 6a6f0f6..70caa76 100644
                  .btn("정하기", () -> {
                      done[0] = true;
                      String before = League.myNick();
-@@ -4014,7 +4068,7 @@ public class EmuActivity extends Activity {
+@@ -4014,7 +4070,7 @@ public class EmuActivity extends Activity {
  
      /** 코어를 올린 뒤(loadCore — UI·GL 스레드 어느 쪽에서든) */
      private void cheatSetup() {
@@ -1169,7 +1653,7 @@ index 6a6f0f6..70caa76 100644
          if (!loaded) { cheatPillPost(false); return; }
          java.util.Map<String, String> m = Settings.load();
          if (game == null || !Cheats.GAME.equals(game.id)) { cheatPillPost(false); return; }
-@@ -4026,19 +4080,43 @@ public class EmuActivity extends Activity {
+@@ -4026,19 +4082,43 @@ public class EmuActivity extends Activity {
      }
      private void cheatPillPost(final boolean on) { h.post(new Runnable() { @Override public void run() { if (pad != null) pad.setCheatPill(on); } }); }
  
@@ -1218,7 +1702,7 @@ index 6a6f0f6..70caa76 100644
      /** 168 §9 — 이 판에 먹은 치트(native 가 무장 때 비움 · 옛 native 면 0) */
      private static boolean natCheatMatch = true;
      private int cheatMatch() {
-@@ -4068,11 +4146,37 @@ public class EmuActivity extends Activity {
+@@ -4068,11 +4148,37 @@ public class EmuActivity extends Activity {
                                                                넣으면 리그 세이브를 다시 읽는 순간(prog 03→06 · 카드 8 미만) 비트가 서서 매 판 «치트»로 적혔다. «세이브에 남기기»도 리그 세이브에 안 들어감 */
          cheatFight = Cheats.fight(m);
          cheatActiveMask = Cheats.activeMask(m, ranked());
@@ -1256,7 +1740,7 @@ index 6a6f0f6..70caa76 100644
      /** 1초마다 — 왼쪽 위 작은 «치트» 표시(먹는 치트가 있을 때 · 리그 이름표와 같은 자리, 색만 흐리게), «세이브에 남기기»가 세이브에 들어간 순간 한 번 알림 */
      private final Runnable cheatPoll = new Runnable() { @Override public void run() {
          if (leaving || !cheatOk) { showCheatTag(null); return; }
-@@ -4179,7 +4283,7 @@ public class EmuActivity extends Activity {
+@@ -4179,7 +4285,7 @@ public class EmuActivity extends Activity {
              int[] hs = Emu.nativeLeagueHubStatus(), ps = Emu.nativePracticeStatus();
              int[] dv = Emu.nativeHubDualStatus();                         /* 둘 다 꺼져 있어도 — 메뉴 화면(v[5])으로 띠를 고른다 */
              if (practiceDual && dv != null && dv.length >= 5 && dv[2] == 1) { switchSession(true, false); return; }   /* 셋째 줄 «리그 대전» — 리그 판으로 */
@@ -1843,6 +2327,69 @@ index 9fd2039..1ce1c81 100644
                          menuChanged();
                          invalidate();
                          return true;
+diff --git a/app/src/main/java/com/dudu/pocketcore/Settings.java b/app/src/main/java/com/dudu/pocketcore/Settings.java
+index 705bc14..8916469 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Settings.java
++++ b/app/src/main/java/com/dudu/pocketcore/Settings.java
+@@ -25,6 +25,8 @@ public final class Settings {
+     public static final String MOTION = "pocketcore_motion";
+     /** 176 음색 다듬기 켬/끔 열쇠(enabled/disabled — 기본 켬) */
+     public static final String SND_FX = "pocketcore_snd_fx";
++    /** 178 음색 다듬기 세부(0..100, 50 = 들어 보기 ② = 176) — 저음 보강·고음 눅이기·좌우 넓힘·울림·울림 길이. native sndfx_from_pct 와 같은 순서 */
++    public static final String[] SND_FX_KEYS = { "pocketcore_snd_bass", "pocketcore_snd_treble", "pocketcore_snd_width", "pocketcore_snd_reverb", "pocketcore_snd_room" };
+ 
+     public static final class Item {
+         public final String key, label, help;
+@@ -67,6 +69,24 @@ public final class Settings {
+         it.pct = true;
+         return it;
+     }
++    /** 178 음색 다듬기 세부 — 0..100 을 5 단위로(슬라이더), 이름은 실제 값. 50 = 기본(들어 보기 ②).
++     *  kind 0 저음 0..+7dB · 1 고음 눅이기 0..−8dB · 2 좌우 넓힘 ×0..2 · 3 울림 ×0..2 · 4 울림 길이 1.3초 × 2^((v−50)/40) */
++    static Item fxPct(String key, String label, String help, int kind) {
++        String[] v = new String[21], n = new String[21];
++        for (int i = 0; i <= 20; i++) {
++            int p = i * 5;
++            String t;
++            if (kind == 4) t = String.format(java.util.Locale.US, "%.2f초", 1.3 * Math.pow(2.0, (p - 50) / 40.0));
++            else if (p == 0) t = "끔";
++            else if (kind == 0) t = String.format(java.util.Locale.US, "+%.1fdB", 7.0 * p / 100);
++            else if (kind == 1) t = String.format(java.util.Locale.US, "−%.1fdB", 8.0 * p / 100);
++            else t = String.format(java.util.Locale.US, "×%.1f", p / 50.0);
++            v[i] = String.valueOf(p); n[i] = p == 50 ? t + " (기본)" : t;
++        }
++        Item it = new Item(key, label, help, v, n, "50");
++        it.pct = true;
++        return it;
++    }
+     /** 세기 항목 값을 0..100 정수로 (없거나 깨졌으면 기본값). */
+     public static int pctOf(Map<String, String> m, String key, int def) {
+         try { return Math.max(0, Math.min(100, Integer.parseInt(m.get(key).trim()))); }
+@@ -246,8 +266,14 @@ public final class Settings {
+             /* 176 음색 다듬기(native sndfx.c) — 곡·효과음은 그대로, 게임 소리 위에 저음 보강·고음 눅이기·좌우 넓힘·방 울림.
+                유저 10-20 「소리가 역시 너무 심심한데」 → 들어 보기 넷(원래·다듬기·악기 화풍·악기 밴드) 중 「2 가 나은 방식이네」 */
+             new Item(SND_FX, "음색 다듬기",
+-                "켬 = 게임 소리에 저음 보강·고음 눅이기·좌우 넓힘·방 울림을 얹어요(곡·효과음은 그대로, 지연 없음). 모든 게임, 바로 반영.",
++                "켬 = 게임 소리에 저음 보강·고음 눅이기·좌우 넓힘·방 울림을 얹어요(곡·효과음은 그대로, 지연 없음). 아래 다섯 줄로 세기를 고르고, 가운데(기본)가 들어 보기 ②. 모든 게임, 바로 반영.",
+                 ONOFF, ONOFF_K, "enabled").l(),
++            /* 178 세부 — 유저 10-20 「음색 다듬기도 설정이 있잖아 조절해 보게 해 줘」. 크기는 값을 바꿔도 원래 소리와 같게 맞춘다(native sndfx.c 모델) */
++            fxPct(SND_FX_KEYS[0], "저음 보강", "180Hz 아래를 키움 — 얇은 사각파에 바닥. 끔 = 원래 저음.", 0),
++            fxPct(SND_FX_KEYS[1], "고음 눅이기", "4.5kHz 위를 줄임 — 사각파의 쨍한 날. 끔 = 원래 고음, 많이 = 더 둥글게.", 1),
++            fxPct(SND_FX_KEYS[2], "좌우 넓힘", "가운데 소리를 살짝 늦춰 좌우로 벌림. 끔 = 원래 폭. 폰 스피커에서 소리가 울렁이면 줄여 보세요.", 2),
++            fxPct(SND_FX_KEYS[3], "울림", "방 울림의 양 — 효과음에도 붙어요. 끔 = 마른 소리.", 3),
++            fxPct(SND_FX_KEYS[4], "울림 길이", "울림이 사라지는 데 걸리는 시간 — 짧으면 작은 방, 길면 큰 홀.", 4),
+             new Item("pocketcore_launcher_snd", "런처 소리",
+                 "롬 고르는 화면의 부팅음과 테마곡. 게임에 들어가면 멈춥니다.",
+                 ONOFF, ONOFF_K, "enabled"),
+@@ -293,7 +319,7 @@ public final class Settings {
+         new Page("motion",  "움직임·반응", "프레임 패치 · 런어헤드",                     "프레임 패치", "입력 지연"),
+         new Page("control", "조작",        "터치 버튼 · 원버튼 · 조작 패치 · 물리 패드",  "터치 패드", "원버튼 필살기"),
+         new Page("game",    "게임",        "언어 · 오토세이브",                            "게임 공통"),
+-        new Page("sound",   "소리",        "음색 다듬기 · 런처 소리 · 사무쇼2 배경음악",   "소리"),
++        new Page("sound",   "소리",        "음색 다듬기(세기·울림) · 런처 소리 · 사무쇼2 배경음악",   "소리"),
+         new Page("rom",     "롬",          "롬 가져오기 · 롬 폴더"),
+         new Page("update",  "업데이트",    "정식 / 시험 · 업데이트 확인",                  "업데이트"),
+     };
 diff --git a/tools/check_golden.py b/tools/check_golden.py
 index 41520b5..fc27547 100644
 --- a/tools/check_golden.py
@@ -2343,3 +2890,158 @@ index 0000000..f35da08
 +L.append('static const uint16_t SLASH_DYN1_UKYO[3] = { 0x7FF, 0x25F, 0x000 };   /* 우쿄 기술 중 +1 */')
 +open(os.path.join(OUT, 'slash_tab.h'), 'w').write('\n'.join(L) + '\n')
 +print('ok bank %06X BA %s 6B %s' % (bank, '/'.join('%03X' % c for c in tri_n(0xBA)), '/'.join('%03X' % c for c in tri_n(0x6B))))
+diff --git a/tools/sndfx_model.py b/tools/sndfx_model.py
+new file mode 100644
+index 0000000..7c5a3a5
+--- /dev/null
++++ b/tools/sndfx_model.py
+@@ -0,0 +1,65 @@
++"""178 음색 다듬기 크기 맞춤 모델 — 표 만들기와 실측 대조.
++  python3 tools/sndfx_model.py spec a.raw [b.raw ...] > app/src/main/cpp/sndfx_spec.h
++      SS2 소리(s16 스테레오 44.1kHz raw)들의 평균 전력 스펙트럼(각자 합 1로 맞춰 평균) → 1/6 옥타브 60칸(가운데 22.1Hz~20.2kHz), 합 1.
++      10-20 표는 데모 대전(90초, 효과음+곡) + 대전곡 칸 12(51초)로 만들었다.
++  python3 tools/sndfx_model.py check sfx_binary a.raw [b.raw ...]
++      tools/sndfx_test.c 를 값 격자(설정 0·25·50·75·100)로 돌려, 다듬은 소리 크기가 원래와 얼마나 다른지(dB) — 모델이 맞으면 0 근처.
++      ② 배율 0.91 은 데모(0.883)와 대전곡(0.932) 사이라 장면마다 ±0.3dB 는 원래 있다.
++C 쪽 모델(sndfx.c model_pow): 셸프 전력 응답(표 가중) × 넓힘(1 + (0.35w² + 0.21w²)/2) × (마른² + 울림² × K), K = 울림 응답 칸 스펙트럼 제곱합(표 가중).
++배율 = 0.91 × √(모델(②) / 모델(값))."""
++import sys, os, subprocess, itertools, tempfile
++import numpy as np
++
++
++def load(p):
++    return np.fromfile(p, dtype='<i2').reshape(-1, 2).astype(np.float64)
++
++
++def spec(paths):
++    from scipy.signal import welch
++    SR = 44100
++    Ps = []
++    for p in paths:
++        f, P = welch(load(p).mean(1), fs=SR, nperseg=16384)
++        Ps.append(P / P.sum())
++    P = np.mean(Ps, 0)
++    fc = 1000 * 2.0 ** (np.arange(-33, 27) / 6)
++    band = np.array([P[(f >= c * 2 ** (-1 / 12)) & (f < c * 2 ** (1 / 12))].sum() for c in fc])
++    band /= band.sum()
++    print('/* 자동 생성(tools/sndfx_model.py spec) — SS2 소리(데모 대전 + 대전곡 칸 12) 평균 전력, 1/6 옥타브 %d칸(가운데 %.1f~%.0fHz), 합 1. 음색 다듬기 크기 맞춤 모델 */' % (len(fc), fc[0], fc[-1]))
++    print('#define SNDFX_SPEC_N %d' % len(fc))
++    print('static const float SNDFX_SPEC_F0 = %.6ff;   /* 첫 칸 가운데(Hz) — 칸마다 × 2^(1/6) */' % fc[0])
++    print('static const float SNDFX_SPEC[SNDFX_SPEC_N] = {')
++    for i in range(0, len(band), 6):
++        print('   ' + ', '.join('%.4ef' % v for v in band[i:i + 6]) + ',')
++    print('};')
++
++
++def check(binary, paths):
++    rms = lambda v: float(np.sqrt(np.mean(v ** 2)))
++    xs = [load(p) for p in paths]
++    errs = []
++    with tempfile.TemporaryDirectory() as d:
++        out = os.path.join(d, 'o.raw')
++        for v in itertools.product((0, 50, 100), (0, 50, 100), (0, 50, 100), (0, 50, 100), (0, 50, 100)):
++            row = []
++            for p, x in zip(paths, xs):
++                env = dict(os.environ, SNDFX_PCT=','.join(map(str, v)))
++                subprocess.run([binary, p, out], env=env, check=True, stderr=subprocess.DEVNULL)
++                o = load(out)
++                row.append(20 * np.log10(rms(o) / rms(x)))
++            errs.append(row)
++            print('%3d %3d %3d %3d %3d  ' % v + '  '.join('%+.2fdB' % e for e in row), flush=True)
++    e = np.array(errs)
++    for i, p in enumerate(paths):
++        print('%s: 크기 차이 평균 %+.2fdB · 최소 %+.2f · 최대 %+.2f' % (os.path.basename(os.path.dirname(p)) or p, e[:, i].mean(), e[:, i].min(), e[:, i].max()))
++    print('장면 평균: 최소 %+.2f · 최대 %+.2f dB' % (e.mean(1).min(), e.mean(1).max()))
++
++
++if __name__ == '__main__':
++    if len(sys.argv) >= 3 and sys.argv[1] == 'spec':
++        spec(sys.argv[2:])
++    elif len(sys.argv) >= 4 and sys.argv[1] == 'check':
++        check(sys.argv[2], sys.argv[3:])
++    else:
++        print(__doc__)
+diff --git a/tools/sndfx_ref.py b/tools/sndfx_ref.py
+index 76d2f40..f496a1b 100644
+--- a/tools/sndfx_ref.py
++++ b/tools/sndfx_ref.py
+@@ -1,10 +1,15 @@
+-"""176 음색 다듬기 기준 계산(numpy·scipy, 통째 합성곱) — tools/sndfx_test.c 결과와 견준다.
+-  python3 tools/sndfx_ref.py in.raw c_out.raw ir_prefix  →  최대·평균 차이(샘플 값), 크기 배율(원래 RMS / 다듬은 RMS)
+-들어 보기 ②(10-20)와 같은 계산: 셸프 2개(1차 버터워스 — scipy butter 와 같은지 여기서 확인) → 넓힘 → 마른 0.8 + 울림 0.32."""
++"""176·178 음색 다듬기 기준 계산(numpy·scipy, 통째 합성곱) — tools/sndfx_test.c 결과와 견준다.
++  python3 tools/sndfx_ref.py in.raw c_out.raw ir_prefix [gain [bass_db treble_db width mix]]
++  →  최대·평균 차이(샘플 값), 크기(원래 RMS / 다듬은 RMS)
++들어 보기 ②(10-20)와 같은 계산: 셸프 2개(1차 버터워스 — scipy butter 와 같은지 여기서 확인) → 넓힘 → 마른 + 울림.
++178: 값(저음 dB · 고음 dB · 넓힘 배수 · 울림 양) — 마른 1−0.4m · 울림 0.64m, 넓힘 왼쪽 +0.35w · 오른쪽 −0.21w. 기본 = ②(3.5 −4 1 0.5).
++울림 응답은 C 가 만든 것(ir_prefix0.f32·1.f32 — 앞 지연 포함)을 그대로 쓴다(길이 rt 는 응답에 들어 있다)."""
+ import sys, numpy as np
+ from scipy.signal import butter, lfilter, fftconvolve
+ SR = 44100
+ inp, cout, irp = sys.argv[1], sys.argv[2], sys.argv[3]
++gain = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
++bass, treb, wd, mix = (float(v) for v in sys.argv[5:9]) if len(sys.argv) > 8 else (3.5, -4.0, 1.0, 0.5)
+ x = np.fromfile(inp, dtype=np.int16).reshape(-1, 2).astype(np.float64)
+ c = np.fromfile(cout, dtype=np.int16).reshape(-1, 2).astype(np.float64)
+ irs = [np.fromfile('%s%d.f32' % (irp, ch), dtype=np.float32).astype(np.float64) for ch in (0, 1)]
+@@ -18,14 +23,14 @@ def first(f, kind):
+     return b, a
+ def shelf(v, f, gdb, kind):
+     b, a = first(f, kind); return v + lfilter(b, a, v, axis=0) * (10 ** (gdb / 20) - 1)
+-y = shelf(x, 180, 3.5, 'low'); y = shelf(y, 4500, -4.0, 'high')
++y = shelf(x, 180, bass, 'low'); y = shelf(y, 4500, treb, 'high')
+ k = int(9 / 1000 * SR); m = (y[:, 0] + y[:, 1]) / 2; d = np.zeros_like(m); d[k:] = m[:-k]
+-y = np.stack([y[:, 0] + 0.35 * d, y[:, 1] - 0.21 * d], 1)
++y = np.stack([y[:, 0] + 0.35 * wd * d, y[:, 1] - 0.21 * wd * d], 1)
+ w = np.stack([fftconvolve(y[:, ch], irs[ch])[:len(y)] for ch in (0, 1)], 1)
+-gain = float(sys.argv[4]) if len(sys.argv) > 4 else 1.0
+-o = gain * (0.8 * y + 0.32 * w)
++o = gain * ((1 - 0.4 * mix) * y + 0.64 * mix * w)
+ r = np.clip(np.rint(o), -32768, 32767)
+ diff = np.abs(r - c)
+ print('샘플 %d · 차이 최대 %.0f · 평균 %.4f · 1 넘는 샘플 %d' % (len(c), diff.max(), diff.mean(), int((diff > 1).sum())))
+ rms = lambda v: float(np.sqrt(np.mean(v ** 2)))
+-print('원래 RMS %.1f · 다듬은(배율 1) RMS %.1f · 크기 맞춤 배율 %.4f · 다듬은 최대 %.0f(원래 %.0f)' % (rms(x), rms(o / gain), rms(x) / rms(o / gain), np.abs(o / gain).max(), np.abs(x).max()))
++print('원래 RMS %.1f · 다듬은(배율 1) RMS %.1f · 크기 맞춤 배율 %.4f · C 배율 %.4f(%+.2fdB) · 다듬은 최대 %.0f(원래 %.0f)' % (
++    rms(x), rms(o / gain), rms(x) / rms(o / gain), gain, 20 * np.log10(gain / (rms(x) / rms(o / gain))), np.abs(o).max(), np.abs(x).max()))
+diff --git a/tools/sndfx_test.c b/tools/sndfx_test.c
+index ab94325..7ca933f 100644
+--- a/tools/sndfx_test.c
++++ b/tools/sndfx_test.c
+@@ -1,5 +1,6 @@
+-/* 호스트 시험(176): 음색 다듬기(sndfx.c)를 s16 스테레오 raw 에 — 소리 카드 콜백처럼 들쭉날쭉한 묶음으로 나눠 돌리고, 걸린 시간·응답을 남긴다.
++/* 호스트 시험(176 · 178): 음색 다듬기(sndfx.c)를 s16 스테레오 raw 에 — 소리 카드 콜백처럼 들쭉날쭉한 묶음으로 나눠 돌리고, 걸린 시간·응답을 남긴다.
+  *   cc -O2 -I app/src/main/cpp tools/sndfx_test.c app/src/main/cpp/sndfx.c -lm -o /tmp/sfx && /tmp/sfx in.raw out.raw [ir_prefix]
++ *   178: 환경 변수 SNDFX_PCT="저음,고음,넓힘,울림,길이"(설정 값 0..100, 50 = ②) · SNDFX_RATE(기본 44100)
+  *   tools/sndfx_ref.py 가 같은 계산을 numpy(합성곱 통째)로 해서 견준다. */
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -14,9 +15,16 @@ int main(int argc, char **argv)
+    if (argc < 3) { fprintf(stderr, "usage: in.raw out.raw [ir_prefix]\n"); return 1; }
+    fi = fopen(argv[1], "rb"); fseek(fi, 0, SEEK_END); n = ftell(fi) / 4; fseek(fi, 0, SEEK_SET);
+    a = malloc((size_t)n * 4); if (fread(a, 4, (size_t)n, fi) != (size_t)n) return 1; fclose(fi);
+-   clock_gettime(CLOCK_MONOTONIC, &t0);
+-   fx = sndfx_new(44100);
+-   clock_gettime(CLOCK_MONOTONIC, &t1);
++   {
++      sndfx_params prm; int v[5] = { 50, 50, 50, 50, 50 }, rate = getenv("SNDFX_RATE") ? atoi(getenv("SNDFX_RATE")) : 44100;
++      const char *e = getenv("SNDFX_PCT");
++      if (e) sscanf(e, "%d,%d,%d,%d,%d", &v[0], &v[1], &v[2], &v[3], &v[4]);
++      sndfx_from_pct(&prm, v[0], v[1], v[2], v[3], v[4]);
++      fprintf(stderr, "params bass %.2fdB treble %.2fdB width %.2f mix %.2f rt %.3fs rate %d\n", prm.bass_db, prm.treble_db, prm.width, prm.mix, prm.rt, rate);
++      clock_gettime(CLOCK_MONOTONIC, &t0);
++      fx = sndfx_new(rate, &prm);
++      clock_gettime(CLOCK_MONOTONIC, &t1);
++   }
+    if (!fx) { fprintf(stderr, "sndfx_new failed\n"); return 1; }
+    fprintf(stderr, "init %.1f ms\n", (t1.tv_sec - t0.tv_sec) * 1e3 + (t1.tv_nsec - t0.tv_nsec) / 1e6);
+    clock_gettime(CLOCK_MONOTONIC, &t0);
+@@ -44,7 +52,7 @@ int main(int argc, char **argv)
+    if (argc > 3) {
+       int c; char p[512];
+       for (c = 0; c < 2; c++) { size_t len; const float *ir = sndfx_ir(fx, c, &len); FILE *f; snprintf(p, sizeof p, "%s%d.f32", argv[3], c); f = fopen(p, "wb"); fwrite(ir, 4, len, f); fclose(f); }
+-      fprintf(stderr, "gain %.4f\n", sndfx_gain(fx));
++      fprintf(stderr, "gain %.6f parts %d\n", sndfx_gain(fx), sndfx_parts(fx));
+    }
+    sndfx_free(fx); free(a);
+    return 0;

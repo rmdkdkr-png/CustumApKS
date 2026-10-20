@@ -922,7 +922,7 @@ index 26a0684..2e5f164 100644
      public static native int[]  nativeLookTriples(int ch, int sty);
      /* 치트(cheat.c) — 사무쇼2 일반 세션. key = Cheats.KEYS 순서(CH_*), value 0..n — 다음 진짜 프레임부터 먹는다(코어를 다시 올리지 않음).
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 75cc9b7..7f2e814 100644
+index 75cc9b7..0406da9 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -1205,8 +1205,12 @@ public class EmuActivity extends Activity {
@@ -1027,7 +1027,75 @@ index 75cc9b7..7f2e814 100644
          c.board = now != null ? BoardCache.get(now, true, 4) : null;
          c.boardBefore = lgmMeBefore != null ? BoardCache.get(lgmMeBefore, true, 4) : null;
          return c;
-@@ -3996,12 +4026,19 @@ public class EmuActivity extends Activity {
+@@ -3766,18 +3796,46 @@ public class EmuActivity extends Activity {
+             if (open != null && vk != null && !League.voidStarted(open.optString("id"), vk)) toast("저장하지 못했어요 — 다시 해 주세요");
+             lobbyRedraw();
+         }
++        /** 168 리그 탭 시즌 도구(두 번 물은 뒤) — kind 1 새 시즌 · 2 처음부터 · 179: 3 리그 초기화(League.wipeAll — 열린 경기도 함께 지움).
++         *  179: 쉼·결판에서 연 서랍(이 판에 경기가 있음)에서도 — 된 뒤 그 판을 깨끗이 닫고 타이틀로(hubReturn · 알림 글 없음). 지금 경기는 새 시즌·처음부터면
++         *  기권패로 닫혀 지난 시즌에 남고(forfeitOpen — 두 번 묻기 글 «지금 경기는 기권패로 닫고 …»), 초기화면 함께 지워진다. 대기에서 연 서랍은 예전처럼 그 자리에서 다시 그림 */
+         @Override public void lgmSeason(int kind) {
+             if (leaving) return;
+-            boolean ff = League.startedOpenMatch() != null;                  /* M1: 멈춘 경기는 기권패로 닫고(두 번 묻기 글이 그렇게 말했다) */
+-            String why = League.resetBlockedWhy(true, ff);
+-            if (why == null) {
+-                cancelReady("시즌 도구 — 대진 전");
+-                boolean ok = kind == 1 ? League.newSeason(true, ff) : League.restartRanked(true, ff);
+-                if (ok) {
+-                    BoardCache.invalidate(); League.sessionReset(); pushMain();
+-                    hubResumePending = false;                                 /* 175: 알림 글 없음 */
+-                } else toast("저장하지 못했어요 — 기록은 그대로예요");
+-            } else toast(why);                                               /* 기록 파일 문제(저장소) — 리그 탓 글 아님 */
++            final boolean inMatch = leagueId != null;
++            if (inMatch && leagueArmed && !leagueDone) {
++                leagueSyncStarted();
++                if (leagueSettleNow()) { lgmCloseNow(); return; }            /* 결판이 막 잡혔다 — poll 이 결과로(그 판은 이번 시즌 기록 · 도구는 다시 고르면 된다) */
++            }
++            boolean ok;
++            String why;
++            if (kind == 3) {
++                why = League.dbProblem;
++                ok = why == null && League.wipeAll(true);
++            } else {
++                boolean ff = League.startedOpenMatch() != null;              /* M1: 멈춘(·지금) 경기는 기권패로 닫고(두 번 묻기 글이 그렇게 말했다) */
++                why = League.resetBlockedWhy(true, ff);
++                if (why == null) cancelReady("시즌 도구 — 대진 전");
++                ok = why == null && (kind == 1 ? League.newSeason(true, ff) : League.restartRanked(true, ff));
++            }
++            if (!ok) {
++                toast(why != null ? why : "저장하지 못했어요 — 기록은 그대로예요");   /* 기록 파일 문제(저장소)·저장 실패 — 리그 탓 글 아님 */
++                if (inMatch && leagueId == null) { rankOppV = null; hubReturn(-1); return; }   /* (준비 경기를 닫았다 — 판에 남을 경기가 없음) */
++                if (!inMatch) lobbyRedraw();
++                lgmDrawer(MenuModel.Prefs.TAB_LEAGUE);
++                return;
++            }
++            BoardCache.invalidate();
++            if (kind != 3) League.sessionReset();
++            hubResumePending = false;                                         /* 175: 알림 글 없음 */
++            if (inMatch) {                                                    /* 179: 이 판의 경기는 닫혔거나(기권패·결판) 지워졌다 — 무장 풀고 타이틀로 */
++                leagueDone = true; Emu.nativeLeagueDisarm();
++                rankOppV = null; rankPickOnly = false;
++                pushMain();                                                   /* 초기화면 내 캐릭터도 없음 — 대신 고르기를 끈다 */
++                hubReturn(-1);                                                /* 덧판 닫기 · 상대 컬러 끔(oppLookOff) · 이름표 · 허브 타이틀 */
++                return;
++            }
++            pushMain();
++            if (kind == 3) oppLookOff();
+             lobbyRedraw();
+             lgmDrawer(MenuModel.Prefs.TAB_LEAGUE);
+         }
+@@ -3916,8 +3974,8 @@ public class EmuActivity extends Activity {
+         final MenuModel model = lgmModel;
+         if (mm == null || model == null) return;
+         final int gen = lgmGen;
+-        if (tab == MenuModel.Prefs.TAB_LEAGUE) {                           /* 168 §2 리그 탭 — 시즌 도구·내 캐릭터는 대기에서 연 서랍만(쉼·결판에서는 시즌·내 이름·목록만) */
+-            final MenuModel.LeagueInfo li = League.leagueInfo(model.kind != MenuModel.K_LOBBY);
++        if (tab == MenuModel.Prefs.TAB_LEAGUE) {                           /* 168 §2 리그 탭 — 내 캐릭터는 대기에서 연 서랍만 · 179: 시즌 도구(새 시즌·처음부터·리그 초기화)는 쉼·결판에서도 */
++            final MenuModel.LeagueInfo li = League.leagueInfo(model.kind != MenuModel.K_LOBBY, model.kind == MenuModel.K_PAUSE ? leagueId : null);   /* 179: 시즌 도구는 어디서나 · 쉼이면 «지금 경기» */
+             lgmRender(() -> { final LgmPages.Scene sc = lgmPages().league(model, li, 0); h.post(() -> lgmDrawerShow(gen, tab, sc)); }, () -> lgmWhy("drawer_render", lgmRenderErr));
+             return;
+         }
+@@ -3996,12 +4054,19 @@ public class EmuActivity extends Activity {
              final int a = act == android.view.MotionEvent.ACTION_DOWN ? LeagueMenu.TOUCH_DOWN : act == android.view.MotionEvent.ACTION_UP ? LeagueMenu.TOUCH_UP
                      : act == android.view.MotionEvent.ACTION_MOVE ? LeagueMenu.TOUCH_MOVE : act == android.view.MotionEvent.ACTION_CANCEL ? LeagueMenu.TOUCH_CANCEL : -1;
              if (a < 0) return true;
@@ -1048,7 +1116,7 @@ index 75cc9b7..7f2e814 100644
      /* ── 치트(cheat.c · Cheats) ─────────────────────────────────────────
         일반 세션이고 사무쇼2이며 판정 주소를 확인한 롬 판(연습과 같은 판 확인 — practiceRomOk)이면 options 값을 native 에 넣는다.
         리그 판(랭크전 한 경기·게임 속 리그)은 잠근다 — 값을 아예 안 넣고, native 도 허브 종류를 보고 한 번 더 막는다(기록이 깨끗하게).
-@@ -4158,6 +4195,7 @@ public class EmuActivity extends Activity {
+@@ -4158,6 +4223,7 @@ public class EmuActivity extends Activity {
          Emu.nativeHubDual(practiceDual);
          if (want) practiceAutoUsed = true;
          practiceHub = true;
@@ -1056,7 +1124,7 @@ index 75cc9b7..7f2e814 100644
          h.post(new Runnable() { @Override public void run() {
              if (hubBanner == null) { addHubBanner(); hubBanner.setVisibility(View.GONE); }
              h.removeCallbacks(practicePoll); h.postDelayed(practicePoll, 200);
-@@ -4207,8 +4245,11 @@ public class EmuActivity extends Activity {
+@@ -4207,8 +4273,11 @@ public class EmuActivity extends Activity {
              if (dv != null && dv.length >= 5 && dv[0] == 1 && dv[3] == 1)
                  return "◀▶ 연습 대전 / 리그 대전  ·  A 시작" + (dv[1] == 0 ? "\n리그는 따로 세이브 판에서 해요" : "");
              return null;
@@ -1251,6 +1319,54 @@ index b03c645..862d834 100644
          if (open != null && isRanked(open)) {
              ForfeitPreview fp = forfeitPreview(open);
              li.openForfeit = fp.kind == ForfeitPreview.PLACEMENT ? "배치 1패" : fp.kind == ForfeitPreview.LP && fp.lpDelta != 0 ? signed(fp.lpDelta) + " LP" : "기권패";
+diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+index 930ce97..7a60844 100644
+--- a/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
++++ b/app/src/main/java/com/dudu/pocketcore/LeagueActivity.java
+@@ -638,6 +638,10 @@ public class LeagueActivity extends Activity {
+         toolBtn(rs, blk == null ? () -> askRestart() : null);
+         col.addView(rs, toolLp());
+         col.addView(caption("지금 기록은 보관해요 · 배치 5판부터"));
++        TextView wp = pill("리그 초기화", BTN2, blk == null ? LOSE : DIM);   /* 179 — 게임 안 리그 탭 «리그 초기화»와 같은 일(League.wipeAll) */
++        toolBtn(wp, blk == null ? () -> askWipe() : null);
++        col.addView(wp, toolLp());
++        col.addView(caption("기록·시즌·상대를 모두 지우고 처음 설치한 때로 · 내 이름은 그대로"));
+         if (blk != null) {
+             TextView bw = text(blk, 12, LOSE, false); bw.setPadding(0, dp(8), 0, 0);
+             col.addView(bw);
+@@ -702,6 +706,32 @@ public class LeagueActivity extends Activity {
+             .setNegativeButton("취소", null).show();
+     }
+ 
++    /** 179 리그 초기화 — 두 번 묻기(무엇이 지워지나 → «정말 모두 지울까요?»). 멈춘 경기도 함께 지운다(기권 아님 — 기록째 없어짐) */
++    private void askWipe() {
++        if (toolDlgUp()) return;
++        final JSONObject open = League.startedOpenMatch();
++        final String ffId = openStartedId();
++        String body = (open != null ? "멈춘 경기(vs " + League.oppNick(open) + ")도 함께 지워요.\n\n" : "")
++                + "경기 기록·티어·LP·시즌·지난 시즌·상대 전적·보류·무효 기록과 내 캐릭터를 모두 지우고, 새 상대들로 처음 설치한 때처럼 시작해요.\n"
++                + "내 이름과 컬러·메뉴 설정은 그대로예요.";
++        toolDlg = new AlertDialog.Builder(this).setTitle("리그를 초기화할까요?").setMessage(body)
++            .setPositiveButton("다음", (x, y) -> col.post(() -> askWipe2(ffId)))
++            .setNegativeButton("취소", null).show();
++    }
++    private void askWipe2(final String ffId) {
++        if (toolDlgUp() || isFinishing()) return;
++        toolDlg = new AlertDialog.Builder(this).setTitle("정말 모두 지울까요?")
++            .setMessage("보관 파일까지 지워져서 앱 안에서 되돌릴 수 없어요.")
++            .setPositiveButton("모두 지우기", (x, y) -> {
++                if (!java.util.Objects.equals(ffId, openStartedId())) { render(); return; }   /* 그사이 멈춘 경기가 바뀌었다 — 물은 글과 다르다 */
++                String why = League.seasonToolWhy();
++                if (why != null) { if (!League.liveHub) toast(why); render(); return; }   /* 그사이 리그 판이 떴으면 글 없이(줄이 숨는다) */
++                if (!League.wipeAll(false)) toast("저장하지 못했어요 — 기록은 그대로예요");   /* 된 때는 글 없음 */
++                afterReset();
++            })
++            .setNegativeButton("취소", null).show();
++    }
++
+     private static String openStartedId() { JSONObject o = League.startedOpenMatch(); return o != null ? o.optString("id") : null; }
+     /** 시즌을 바꾼 뒤 — 순위표 캐시(boardKey: 같은 날·같은 LP 면 다시 안 만든다)를 버리고 다시 그린다 */
+     private void afterReset() {
 diff --git a/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java b/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java
 index a9e0d44..b8c0ba4 100644
 --- a/app/src/main/java/com/dudu/pocketcore/LeagueMenu.java
@@ -1278,7 +1394,7 @@ index a9e0d44..b8c0ba4 100644
                      } else openDrawerConfirm(id);
                      break;
 diff --git a/app/src/main/java/com/dudu/pocketcore/LgmPages.java b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
-index 8f96db3..42645ec 100644
+index 8f96db3..30c3807 100644
 --- a/app/src/main/java/com/dudu/pocketcore/LgmPages.java
 +++ b/app/src/main/java/com/dudu/pocketcore/LgmPages.java
 @@ -15,7 +15,9 @@ final class LgmPages {
@@ -1440,7 +1556,7 @@ index 8f96db3..42645ec 100644
 +     *  새 시즌·처음부터 = «지금 경기는(쉼에서 연 서랍)/멈춘 경기는 기권패로 닫고 …» · 리그 초기화 = «지금/멈춘 경기도 함께 지워요» */
 +    static String confirmWhat(MenuModel.LeagueInfo li, int id) {
 +        String which = li.openLive ? "지금 경기" : "멈춘 경기";
-+        if (id == LG_WIPE) return li.openVs != null ? which + "도 함께 지워요 · vs " + li.openVs : "기록·순위·상대·시즌을 모두 지워요 · 이름은 그대로";
++        if (id == LG_WIPE) return li.openVs != null ? which + "도 함께 지워요 · vs " + li.openVs : "기록·시즌·상대 모두 지움 · 이름은 그대로";
 +        boolean ns = id == LG_NEW_SEASON;
 +        if (li.openVs != null) return which + "는 기권패로 닫고 " + (ns ? "새 시즌" : "처음부터") + " · vs " + li.openVs;
 +        return ns ? "시즌 " + (li.season + 1) + " · LP " + li.lp0 + "→" + li.lp1 + " · 승패 0부터" : "배치 5판부터 · 지금 기록은 보관";

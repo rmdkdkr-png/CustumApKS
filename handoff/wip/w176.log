@@ -1,3 +1,5 @@
+76c0170 Merge origin feat/framegen-art (다른 세션 178 음색 다듬기 세부 값 슬라이더) · versionCode 179 — 메뉴 효과음 섞기·리셋은 그대로, 옛 nativeSetSoundFx(on) 자리는 새 서명으로
+c8ba96e 내부 178: 음색 다듬기 세부 값 — 저음 보강·고음 눅이기·좌우 넓힘·울림·울림 길이 슬라이더(가운데 = 176 그대로)
 0074ba2 178: 메뉴 효과음 줄 설명 정리
 882cfac Merge origin feat/framegen-art (다른 세션 176 음색 다듬기 sndfx · 177 베기 색은 칼 궤적·섬광만) · versionCode 178 — 메뉴 효과음은 음색 다듬기 앞에서 섞음
 667706f 176c: 표 회귀 — tools/check_lookfree.py: 프리셋 2~15 검질 무관(캐릭터 0~13 × 196 칸 나찰 == 수라)
