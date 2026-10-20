@@ -1,8 +1,8 @@
 diff --git a/app/src/main/cpp/native.c b/app/src/main/cpp/native.c
-index 8abe79e..815a475 100644
+index b47fa44..4c0a2c2 100644
 --- a/app/src/main/cpp/native.c
 +++ b/app/src/main/cpp/native.c
-@@ -56,6 +56,8 @@ static void (*c_fg_state)(int *, int *, unsigned *);   /* retro_ngp_fg_state —
+@@ -58,6 +58,8 @@ static void (*c_fg_state)(int *, int *, unsigned *);   /* retro_ngp_fg_state —
  static const uint8_t *(*c_fg_phase)(unsigned *, unsigned *, unsigned *);   /* retro_ngp_fg_phase — 4배 그림의 화소마다 원래 모눈 어긋남(코어 zzz_fg_phase) */
  static void  *(*c_charram)(void), *(*c_scrollram)(void), *(*c_palram)(void);   /* 사무쇼2 코어의 K1GE 문자·스크롤·팔레트 램(가상 리그가 화면 글자·컬러를 바꿀 때) */
  static void  *(*c_spriteram)(void);   /* K1GE 스프라이트 램 — 연습 메뉴 창이 빌릴 타일을 고를 때(스프라이트가 가리키는 타일은 안 빌림) */
@@ -11,7 +11,7 @@ index 8abe79e..815a475 100644
  static size_t (*c_get_memory_size)(unsigned);
  static size_t (*c_serialize_size)(void);
  static bool   (*c_serialize)(void *, size_t);
-@@ -438,18 +440,43 @@ static const int16_t *fx_apply(const int16_t *src, size_t n)
+@@ -448,18 +450,43 @@ static const int16_t *fx_apply(const int16_t *src, size_t n)
     return g_fx_buf;
  }
  
@@ -56,7 +56,7 @@ index 8abe79e..815a475 100644
        if (g_turbo_audio) ring_push(src, n);   /* 배속 중엔 그대로(넘치면 버림 — 예전과 같다) */
        else {
           size_t w = drc_run(&g_drc, src, n, g_drc_out, 8192, drc_ratio(g_pace.drc_base, fill, target));
-@@ -484,25 +511,52 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
+@@ -494,25 +521,52 @@ static int16_t cb_input_state(unsigned port, unsigned device, unsigned index, un
  /* ------------------------------------------------------------------ */
  /* audio                                                               */
  /* ------------------------------------------------------------------ */
@@ -117,7 +117,7 @@ index 8abe79e..815a475 100644
     return AAUDIO_CALLBACK_RESULT_CONTINUE;
  }
  
-@@ -510,7 +564,6 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
+@@ -520,7 +574,6 @@ static aaudio_data_callback_result_t audio_cb(AAudioStream *s, void *ud,
     AAudio 가 에러 콜백으로 알려 준다. 콜백 안에서는 그 스트림을 닫으면 안 되므로
     표시만 남기고, 프레임 루프(GL 스레드)가 새 스트림으로 다시 연다. */
  static volatile int g_audio_dead = 0;
@@ -125,7 +125,7 @@ index 8abe79e..815a475 100644
  
  static void audio_err_cb(AAudioStream *s, void *ud, aaudio_result_t err)
  {
-@@ -526,6 +579,8 @@ static void audio_start(int rate)
+@@ -536,6 +589,8 @@ static void audio_start(int rate)
     g_audio_rate = rate;
     g_audio_dead = 0;
     uisfx_reset(rate);                  /* 176: 콜백이 돌기 전 — 닫히기 전(onPause·끊김) 남은 효과음·요청은 버림 */
@@ -134,7 +134,7 @@ index 8abe79e..815a475 100644
     if (AAudio_createStreamBuilder(&b) != AAUDIO_OK) { pthread_mutex_unlock(&g_audio_mx); return; }
     AAudioStreamBuilder_setFormat(b, AAUDIO_FORMAT_PCM_I16);
     AAudioStreamBuilder_setChannelCount(b, 2);
-@@ -945,6 +1000,8 @@ static int bind_core(void)
+@@ -1117,6 +1172,8 @@ static int bind_core(void)
     *(void **)&c_fg_state        = dlsym(g_lib, "retro_ngp_fg_state");
     *(void **)&c_fg_phase        = dlsym(g_lib, "retro_ngp_fg_phase");   /* 없으면(옛 코어·다른 게임) 업스케일러는 예전처럼 1배로 줄여서 */
     *(void **)&c_snd_noise       = dlsym(g_lib, "retro_ngp_snd_noise");  /* 179 음색 다듬기 «배경음만» — 없으면(SVC 코어·옛 코어) 통째로 */
@@ -143,7 +143,7 @@ index 8abe79e..815a475 100644
     return 1;
  }
  
-@@ -1013,6 +1070,8 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
+@@ -1187,6 +1244,8 @@ static jint load_locked(JNIEnv *env, jstring jcore, jstring jrom,
     jstr(env, jopts, opts, sizeof(opts));
  
     load_options(opts);
@@ -152,7 +152,7 @@ index 8abe79e..815a475 100644
  
     g_lib = dlopen(core, RTLD_LAZY | RTLD_LOCAL);
     if (!g_lib) { LOGE("dlopen failed: %s", dlerror()); return -1; }
-@@ -1117,6 +1176,39 @@ static double now_s(void)
+@@ -1293,6 +1352,39 @@ static double now_s(void)
     return (double)ts.tv_sec + ts.tv_nsec * 1e-9;
  }
  
@@ -192,7 +192,7 @@ index 8abe79e..815a475 100644
  JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
  {
     (void)env; (void)cls;
-@@ -1141,16 +1233,36 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
+@@ -1317,16 +1409,36 @@ JNI(void, nativeFrame)(JNIEnv *env, jclass cls)
           g_vsync_ema = g_vsync_ema > 0.0 ? g_vsync_ema * 0.9 + iv * 0.1 : iv;
     }
     g_last_vsync = t;
@@ -231,7 +231,7 @@ index 8abe79e..815a475 100644
        if (g_loaded) {
           /* 코어가 2배 출력(120Hz) 중이면 호출 두 번에 한 번은 «합성» — 에뮬레이션도 입력 읽기도 없다(코어 retro_run: fg_active && fg_phase == 1).
              그때 허브·연습을 돌리면 프레임 셈이 두 배로 가고, 다음 프레임에 줄 입력(대신 누름)이 게임이 읽기 전에 바뀐다 — 진짜 프레임 뒤에만 돌린다 */
-@@ -1200,6 +1312,14 @@ JNI(jdouble, nativeCoreFps)(JNIEnv *env, jclass cls) { (void)env; (void)cls; ret
+@@ -1380,6 +1492,14 @@ JNI(jdouble, nativeCoreFps)(JNIEnv *env, jclass cls) { (void)env; (void)cls; ret
  JNI(void, nativeSetPaused)(JNIEnv *env, jclass cls, jboolean on)
  { (void)env; (void)cls; g_paused = on ? 1 : 0; }
  
@@ -246,7 +246,7 @@ index 8abe79e..815a475 100644
  JNI(void, nativeSetPanelHz)(JNIEnv *env, jclass cls, jfloat hz)
  { (void)env; (void)cls; g_panel_hz_hint = hz; }
  
-@@ -1225,11 +1345,12 @@ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
+@@ -1405,11 +1525,12 @@ JNI(void, nativeAudioResume)(JNIEnv *env, jclass cls)
  { (void)env; (void)cls; if (g_loaded && !g_stream) audio_start(g_audio_rate); }
  
  /* 176: 덧판 메뉴 효과음(uisfx.c — 사무쇼2 메뉴 소리 합성) — kind 1 커서 · 2 결정 · 3 뒤로 · 0 줄여 끔. 아무 스레드.
@@ -380,11 +380,24 @@ index 0de90ef..49c60b8 100644
  /* 메뉴에서 나가기를 골랐나 — 1 «타이틀로» · 2 «다시 고르기» (한 번 읽으면 지운다). native.c 가 같은 잠금 안에서 리셋 → league_practice_return */
  int  practice_take_exit(void);
  /* 리셋·상태 불러오기 뒤 — 램·화면이 통째로 바뀌었으니 되돌리지 않고 잊는다(설정은 남김) */
+diff --git a/app/src/main/java/com/dudu/pocketcore/Cheats.java b/app/src/main/java/com/dudu/pocketcore/Cheats.java
+index dad382d..e0b4b68 100644
+--- a/app/src/main/java/com/dudu/pocketcore/Cheats.java
++++ b/app/src/main/java/com/dudu/pocketcore/Cheats.java
+@@ -163,7 +163,7 @@ final class Cheats {
+             return false;
+         }
+         String rn = new File(romPath).getName();
+-        for (String sfx : new String[]{ ".state.auto", ".state.auto.prac" }) {
++        for (String sfx : new String[]{ ".state.auto", ".state.auto.prac", ".state.auto.look" }) {   /* .look(경기 컬러·베기 색)도 같이 — 비켜 둔 상태가 제 색을 잃지 않게 */
+             File a = new File(saveDir, rn + sfx);
+             if (!a.exists()) continue;
+             File to = new File(saveDir, rn + sfx.replace(".state.auto", ".state.auto.cheat"));
 diff --git a/app/src/main/java/com/dudu/pocketcore/Emu.java b/app/src/main/java/com/dudu/pocketcore/Emu.java
-index e7a2d44..7183035 100644
+index 4ac45a9..a32a516 100644
 --- a/app/src/main/java/com/dudu/pocketcore/Emu.java
 +++ b/app/src/main/java/com/dudu/pocketcore/Emu.java
-@@ -212,4 +212,8 @@ public final class Emu {
+@@ -214,4 +214,8 @@ public final class Emu {
         아무 스레드 · 옛 native 면 UnsatisfiedLinkError(부르는 쪽이 받아 소리 없이) */
      public static final int UI_SFX_STOP = 0, UI_SFX_CURSOR = 1, UI_SFX_SELECT = 2, UI_SFX_BACK = 3;
      public static native boolean nativeUiSfx(int kind);
@@ -394,7 +407,7 @@ index e7a2d44..7183035 100644
 +    public static native void nativeSetPauseBgm(boolean on);
  }
 diff --git a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
-index 431c7ed..5361bfc 100644
+index 42f1e1d..a0b9ae6 100644
 --- a/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 +++ b/app/src/main/java/com/dudu/pocketcore/EmuActivity.java
 @@ -413,6 +413,7 @@ public class EmuActivity extends Activity {
@@ -405,6 +418,26 @@ index 431c7ed..5361bfc 100644
          snapCoreOpts();
          romMtime = new File(romPath).lastModified();
          /* 175: 리그 판(ranked)은 코어 이름 알림(«… · 동봉 코어(리그)»)을 안 띄운다 — 리그 판을 열 때·경기 중 설정 «적용하고 이어하기»로 다시 올릴 때마다
+@@ -500,7 +501,7 @@ public class EmuActivity extends Activity {
+         gl.queueEvent(new Runnable() { @Override public void run() {
+             final boolean backed = Emu.nativeSaveState(undoPath().getAbsolutePath()) == 0;
+             work.run();
+-            toast(done);
++            if (done != null) toast(done);              /* null = 글은 work 가 알아서(실패면 «실패» 하나만) */
+             if (backed) h.post(new Runnable() { @Override public void run() { pad.offerUndo(); } });
+         }});
+     }
+@@ -540,8 +541,8 @@ public class EmuActivity extends Activity {
+         case PadView.ACT_LOAD: {
+             final File st = statePath();
+             if (!st.exists()) { toast("슬롯 " + slot + "은 비어 있어요"); break; }
+-            withUndo("불러옴 · 슬롯 " + slot, new Runnable() { @Override public void run() {
+-                if (Emu.nativeLoadState(st.getAbsolutePath()) != 0) toast("불러오기 실패");
++            withUndo(null, new Runnable() { @Override public void run() {
++                toast(Emu.nativeLoadState(st.getAbsolutePath()) != 0 ? "불러오기 실패" : "불러옴 · 슬롯 " + slot);
+             }});
+             break; }
+         case PadView.ACT_UNDO:
 @@ -576,6 +577,7 @@ public class EmuActivity extends Activity {
              /* 창이 떠 있는 동안 게임을 멈춘다 — 전엔 뒤에서 게임이 계속 돌고, 쥐고 있던 버튼이 눌린 채 남았다 */
              padMask = 0; releasePhysical();
@@ -421,7 +454,7 @@ index 431c7ed..5361bfc 100644
                  Emu.nativeSetPaused(pad.isBarOpen());          /* 메뉴가 아직 열려 있으면 계속 멈춤 */
                  applyDisplay(); pushCoreOpts();
                  cheatClose(cg0, false); } };                   /* 치트 창에서 바꾼 값 — 다시 열지 않고 바로 · 175: 리그 판은 글 없음(알약 «치트 ON») */
-@@ -2446,7 +2449,8 @@ public class EmuActivity extends Activity {
+@@ -2449,7 +2452,8 @@ public class EmuActivity extends Activity {
          private int sel = -1;
          private Runnable onDismiss;
          private Ask under;                           /* 이 카드가 뜰 때 떠 있던 카드 — 닫으면 그 카드가 다시 맨 위(먼저 카드를 닫지 않는다: 그 닫힘 리스너가 경기를 풀지 않게) */
@@ -431,7 +464,7 @@ index 431c7ed..5361bfc 100644
          Ask(String title, String msg) {
              float dp = getResources().getDisplayMetrics().density;
              scrim = new FrameLayout(EmuActivity.this);
-@@ -2500,7 +2504,7 @@ public class EmuActivity extends Activity {
+@@ -2503,7 +2507,7 @@ public class EmuActivity extends Activity {
          }
          Ask cancelable(boolean c) { cancelable = c; return this; }
          Ask sfx() { sfx = true; return this; }
@@ -440,7 +473,7 @@ index 431c7ed..5361bfc 100644
          /** 168(11) 글 칸 — 단추 줄 위에. 글자 키는 칸이 받는다(dispatchKeyEvent) · 키보드 «완료» = 첫 단추 */
          private android.widget.EditText field;
          Ask field(android.widget.EditText e) {
-@@ -2522,6 +2526,7 @@ public class EmuActivity extends Activity {
+@@ -2525,6 +2529,7 @@ public class EmuActivity extends Activity {
              releasePhysical();                       /* 쥐고 있던 패드 키가 게임에 남지 않게(창이 포커스를 가져갈 때와 같게) */
              root.addView(scrim, new FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT));
              showing = true; ask = this;
@@ -448,7 +481,7 @@ index 431c7ed..5361bfc 100644
              return this;
          }
          boolean isShowing() { return showing; }
-@@ -2530,6 +2535,7 @@ public class EmuActivity extends Activity {
+@@ -2533,6 +2538,7 @@ public class EmuActivity extends Activity {
              showing = false;
              root.removeView(scrim);
              if (ask == this) { ask = under; while (ask != null && !ask.showing) ask = ask.under; }   /* 아래 카드 중 아직 떠 있는 것 */
@@ -456,7 +489,7 @@ index 431c7ed..5361bfc 100644
              if (onDismiss != null) onDismiss.run();
          }
          void cancel() { if (cancelable) { sfx(Emu.UI_SFX_BACK); dismiss(); } }
-@@ -2571,6 +2577,25 @@ public class EmuActivity extends Activity {
+@@ -2574,6 +2580,25 @@ public class EmuActivity extends Activity {
      }
      private Ask ask(String title, String msg) { return new Ask(title, msg); }
  
@@ -482,7 +515,7 @@ index 431c7ed..5361bfc 100644
      private TextView hubPill(String s, final Runnable r) {
          float dp = getResources().getDisplayMetrics().density;
          TextView t = new TextView(this);
-@@ -2831,6 +2856,7 @@ public class EmuActivity extends Activity {
+@@ -2834,6 +2859,7 @@ public class EmuActivity extends Activity {
          rankQPlaceLp(lp);
          root.addView(rankQ.root, Math.min(1, root.getChildCount()), lp);
          rankQBlock = true;
@@ -490,7 +523,7 @@ index 431c7ed..5361bfc 100644
          rankQKeys = padMask | keyMask | axisMask;                       /* 쥐고 있던 B 는 안 센다 */
          if (rankPick != null && !rematch) rankQReelLoad(rankPick, rankQ);
          h.removeCallbacks(rankQPoll); h.postDelayed(rankQPoll, 50);
-@@ -2854,13 +2880,15 @@ public class EmuActivity extends Activity {
+@@ -2857,13 +2883,15 @@ public class EmuActivity extends Activity {
          h.removeCallbacks(rankQPoll);
          final RankUi.Quick q = rankQ, f = rankQFading;
          rankQ = null; rankQMode = 0;
@@ -508,7 +541,7 @@ index 431c7ed..5361bfc 100644
          } }).start();
          h.postDelayed(rankQPoll, 50);                                    /* 사라지는 동안도 물리 패드 B 를 본다 */
      }
-@@ -3006,6 +3034,7 @@ public class EmuActivity extends Activity {
+@@ -3009,6 +3037,7 @@ public class EmuActivity extends Activity {
       *  내려가며 사라지는 중(rankQFading — 늘 go 뒤 · 상대를 보인 뒤)도 같다: 고르기 화면·인트로에 B 가 새어 기본 캐릭터로 골라지지 않게 */
      private void rankQBack() {
          if (rankQ == null && rankQFading == null) return;
@@ -517,10 +550,10 @@ index 431c7ed..5361bfc 100644
          rankQClose(false);
          rankCap = false;
 diff --git a/docs/157_contract.md b/docs/157_contract.md
-index dcfe224..84c3745 100644
+index dcfe224..8563bac 100644
 --- a/docs/157_contract.md
 +++ b/docs/157_contract.md
-@@ -820,3 +820,22 @@ vsync 마다 그린 텍스처의 이름표 줄 = 날 그림 + 자바로 따로 
+@@ -820,3 +820,24 @@ vsync 마다 그린 텍스처의 이름표 줄 = 날 그림 + 자바로 따로 
  | 대미지 숫자·프레임 미터 × 나/상대 머리말·상대 컬러 | 숫자는 경기 HUD 줄 3 칸 8~10(팔레트 4)·전투측(MODE 241)만 · 머리말은 고르기 화면(vpanel 빌린 팔레트) · 상대 컬러는 스프라이트 팔레트 5 — 같은 화면·같은 칸에 안 겹친다. 연습 흐름은 176 보기가 꺼짐(league_session_owner 2) |
  
  시험(scratch `u181/`): t_opp slash 에 «상대 칼 궤적만»(P2 필살 칸에 상대 베기 색 0) · sim SimTest `p2Ctl`(slash9* · v_slashview — 상대 궤적 칸 상대 색 · 궤적 원래 색 0 · 필살 칸 상대 색 0) · `LgmSfxTest` 리그 초기화 줄 소리 · `doccheck/t_contract_cheat.py`(§22 «치트» 알약 줄 ↔ §23·§24 ↔ 코드 `openCheatSheet`·`cheatCellOk`·`cheatLgmOk`·`cheatCellSync`·`ownsDown` — 옛 덧판 막기를 되살리거나 상태 목록이 어긋나면 FAIL · --selftest) · sim `v_lgmcell` 에 쉼 확인(기권 펼침 `ST_CONFIRM`) 위 바 «치트» 칸 → 창 · 쉬는 덧판 위라도 확인 카드·컬러 만들기 창이면 칸 숨김·창 없음 · `upexit`·`upexitlobby`(shot·def)에 그림 위 «치트» 알약(알약 끔 = 덧판 몫 대조 · 켬 = 패드 `ownsDown` → 뗄 때 `ACT_CHEAT` → 쉼·서랍·대기·대기 서랍 위에 치트 창 · 닫으면 덧판 그대로) — 옛 막기를 넣은 돌연변이로 이 둘이 FAIL 8 을 냄.
@@ -543,6 +576,8 @@ index dcfe224..84c3745 100644
 +| 확인 카드(`EmuActivity.Ask` — 7 개 + 내 이름) | 모두 효과음(`sfx` 기본 켬): 단추 옮김 커서 · 첫 단추 결정 · 다른 단추·취소(뒤로) 뒤로. 카드가 떠 있는 동안 `nativeSetAppMenu(true)`(카드·찾기 겹창이 다 닫히면 false) — `nativeUiSfx` 문은 덧판 보임·멈춤 «또는» 앱 메뉴일 때만 받는다(그 밖엔 여전히 버림) |
 +| «상대 찾는 중/상대 발견!» 찾기 겹창 | B(그만두기) = 뒤로 — 겹창이 떠 있거나 사라지는 동안 문이 열려 있다. 대기 «상대 찾기»·결판 «다음 상대»/«재대결» 의 결정은 겹창·4배속 동안 끝까지(538 ms) |
 +| 알림 글 | 없음 |
++
++시험(scratch `u182/`): 호스트 코어 `t_core182.py`(소리만 돌림 = 메인 CPU·램·그림 바이트 그대로 · 곡 이어짐 음높이 맞음 0.985 · 이어 돌림 600/600 = 안 세운 것과 같음 · 세운 동안 저장 → 불러옴 바이트 같음 · snd_div 4 에서 4배속 곡 빠르기·음높이 그대로 0.975 · 장면 같은 프레임 · 앞당김 2·그림 사이 2배 · 옛 코어 패치 없음 = 조용 — main 25/0 · ra 9/0 · fg 10/0 · old 1/0) · libnh `t_hold.py`(native.c + 가짜 AAudio + 프레임마다 램 해시: hold60fx·hold60nofx·hold120app 12/0 · pausebgm 16/0 · 옛 코어 8/0·7/0 · 181 native 대조는 딱 끊김·꼬리 잘림·다시 켜질 때 딸깍을 FAIL 로 잡음) · GapSim 카드 30/0(실제 Ask 카드 7 + 찾기 겹창 — 181 대조 17/13) · 연습 메뉴 19/0 · 랭크 45/0(덧판 멈춤 빔 0 s · 4배속 버림 0 s — 181 23.1 s·4.2 s · 쉼 중 곡 rms 1412 · 딱 끊김 0 · 4배속 넘김 1.03/1.07 s = 181 · 결정 메아리 533 ms) · SfxSim 쉼 60 fx/nofx·대기 60 fx 0 FAIL(«앱 멈춤 정확히 0» = 스트림 없을 때 안 쌓음) · 회귀(u181 판 → w182/core182): sim 39 장면 872/0 · t_opp 빠른 30/0 · JVM 415/0 · 메뉴 JVM · oppjvm 39/0 · uisfx 57/0 · 연습 빠른 1263/3(알려진 ranked_ko 손잡이 줄 = u181 와 같음) · 보기 49/0×3 + v9 · FX 베기 빠른 185/0.
 diff --git a/tools/core_patches/zzzzzzzzzzzzz_snd_only.patch b/tools/core_patches/zzzzzzzzzzzzz_snd_only.patch
 new file mode 100644
 index 0000000..66926b9
