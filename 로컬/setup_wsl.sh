@@ -12,7 +12,7 @@ CUSTUM=$(cd "$HERE/.." && pwd)
 SP=/tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad
 UP=/root/.claude/uploads/e6c46352-6bb9-5a9d-8b3a-f2da7447674e
 NEW=$(sha256sum "$HERE/pc_harness.tar.gz" | cut -c1-16); STAMP=$H/scratchpad/.pc_harness.sha     # 묶음이 바뀌면(새 판) 위에 덮어 풂
-[ "$(cat "$STAMP" 2>/dev/null)" = "$NEW" ] || { mkdir -p "$H/scratchpad"; tar --overwrite -xzf "$HERE/pc_harness.tar.gz" -C "$H/scratchpad" && echo "$NEW" > "$STAMP"; }
+[ "$(cat "$STAMP" 2>/dev/null)" = "$NEW" ] || { mkdir -p "$H/scratchpad"; tar --overwrite --keep-directory-symlink -xzf "$HERE/pc_harness.tar.gz" -C "$H/scratchpad" && echo "$NEW" > "$STAMP"; }
 mkdir -p "$(dirname "$SP")" /home/user "$UP"
 ln -sfn "$H/scratchpad" "$SP"
 ln -sfn "$POCKETCORE" /home/user/pocketcore
@@ -23,6 +23,10 @@ W=$H/scratchpad/w182                                        # 하네스의 «지
 [ -L "$W" ] || { [ ! -e "$W" ] || mv "$W" "$W.from_tarball.$$"; }    # 옛 묶음(1판)엔 진짜 w182/ 가 있었음 — 비켜 두고 링크
 ln -sfn "$POCKETCORE" "$W"
 mkdir -p "$H/scratchpad/u182/bin" "$H/scratchpad/u182r/h/bin" "$H/scratchpad/u187/bin"   # 링크(u182r/bin → u182/bin 등)가 가리키는 빌드 자리
+# round1.st(첫 라운드 세이브스테이트 4개 — t_hold · 리그 장면 · GapSim 이 읽음): 롬에서 나온 것이라 지금 묶음엔 없음 → 1판 묶음(커밋 c5efba4) 기록에서 하네스 안으로만 꺼냄
+if [ ! -f "$H/scratchpad/u157/impl/merge/native/r1/jue/round1.st" ]; then
+  git -C "$CUSTUM" show c5efba4:로컬/pc_harness.tar.gz | tar -xzf - -C "$H/scratchpad" --wildcards '*/round1.st' || echo "round1.st 못 꺼냄 — README 3절"
+fi
 [ -z "$ROM_JUE_SRC" ] || ln -sfn "$ROM_JUE_SRC" "$UP/ee972d92-Samurai_Shodown_2_JUE_.ngc"
 cd "$SP"; sed "s#ROOT_UPLOADS/#$UP/#" "$HERE/roms.md5" | md5sum -c 2>/dev/null | sed 's/^/롬: /' || true
 echo "됨 — $SP → $H/scratchpad · 빌드 확인: bash \$SP/u187/build.sh · 짧은 시험: bash \$SP/u187/test.sh"

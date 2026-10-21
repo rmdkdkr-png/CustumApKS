@@ -6818,7 +6818,6 @@ u176/m/fix/run_tv.sh
 u176/m/jvm/View176Test.java
 u176/m/jvm/run.sh
 u176/m/nat/bin
-u176/m/nat/bin/host.so
 u176/m/nat/tests/dbg_round.py
 u176/m/nat/tests/t_view.py
 u176/m/nat/tests/t_view9.py
@@ -7288,7 +7287,6 @@ u176/v168/h/vis/patch_tc.py
 u176/v168/h/vis/run.sh
 u176/v168/h/vis/t/Fix157Visual.java
 u176/v168/nat/bin
-u176/v168/nat/bin/host.so
 u176/v168/nat/tests/t_cheat_league.py
 u176/v168/nat/tests/t_menu.py
 u176/v168/nat/tests/t_po.py
@@ -8878,7 +8876,6 @@ u181/m/fix/run_tv.sh
 u181/m/jvm/View176Test.java
 u181/m/jvm/run.sh
 u181/m/nat/bin
-u181/m/nat/bin/host.so
 u181/m/nat/tests/dbg_round.py
 u181/m/nat/tests/t_view.py
 u181/m/nat/tests/t_view9.py
@@ -9399,7 +9396,6 @@ u181/v168/h/vis/patch_tc.py
 u181/v168/h/vis/run.sh
 u181/v168/h/vis/t/Fix157Visual.java
 u181/v168/nat/bin
-u181/v168/nat/bin/host.so
 u181/v168/nat/tests/t_cheat_league.py
 u181/v168/nat/tests/t_menu.py
 u181/v168/nat/tests/t_po.py
@@ -10119,7 +10115,6 @@ u182/tests/t_core182_lib.py
 u182/tests/t_hold.py
 u182r/README.txt
 u182r/bin
-u182r/bin/host.so
 u182r/chain181.sh
 u182r/chain182.sh
 u182r/chain_a.txt
@@ -10575,7 +10570,6 @@ u182r/m/fix/run_tv.sh
 u182r/m/jvm/View176Test.java
 u182r/m/jvm/run.sh
 u182r/m/nat/bin
-u182r/m/nat/bin/host.so
 u182r/m/nat/tests/dbg_round.py
 u182r/m/nat/tests/t_view.py
 u182r/m/nat/tests/t_view9.py
@@ -10625,6 +10619,7 @@ u182r/s/ref/ko_inj_decide_02.json
 u182r/s/ref/ko_nat_cancel_option_exit_A.json
 u182r/s/ref/ko_nat_cursor_title_D.json
 u182r/s/ref/ko_nat_decide_option_R.json
+u182r/s/ref/ko_nat_decide_option_R.wav
 u182r/s/ref/komute_inj_cancel_06.json
 u182r/s/ref/komute_inj_cursor_0E.json
 u182r/s/ref/komute_inj_decide_02.json
@@ -10632,6 +10627,15 @@ u182r/s/ref/komute_nat_cancel_option_exit_A.json
 u182r/s/ref/komute_nat_cursor_title_D.json
 u182r/s/ref/komute_nat_decide_option_R.json
 u182r/s/ref/params.md
+u182r/s/ref/refsynth_cancel.wav
+u182r/s/ref/refsynth_cursor.wav
+u182r/s/ref/refsynth_decide.wav
+u182r/s/ref/refsynth_ev_cancel.wav
+u182r/s/ref/refsynth_ev_cursor.wav
+u182r/s/ref/refsynth_ev_decide.wav
+u182r/s/ref/refsynth_ev_naive_cancel.wav
+u182r/s/ref/refsynth_ev_naive_cursor.wav
+u182r/s/ref/refsynth_ev_naive_decide.wav
 u182r/s/ref/sfx_programs.json
 u182r/s/t/cmp_sim.py
 u182r/s/t/t_sndfx.py
@@ -11041,7 +11045,6 @@ u182r/v168/h/vis/patch_tc.py
 u182r/v168/h/vis/run.sh
 u182r/v168/h/vis/t/Fix157Visual.java
 u182r/v168/nat/bin
-u182r/v168/nat/bin/host.so
 u182r/v168/nat/tests/t_cheat_league.py
 u182r/v168/nat/tests/t_menu.py
 u182r/v168/nat/tests/t_po.py

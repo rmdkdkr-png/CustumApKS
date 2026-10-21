@@ -39,7 +39,9 @@ POCKETCORE=<pocketcore 클론> ANDROID_HOME=/opt/android-sdk SS2CORE=<ss2-sp-cor
   시험용 호스트 코어 .so(core182 = core181 + snd_only 등 — 리눅스 x86_64, WSL 에서 그대로 돎) · host_base.so(381ece9 기준, 미리 구움) · 효과음 비교용 게임 소리 6개(`u182r/s/ref/game_*.wav` 등, t_uisfx 용 짧은 녹음).
   sim 껍데기 `u182/sim/stub/android/app/Activity.java` 등(1판에서 `app/`·`src/` 폴더가 빠졌던 것) 포함 — android.jar 는 공식 platform 34 그대로, 껍데기가 클래스패스 앞이라 덮음.
   **안 넣은 것**: 롬 · 세이브스테이트(.st) · 시험 결과(out/logs) · 옛 작업 트리(w149·w153 …, `w182` 도 — setup 이 pocketcore 클론으로 링크. 옛 비교 시험 몇 개만 씀, 필요하면 `git worktree add` 로 그 커밋을).
-- setup 은 묶음 sha 를 기억해서, 새 묶음을 당기면 다시 실행할 때 위에 덮어 푼다.
+- setup 은 묶음 sha 를 기억해서, 새 묶음을 당기면 다시 실행할 때 위에 덮어 푼다(3판부터 링크 폴더 아래 겹친 항목 없음 → tar 오류 없음). 1판을 푼 자리에 덮으면 진짜 폴더/링크가 엇갈리니 1판 자리는 비켜 두고 새로 풀 것.
+- **round1.st**(첫 라운드 세이브스테이트 — `u157/impl/merge/native/r1/{jue,ko}`, `u157/impl/native/final/r1/{jue,ko}`): t_hold · 리그 장면 · GapSim 카드가 읽음. 롬에서 나온 것이라 지금 묶음엔 없고, setup 이 1판 커밋(c5efba4) 기록에서 하네스 안으로만 꺼냄(저장소엔 다시 안 올림). 원래 만든 길: `u157/impl/native/run_ov_tests.sh` 21~26줄(`q_common.prep`, 옛 트리 host.so · core149) — 코어 판에 묶인 상태지만 core182 에서 그대로 읽힘.
+- 효과음 시험(t_uisfx) 소리 16개: 게임 녹음 7개(game_* · jue_nat_* · ko_nat_*) + 우리 Python 합성 9개(refsynth_*, `u176s/tools/synth_ref.py` 결과).
 - 롬: `roms.md5` 의 md5 와 같은 파일을 그 자리에(원판 JUE · 한글 bundled/101 · h1 · 소리 끈 _mute 판). setup 이 맞는지 찍어 줌. 없는 롬을 쓰는 시험만 실패.
 
 ## 4. 빌드·짧은 시험 (187 때 돌린 그대로)
