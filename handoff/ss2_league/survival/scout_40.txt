@@ -1,0 +1,40 @@
+# 1 streak  0 opp 아수라나 (57DF=8 57E0=1 B2=88) idle600 dmg  32 hits  3 | 5814=0 5CF5=0 57E2=00B5
+# 2 streak  1 opp 소게츠나 (57DF=1 57E0=1 B2=18) idle600 dmg  25 hits  5 | 5814=0 5CF5=0 57E2=00B7
+# 3 streak  2 opp 겐쥬로나 (57DF=3 57E0=1 B2=38) idle600 dmg  33 hits  2 | 5814=1 5CF5=1 57E2=00B9
+# 4 streak  3 opp 겐쥬로수 (57DF=3 57E0=0 B2=34) idle600 dmg  19 hits  3 | 5814=1 5CF5=1 57E2=00BB
+# 5 streak  4 opp 모로즈미수 (57DF=10 57E0=0 B2=A0) idle600 dmg  23 hits  5 | 5814=2 5CF5=2 57E2=00BD
+# 6 streak  5 opp 카즈키나 (57DF=0 57E0=1 B2=08) idle600 dmg  11 hits  1 | 5814=2 5CF5=2 57E2=00BF
+# 7 streak  6 opp 한조수 (57DF=6 57E0=0 B2=60) idle600 dmg  21 hits  6 | 5814=3 5CF5=3 57E2=00C1
+# 8 streak  7 opp 리무루루수 (57DF=5 57E0=0 B2=50) idle600 dmg  29 hits  3 | 5814=3 5CF5=3 57E2=00C3
+# 9 streak  8 opp 카즈키수 (57DF=0 57E0=0 B2=00) idle600 dmg  32 hits  2 | 5814=4 5CF5=4 57E2=00C5
+#10 streak  9 opp 시키수 (57DF=13 57E0=0 B2=D0) idle600 dmg  27 hits  4 | 5814=4 5CF5=4 57E2=00C7
+#11 streak 10 opp 카즈키나 (57DF=0 57E0=1 B2=08) idle600 dmg  34 hits  4 | 5814=5 5CF5=5 57E2=00C9
+#12 streak 11 opp 샬럿나 (57DF=9 57E0=1 B2=98) idle600 dmg  34 hits  8 | 5814=5 5CF5=5 57E2=00CB
+#13 streak 12 opp 유가나 (57DF=14 57E0=1 B2=E8) idle600 dmg  42 hits  6 | 5814=6 5CF5=6 57E2=00CD
+#14 streak 13 opp 갈포드수 (57DF=7 57E0=0 B2=70) idle600 dmg  32 hits  2 | 5814=6 5CF5=6 57E2=00C3
+#15 streak 14 opp 소게츠나 (57DF=1 57E0=1 B2=18) idle600 dmg  18 hits  6 | 5814=7 5CF5=7 57E2=00C5
+#16 streak 15 opp 겐쥬로수 (57DF=3 57E0=0 B2=34) idle600 dmg  51 hits  5 | 5814=7 5CF5=7 57E2=0106
+#17 streak 16 opp 하오마루나 (57DF=2 57E0=1 B2=28) idle600 dmg  44 hits  6 | 5814=8 5CF5=8 57E2=0108
+#18 streak 17 opp 갈포드나 (57DF=7 57E0=1 B2=78) idle600 dmg  36 hits  2 | 5814=8 5CF5=8 57E2=00CB
+#19 streak 18 opp 갈포드수 (57DF=7 57E0=0 B2=70) idle600 dmg  21 hits  2 | 5814=9 5CF5=9 57E2=00CD
+#20 streak 19 opp 우쿄수 (57DF=11 57E0=0 B2=B0) idle600 dmg  25 hits  8 | 5814=9 5CF5=9 57E2=010E
+#21 streak 20 opp 주베이수 (57DF=12 57E0=0 B2=C0) idle600 dmg  58 hits 11 | 5814=10 5CF5=10 57E2=0110
+#22 streak 21 opp 카즈키나 (57DF=0 57E0=1 B2=08) idle600 dmg  44 hits  2 | 5814=10 5CF5=10 57E2=0112
+#23 streak 22 opp 아수라수 (57DF=8 57E0=0 B2=80) idle600 dmg  47 hits  3 | 5814=11 5CF5=11 57E2=0114
+#24 streak 23 opp 시키수 (57DF=13 57E0=0 B2=D0) idle600 dmg  43 hits  8 | 5814=11 5CF5=11 57E2=00D7
+#25 streak 24 opp 리무루루수 (57DF=5 57E0=0 B2=50) idle600 dmg  59 hits  9 | 5814=12 5CF5=12 57E2=0118
+#26 streak 25 opp 유가나 (57DF=14 57E0=1 B2=E8) idle600 dmg  48 hits  8 | 5814=12 5CF5=12 57E2=00DB
+#27 streak 26 opp 하오마루수 (57DF=2 57E0=0 B2=20) idle600 dmg  24 hits  2 | 5814=12 5CF5=12 57E2=00DD
+#28 streak 27 opp 카즈키나 (57DF=0 57E0=1 B2=08) idle600 dmg  53 hits  3 | 5814=12 5CF5=12 57E2=011E
+#29 streak 28 opp 샬럿나 (57DF=9 57E0=1 B2=98) idle600 dmg  63 hits  6 | 5814=12 5CF5=12 57E2=0120
+#30 streak 29 opp 카즈키수 (57DF=0 57E0=0 B2=00) idle600 dmg  42 hits  4 | 5814=12 5CF5=12 57E2=00E3
+#31 streak 30 opp 시키수 (57DF=13 57E0=0 B2=D0) idle600 dmg  18 hits  2 | 5814=12 5CF5=12 57E2=0124
+#32 streak 31 opp 샬럿수 (57DF=9 57E0=0 B2=90) idle600 dmg  41 hits  3 | 5814=12 5CF5=12 57E2=0126
+#33 streak 32 opp 모로즈미수 (57DF=10 57E0=0 B2=A0) idle600 dmg  63 hits  6 | 5814=12 5CF5=12 57E2=00E9
+#34 streak 33 opp 겐쥬로수 (57DF=3 57E0=0 B2=34) idle600 dmg  66 hits  4 | 5814=12 5CF5=12 57E2=00F7
+#35 streak 34 opp 카즈키수 (57DF=0 57E0=0 B2=00) idle600 dmg  12 hits  4 | 5814=12 5CF5=12 57E2=00F9
+#36 streak 35 opp 하오마루나 (57DF=2 57E0=1 B2=28) idle600 dmg  22 hits  4 | 5814=12 5CF5=12 57E2=00FB
+#37 streak 36 opp 나코루루수 (57DF=4 57E0=0 B2=40) idle600 dmg   7 hits  2 | 5814=12 5CF5=12 57E2=00FD
+#38 streak 37 opp 겐쥬로나 (57DF=3 57E0=1 B2=38) idle600 dmg  56 hits  8 | 5814=12 5CF5=12 57E2=00FF
+#39 streak 38 opp 유가수 (57DF=14 57E0=0 B2=E0) idle600 dmg  49 hits  6 | 5814=12 5CF5=12 57E2=0134
+#40 streak 39 opp 시키수 (57DF=13 57E0=0 B2=D0) idle600 dmg  32 hits  3 | 5814=12 5CF5=12 57E2=0103

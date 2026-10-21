@@ -1,0 +1,758 @@
+[
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "5A",
+  "name": "약베기",
+  "whiff": {
+   "startup": 5,
+   "active": 4,
+   "recovery": 16,
+   "total": 24,
+   "proj": false
+  },
+  "whiff_meter": "SSSSAAAARRRRRRRRRRRRRRRR",
+  "probe_startup": 5,
+  "hit": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -2,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -2,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -2,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -2,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   }
+  ],
+  "hit_meter": [
+   "SSSSAAAAAAAAARRRRRRRRRRRRRRRR",
+   "....hhhhhhhhhhhhhhhhhhhhhhh.."
+  ],
+  "hit_line": "발동 5F · 히트 −2",
+  "hit_vs": [
+   -2,
+   -2
+  ],
+  "block": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -8,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -8,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -8,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -8,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   }
+  ],
+  "block_meter": [
+   "SSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "....bbbbbbbbbbbbbbbbbbbbbbbbbbbbb........"
+  ],
+  "block_line": "발동 5F · 가드 −8",
+  "block_vs": [
+   -8,
+   -8
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "5A+",
+  "name": "강베기",
+  "whiff": {
+   "startup": 9,
+   "active": 4,
+   "recovery": 28,
+   "total": 40,
+   "proj": false
+  },
+  "whiff_meter": "SSSSSSSSAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "probe_startup": 9,
+  "hit": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 9,
+    "contact_nth_active": 1
+   }
+  ],
+  "hit_meter": [
+   "SSSSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR......",
+   "........hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh"
+  ],
+  "hit_line": "발동 9F · 히트 +6",
+  "hit_vs": [
+   6,
+   6
+  ],
+  "block": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 9,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 9,
+    "contact_nth_active": 1
+   }
+  ],
+  "block_meter": [
+   "SSSSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "........bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............"
+  ],
+  "block_line": "발동 9F · 가드 −12",
+  "block_vs": [
+   -12,
+   -12
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "2A",
+  "name": "앉아 약베기",
+  "whiff": {
+   "startup": 5,
+   "active": 4,
+   "recovery": 16,
+   "total": 24,
+   "proj": false
+  },
+  "whiff_meter": "SSSSAAAARRRRRRRRRRRRRRRR",
+  "probe_startup": 5,
+  "hit": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": 6,
+    "kind": "히트",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": null,
+    "kind": null,
+    "startup": null,
+    "contact_nth_active": null
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": null,
+    "kind": null,
+    "startup": null,
+    "contact_nth_active": null
+   }
+  ],
+  "hit_meter": [
+   "SSSSAAAARRRRRRRRRRRRRRRR",
+   "........................"
+  ],
+  "hit_line": "발동 5F · 지속 4F · 경직 16F",
+  "hit_vs": [
+   6,
+   6
+  ],
+  "block": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -6,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -6,
+    "kind": "가드",
+    "startup": 5,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": null,
+    "kind": null,
+    "startup": null,
+    "contact_nth_active": null
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": null,
+    "kind": null,
+    "startup": null,
+    "contact_nth_active": null
+   }
+  ],
+  "block_meter": [
+   "SSSSAAAARRRRRRRRRRRRRRRR",
+   "........................"
+  ],
+  "block_line": "발동 5F · 지속 4F · 경직 16F",
+  "block_vs": [
+   -6,
+   -6
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "2A+",
+  "name": "앉아 강베기",
+  "whiff": {
+   "startup": 7,
+   "active": 6,
+   "recovery": 28,
+   "total": 40,
+   "proj": false
+  },
+  "whiff_meter": "SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "probe_startup": 7,
+  "hit": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": 98,
+    "kind": "다운",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": 98,
+    "kind": "다운",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": 98,
+    "kind": "다운",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": 98,
+    "kind": "다운",
+    "startup": 7,
+    "contact_nth_active": 1
+   }
+  ],
+  "hit_meter": [
+   "SSSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRR........|........|",
+   "......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|"
+  ],
+  "hit_line": "발동 7F · 다운 +98",
+  "hit_vs": [
+   54,
+   54
+  ],
+  "block": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -12,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   }
+  ],
+  "block_meter": [
+   "SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "......bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb............"
+  ],
+  "block_line": "발동 7F · 가드 −12",
+  "block_vs": [
+   -12,
+   -12
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "4B",
+  "name": "뒤+B",
+  "whiff": {
+   "startup": 7,
+   "active": 6,
+   "recovery": 38,
+   "total": 50,
+   "proj": false
+  },
+  "whiff_meter": "SSSSSSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+  "probe_startup": 7,
+  "hit": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -16,
+    "kind": "히트",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -16,
+    "kind": "히트",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -16,
+    "kind": "히트",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -16,
+    "kind": "히트",
+    "startup": 7,
+    "contact_nth_active": 1
+   }
+  ],
+  "hit_meter": [
+   "SSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh................"
+  ],
+  "hit_line": "발동 7F · 히트 −16",
+  "hit_vs": [
+   -16,
+   -16
+  ],
+  "block": [
+   {
+    "gap": 21,
+    "phase": 0,
+    "adv": -32,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 21,
+    "phase": 1,
+    "adv": -32,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 0,
+    "adv": -32,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   },
+   {
+    "gap": 17,
+    "phase": 1,
+    "adv": -32,
+    "kind": "가드",
+    "startup": 7,
+    "contact_nth_active": 1
+   }
+  ],
+  "block_meter": [
+   "SSSSSSAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "......bbbbbbbbbbbbbbb................................"
+  ],
+  "block_line": "발동 7F · 가드 −32",
+  "block_vs": [
+   -32,
+   -32
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "236A",
+  "name": "236A",
+  "whiff": {
+   "startup": 11,
+   "active": null,
+   "recovery": 40,
+   "total": 51,
+   "proj": true
+  },
+  "whiff_meter": "SSSSSSSSSS*******************************RRRRRRRRRR........|........|",
+  "probe_startup": 19,
+  "hit": [
+   {
+    "gap": 34,
+    "phase": 0,
+    "adv": 118,
+    "kind": "다운",
+    "startup": 11,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 34,
+    "phase": 1,
+    "adv": 118,
+    "kind": "다운",
+    "startup": 11,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 31,
+    "phase": 0,
+    "adv": 116,
+    "kind": "다운",
+    "startup": 11,
+    "contact_nth_active": 9
+   },
+   {
+    "gap": 31,
+    "phase": 1,
+    "adv": 116,
+    "kind": "다운",
+    "startup": 11,
+    "contact_nth_active": 9
+   }
+  ],
+  "hit_meter": [
+   "SSSSSSSSSS***************RRRRRRRRRRRRRRRRRRRRRRRRRR........|........|",
+   "..................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|"
+  ],
+  "hit_line": "발동 11F · 장풍 · 다운 +116",
+  "hit_vs": [
+   74,
+   74
+  ],
+  "block": [
+   {
+    "gap": 34,
+    "phase": 0,
+    "adv": 0,
+    "kind": "가드",
+    "startup": 11,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 34,
+    "phase": 1,
+    "adv": 0,
+    "kind": "가드",
+    "startup": 11,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 31,
+    "phase": 0,
+    "adv": -2,
+    "kind": "가드",
+    "startup": 11,
+    "contact_nth_active": 9
+   },
+   {
+    "gap": 31,
+    "phase": 1,
+    "adv": -2,
+    "kind": "가드",
+    "startup": 11,
+    "contact_nth_active": 9
+   }
+  ],
+  "block_meter": [
+   "SSSSSSSSSS*************RRRRRRRRRRRRRRRRRRRRRRRRRR",
+   "..................bbbbbbbbbbbbbbbbbbbbbbbbbbbbb.."
+  ],
+  "block_line": "발동 11F · 장풍 · 가드 −2",
+  "block_vs": [
+   0,
+   0
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "214A",
+  "name": "214A",
+  "whiff": {
+   "startup": 15,
+   "active": null,
+   "recovery": 37,
+   "total": 52,
+   "proj": true
+  },
+  "whiff_meter": "SSSSSSSSSSSSSS******************************RRRRRRRR........|",
+  "probe_startup": 21,
+  "hit": [
+   {
+    "gap": 34,
+    "phase": 0,
+    "adv": 148,
+    "kind": "다운",
+    "startup": 15,
+    "contact_nth_active": 13
+   },
+   {
+    "gap": 34,
+    "phase": 1,
+    "adv": 148,
+    "kind": "다운",
+    "startup": 15,
+    "contact_nth_active": 13
+   },
+   {
+    "gap": 31,
+    "phase": 0,
+    "adv": 148,
+    "kind": "다운",
+    "startup": 15,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 31,
+    "phase": 1,
+    "adv": 148,
+    "kind": "다운",
+    "startup": 15,
+    "contact_nth_active": 11
+   }
+  ],
+  "hit_meter": [
+   "SSSSSSSSSSSSSS**************RRRRRRRRRRRRRRRRRRRRRRRR........|........|",
+   "........................hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|dddddddd|"
+  ],
+  "hit_line": "발동 15F · 장풍 · 다운 +148",
+  "hit_vs": [
+   156,
+   156
+  ],
+  "block": [
+   {
+    "gap": 34,
+    "phase": 0,
+    "adv": -14,
+    "kind": "가드",
+    "startup": 15,
+    "contact_nth_active": 13
+   },
+   {
+    "gap": 34,
+    "phase": 1,
+    "adv": -14,
+    "kind": "가드",
+    "startup": 15,
+    "contact_nth_active": 13
+   },
+   {
+    "gap": 31,
+    "phase": 0,
+    "adv": -16,
+    "kind": "가드",
+    "startup": 15,
+    "contact_nth_active": 11
+   },
+   {
+    "gap": 31,
+    "phase": 1,
+    "adv": -16,
+    "kind": "가드",
+    "startup": 15,
+    "contact_nth_active": 11
+   }
+  ],
+  "block_meter": [
+   "SSSSSSSSSSSSSS***************RRRRRRRRRRRRRRRRRRRRRRRR",
+   "........................bbbbbbbbbbbbb................"
+  ],
+  "block_line": "발동 15F · 장풍 · 가드 −16",
+  "block_vs": [
+   -14,
+   -14
+  ]
+ },
+ {
+  "char": "갈포드",
+  "dummy": "샬럿",
+  "move": "잡기",
+  "name": "→+강베기(붙어서)",
+  "hit": [
+   {
+    "gap": 18,
+    "phase": 0,
+    "adv": 26,
+    "kind": "잡기",
+    "startup": 3,
+    "contact_nth_active": 5
+   },
+   {
+    "gap": 18,
+    "phase": 1,
+    "adv": 26,
+    "kind": "잡기",
+    "startup": 3,
+    "contact_nth_active": 5
+   },
+   {
+    "gap": 18,
+    "phase": 0,
+    "adv": 26,
+    "kind": "잡기",
+    "startup": 3,
+    "contact_nth_active": 5
+   },
+   {
+    "gap": 18,
+    "phase": 1,
+    "adv": 26,
+    "kind": "잡기",
+    "startup": 3,
+    "contact_nth_active": 5
+   }
+  ],
+  "hit_meter": [
+   "SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR........|",
+   "......hhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhhh|"
+  ],
+  "hit_line": "발동 3F · 잡기 +26",
+  "hit_vs": [
+   26,
+   26
+  ]
+ }
+]

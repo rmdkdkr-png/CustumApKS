@@ -1,0 +1,8 @@
+갈포드    5A    whiff S5 A4 R16 T24 probe 5 | hit -2/-2/-2/-2 (vs [-2, -2]) | block -8/-8/-8/-8 (vs [-8, -8])
+갈포드    5A+   whiff S9 A4 R28 T40 probe 9 | hit 6/6/6/6 (vs [6, 6]) | block -12/-12/-12/-12 (vs [-12, -12])
+갈포드    2A    whiff S5 A4 R16 T24 probe 5 | hit 6/6/NoneNone/NoneNone (vs [6, 6]) | block -6/-6/NoneNone/NoneNone (vs [-6, -6])
+갈포드    2A+   whiff S7 A6 R28 T40 probe 7 | hit 98다운/98다운/98다운/98다운 (vs [54, 54]) | block -12/-12/-12/-12 (vs [-12, -12])
+갈포드    4B    whiff S7 A6 R38 T50 probe 7 | hit -16/-16/-16/-16 (vs [-16, -16]) | block -32/-32/-32/-32 (vs [-32, -32])
+갈포드    236A  whiff S11 ANone R40 T51 proj probe 19 | hit 118다운/118다운/116다운/116다운 (vs [74, 74]) | block 0/0/-2/-2 (vs [0, 0])
+갈포드    214A  whiff S15 ANone R37 T52 proj probe 21 | hit 148다운/148다운/148다운/148다운 (vs [156, 156]) | block -14/-14/-16/-16 (vs [-14, -14])
+갈포드    잡기    whiff SNone ANone RNone TNone probe None | hit 26/26/26/26 (vs [26, 26]) | block  (vs None)

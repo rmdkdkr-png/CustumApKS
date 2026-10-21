@@ -1,0 +1,135 @@
+Picked up JAVA_TOOL_OPTIONS: -Djavax.net.ssl.trustStore=/etc/ssl/certs/java/cacerts -Djavax.net.ssl.trustStoreType=JKS -Dhttps.proxyHost=127.0.0.1 -Dhttps.proxyPort=41541 -Dhttp.nonProxyHosts=localhost|127.0.0.1|::1|127.*|0.*|::|169.254.*|api.anthropic.com|api-staging.anthropic.com|api-pr-preview.anthropic.com|mcp-proxy.anthropic.com|mcp-proxy-staging.anthropic.com|registry.npmjs.org|jsr.io|npm.jsr.io|pypi.org|files.pythonhosted.org|index.crates.io|proxy.golang.org|host.docker.internal|10.*|172.16.*|172.17.*|172.18.*|172.19.*|172.20.*|172.21.*|172.22.*|172.23.*|172.24.*|172.25.*|172.26.*|172.27.*|172.28.*|172.29.*|172.30.*|172.31.*|192.168.*|100.64.0.0/10|*.svc.cluster.local|*.svc.cluster.local -Djdk.http.auth.tunneling.disabledSchemes= -Djdk.http.auth.proxying.disabledSchemes=
+PASS 새 기록: 랭크 칸(씨앗 16자리) · 배치 5판 · MMR 1000
+PASS 재시작 뒤 같은 씨앗(같은 세상)
+PASS 찾기 — 148: 고르기만 하고 «잡힘»은 안 씀
+PASS 카드가 뜰 때(holdPending) 고른 상대를 «잡힘»으로 저장
+PASS 카드에서 나가도(재시작해도) 다음 찾기에 같은 상대 — 골라 받기 막기
+PASS 프로필(닉네임·칭호·지역·아바타 씨앗)은 씨앗·id 로 늘 같음
+PASS 랭크 경기 기록 — 모드·손잡이 5개·상대 모습 사본·시작 값
+PASS 처음 만난 상대의 프로필을 글자 그대로 저장
+PASS 열린 경기가 있으면 새 경기를 만들지 않음
+PASS 랭크 경기는 ranked.matches 에(예전 앱이 안 봄) · 열린 경기로 보임 · 상대 MR 은 무쌍이 아니어도 적음(616)
+PASS 경기 기록은 시작 전에 파일에
+PASS CPU 단계가 다르면 «난도 불일치» 보류 — LP·전적 그대로, 148: 잡힌 상대는 풂(같은 원인으로 되풀이 안 막히게)
+PASS 같은 상대 다시 — 맞는 손잡이면 정산
+PASS 이김 — 배치 4판 남음 · 잡힌 상대 풀림 · 최근 상대 · 상대전적 1승
+PASS 다음 찾기 — 방금 상대는 안 나옴(최근 상대 빼기)
+PASS 결판 때 상한(0x5815)이 다르면 보류
+PASS 배치 5판 끝 — 첫 티어·LP (무사 ★5 2230)
+PASS 배치 뒤 이김 — LP 오름(+155)
+PASS 짐 — LP 내려감(-75) · 마지막 결과 패
+PASS 같은 상대 이어 붙은 판 수 1
+PASS 재대결 경기에 rematch_n 1
+PASS 재대결로 진 상대를 이김 — 설욕 +20
+PASS 이어 붙은 판 수 2 (3판째까지 재대결 가능)
+PASS 기권 = 짐 · 이어 붙은 판 수 3(재대결 끝)
+PASS 재시작 뒤 같은 LP·전적·순위표
+PASS 예전 리그 경기는 예전 규칙(점수) — 랭크 LP·판수 그대로
+PASS 파일은 v 1 그대로 · ranked 칸 왕복
+PASS 내 순위 21911 / 39899 · 내 주변 11명
+PASS 무쌍이 무쌍 아닌 상대를 이김 — MR 1520 → 1533 · «승 2:0 · +13 MR»
+PASS 파일: 위쪽 matches 는 예전 경기 1판뿐 · 랭크 12판은 ranked.matches
+PASS 148 찾기(rankedPick)는 league.json 을 한 바이트도 안 바꾸고 «잡힘»도 안 만듦
+PASS 대기창 시간 waitMs = RankCore.waitMs(보통 · 한국 시각) 8795ms
+PASS holdPending 저장
+PASS holdPending — id·at·mmr·stage·knobs 6칸·miss 0
+PASS 다음 찾기 = 같은 상대 · pending · 1887ms (≤ 2400)
+PASS 같은 상대를 다시 잡아도 at 그대로(파일도 그대로)
+PASS 설정 «빠르게»(pocketcore_rank_wait=fast) = searchMs 2~6초
+PASS hold() — 잡힌 상대를 풂
+PASS 정산 손잡이 불일치 보류 — 잡힌 상대를 풂
+PASS 정산 대진 불일치 보류 — 잡힌 상대를 풂
+PASS 사용자가 뒤로(cancel) — 잡힌 상대 그대로(miss 아님)
+PASS 남은 «준비»(cancelStale) 1번 — 무효 + miss 1
+PASS 그 상대를 다시 잡아도 miss 1 그대로
+PASS 남은 판 2번째 — 풂, 다음엔 새 상대
+PASS 시작한 뒤 무효 1번 — miss 1
+PASS 무효 뒤 다음 찾기 = 같은 상대(1.2~2.4초)
+PASS 무효 2번째 — 풂
+PASS 잡힌 지 25시간 — 풀림(하루 기한 그대로)
+PASS voidKind: 준비(대진 전) → null
+PASS voidKind: 진행 중 · 체크포인트 없음 → crash
+PASS voidKind: 게임 속 리그가 지금 하는 판(진행 중 · liveHub) → null · voidStarted 도 안 됨
+PASS voidKind: 복귀 대기 · 체크포인트 있음 → null(이어 하기)
+PASS voidKind: 불러오지 못함(resume_fail badckpt) → ckpt
+PASS 나중에 이어 하기가 되면(setStatus playing) 실패 표시 지움 → null
+PASS 진행 중에 남은 옛 실패 표시는 안 봄 → null
+PASS voidKind: 앱 판만 다름(147 → 148) · 체크포인트·롬 멀쩡 → null(이어 하기 — 앱 업데이트만으로는 무효가 안 열림)
+PASS voidKind: 롬·코어로 막힘(resume_fail rom) + 앱 판 다름(147 → 148) → app (판을 모르면 안 봄)
+PASS voidKind: 같은 앱에서 롬만 바뀜(resume_fail rom) → null(롬 바꾸기로는 무효가 안 열림)
+PASS voidKind: resume_fail nockpt → crash
+PASS voidStarted 저장
+PASS 무효 — LP·MMR·승패·배치·판수·최근 상대·상대 전적 그대로
+PASS cancelled + void_after_start + void_kind + why · 정산 없음 · 체크포인트 지움
+PASS «보류·무효 경기» 목록(holds)에 보임 — «앱이 멈춰 이어할 자리가 없음»
+PASS 끝난 경기는 다시 무효 안 됨
+PASS 준비 경기엔 voidStarted 안 됨
+PASS 랭크 대진 전 무효는 목록에 안 쌓임(147 그대로)
+PASS 게임 속 리그가 살아 있으면(liveHub) voidReady 0
+PASS voidReady — 남은 «준비» 경기를 무효로(1) · 다시 부르면 0
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json.tmp (Is a directory)
+PASS 임시 파일 자리에 폴더 — 저장 실패
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json.tmp (Is a directory)
+PASS 무효 저장 실패 — 메모리 되돌림 · 체크포인트 그대로
+PASS 막힌 게 풀리면 무효 저장
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json.tmp (Is a directory)
+PASS 새 시즌 저장 실패 — 메모리 되돌림 · 보관 파일 안 남음
+PocketCore: league write failed /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json java.io.FileNotFoundException: /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league/league.json.tmp (Is a directory)
+PASS 처음부터 저장 실패 — 메모리 되돌림 · 보관 파일 안 남음
+PASS 파일도 그대로(시즌 1 · LP 3920)
+PASS dbProblem 이면 저장 안 함
+PASS reload() — 파일을 다시 읽어 dbProblem 풂(메모리 판은 버림) · 다시 저장됨
+PASS reload() — 아직 못 쓰면 남은 이유를 돌려줌(«아직 안 돼요 — …») : 리그 기록 폴더(/tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w148/jvm/r_main/league)에 쓸 수 없습니다 — 저장소 권한을 확인하세요
+PASS 막힌 게 풀리면 reload() null
+PASS reload() — 못 읽는 파일은 옆으로 옮기고(지우지 않음) 새 기록 · null
+PASS 오늘(한국 0시 넘어) 2승 2패 1무 · -30 LP(배치 판 LP 빼고) · 새것부터 WWDLL — 23:59 판·무효·보류 빼고, 기권 = 패 (2/2/1 -30 WWDLL)
+PASS 전날 23:59 판은 전날로
+PASS 점은 5개까지(새것부터)
+PASS 지금(다른 날)은 오늘 첫 판
+PASS 오늘 첫 승 전 — 보너스 남음
+PASS 오늘 이미 이김 — 보너스 없음
+PASS 배치 중엔 보너스 없음
+PASS 배치 중엔 새 시즌 안 됨
+PASS 시작한 경기가 열려 있으면 둘 다 안 됨
+PASS 게임 속 리그가 살아 있으면(liveHub) 안 됨
+PASS 기록 파일 문제(dbProblem)면 안 됨
+PASS 막힘 없음
+PASS 미리보기 — 시즌 1 · LP 3920 → 3310 (검호 ★2 → 검객 ★5)
+PASS 준비 경기 + 잡힌 상대 있음
+PASS 새 시즌 시작
+PASS LP = RankCore.newSeasonLp (3310) · 최고 LP = 새 LP
+PASS 승패·연승·연패·최장·강등 위기·무쌍 0부터
+PASS MMR·판수·최근 상대·상대 전적·오늘 첫 승·씨앗·경기 기록 그대로
+PASS 준비 경기는 먼저 무효로 · 잡힌 상대 풂
+PASS 시즌 2 · 새 시작 시각
+PASS 지난 시즌 줄 — {"d":1,"mr":0,"kind":"season","start":1792121212868,"final_lp":3920,"best":6,"l":25,"n":1,"master":false,"file":"ranked-s1-season-20261016-032652.json","w":31,"games":57,"peak_lp":4100,"end":1792121212891,"peak_label":"검호 ★3","final_label":"검호 ★2"}
+PASS 통산 31승 25패 1무(지난 시즌 + 이번)
+PASS 보관 파일 ranked-s1-season-20261016-032652.json — 풀림 · ranked = 바꾸기 전 그대로(준비 경기·잡힌 상대도 그때 그대로)
+PASS 다시 열어도 시즌 2 · LP 3310 · 지난 시즌 1줄
+PASS 예전 리그 6판에서 이어받음(배치 없음 · legacy) — 이어받기가 다시 돌면 배치 0 이 된다
+PASS 새 시즌(시즌 2)
+PASS 예전 칸 «준비» 경기가 열려 있어도 막지 않음
+PASS 처음부터 다시
+PASS 같은 rv·gen·씨앗(같은 세상)
+PASS 배치 5판 · 판수 0 · LP 0 · MMR 1000 · 승패·연승 0
+PASS 상대 전적 {} · 경기 기록 [] · 최근 상대 [] · 잡힌 상대·legacy·오늘 첫 승 없음
+PASS 시즌 3 · 지난 시즌 줄 이어받기 + restart 줄(시즌 2: 1승 1패)
+PASS 위쪽 me·opps·matches(예전 «준비» 경기 포함)·pref(last_rom 포함) 그대로
+PASS 체크포인트(ckpt_*.state·.tmp) 지움
+PASS 보관 파일 ranked-s2-restart-20261016-032652.json — ranked = 바꾸기 전 그대로 · 지난 보관 파일도 남음
+PASS 통산 = 지난 시즌 줄 합 + 이번(0)
+PASS 다시 열어도 배치 5 · legacy 없음(예전 기록 이어받기가 다시 안 돎)
+PASS 처음엔 없음(pref 칸도 안 만듦)
+PASS set → get
+PASS 같은 경로를 다시 — 파일 안 씀
+PASS 다시 열어도 그대로
+PASS 바뀌면 씀
+PASS 147 파일: 시즌 1 · 지난 시즌 없음 · last_rom 없음
+PASS 통산 = 이번 시즌 그대로(지난 줄 없음)
+PASS 읽기만 하는 것들(오늘 전적·voidReady·막힘·미리보기·목록)
+PASS 147 의 잡힌 상대(miss 칸 없음 = 0)를 그대로 따름
+PASS 같은 상대 다시 잡기 — 쓸 것 없음
+PASS 사용자가 뭘 하기 전엔 league.json 한 바이트도 안 바뀜
+PASS 사용자 동작(리그 열기 → last_rom)
+PASS 그 뒤 저장 — 147 칸 그대로 + last_rom 만 더함
+FAILS 0

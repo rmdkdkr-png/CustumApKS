@@ -1,0 +1,7 @@
+8dc945f 내부 187: 소리 작업(메뉴 중 배경음 · 4배속 넘김 소리 · 연습 메뉴·확인 카드·찾기 창 효과음) · 새 코어(snd_only) · 작은 고침 둘
+7208bb3 Merge origin/feat/framegen-art (내부 186) into 182 소리 작업
+b8266fb 182 docs §25 시험 줄 — 호스트 코어·libnh·GapSim·SfxSim·회귀 결과
+cc447ac 182 docs/157_contract.md §25 — 메뉴 중 배경음 유지 · 4배속 넘김에도 소리 · 연습 메뉴·확인 카드·찾기 겹창 효과음 · 딸깍 없애기 규칙
+b3755b1 182 고침: 소리 카드가 없을 때(onPause·썸네일 부팅) 코어 소리를 고리에 쌓지 않음 · 스트림을 열 때 지난 소리 버림
+fa07518 182 앱: 메뉴 중 배경음 유지 · 4배속 넘김에도 소리 · 연습 메뉴·확인 카드·찾기 겹창 효과음 · 멈출 때 딸깍 없애기
+d18e429 182 코어 패치 zzzzzzzzzzzzz_snd_only — 메인 CPU 를 세운 채 소리 CPU 만 돌리기(retro_ngp_sndonly_run) + 소리만 1/d 빠르기(retro_ngp_snd_div)

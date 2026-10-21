@@ -1,0 +1,10 @@
+5A whiff    발동 7F · 지속 6F · 경직 14F             | SSSSSSAAAAAARRRRRRRRRRRRRR
+5A hit      발동 7F · 히트 −2                      | SSSSSSAAAAAAAAAAARRRRRRRRRRRRRR
+5A block    발동 7F · 가드 −6                      | SSSSSSAARRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+5A+ hit     발동 9F · 히트 −8                      | SSSSSSSSAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+2A+ hit     발동 9F · 다운 +120                    | ...SSSSSAAAAAAAAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+236A whiff  발동 11F · 장풍 · 다운 +140              | SSSSSSSSSS******************RRRRRRRRRRRRRRRRRRRRRRR........|
+236A block  발동 11F · 장풍 · 가드 −20               | SSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+throw       발동 3F · 잡기 +26                     | SSAAAAAARRRRRRRRRRRRRRRRRRRRRRRRRR........|
+2A>236A     발동 11F · 장풍 · 다운 +124              | ...|....AAAAAAASSSSSSSSSS**RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR
+DIGEST h1ko clean 1791974914 9a7ed190c6cbd88d

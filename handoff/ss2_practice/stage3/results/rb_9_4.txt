@@ -1,0 +1,2 @@
+frames 5014 seqs 38 fd_events 27 cr_events 27 same True bad 0
+attackers {0: 16, 1: 11} kinds {'히트': 14, '가드': 9, '다운': 4} P2 actions 28 P1 actions 48

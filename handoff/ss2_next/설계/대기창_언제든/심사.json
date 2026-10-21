@@ -1,0 +1,173 @@
+[
+ {
+  "scores": [
+   {
+    "key": "simple",
+    "userValue": 8,
+    "fitToRequest": 7,
+    "feasibility": 9,
+    "risk": 8,
+    "total": 8,
+    "best_ideas": [
+     "Candidate reel: the avatars and nicknames RankCore.pick actually sampled cycle, slow down over the last 600 ms and land on the real opponent. It builds anticipation, feels like real ranked (Hearthstone spinner), stays honest, and does not touch the RNG.",
+     "Stage choice moves into the wait (◀▶/OPTION, auto-accept stays on). This gives the player a real decision to make during the search, not just text to read.",
+     "A «리그 대전» cell in the normal-session pad bar: Back, then one tap, even mid-fight. This is the shortest thumb path for 'league anytime'. It copies the existing conditional UTIL_LOOK/ACT_LOOK end-append (PadView.java:50,160,348), so it is feasible. It does not require practiceRomOk, which fixes G1.",
+     "A «내 게임으로» button in hubLeave (switchSession(false,false)) gives a real round trip back to the user's autosaved game. Neither of the other designs offers this.",
+     "A fixed «예상 m:ss» that never jumps up, plus «비슷한 상대 기준 · 이기면 +25 · 지면 -20» stakes, today's dots and first-win bonus: progress and stakes at a glance.",
+     "Freeze the search instead of cancelling it when the pad bar opens (remove rankCancel from onMenu).",
+     "The LeagueActivity main button is always shown, with a label that depends on state. «이어서 하기» launches the hub, so a resumed fight also ends on the [다음 상대] loop.",
+     "Java only, about 730 lines, no native change and no new session switching. The 12 tips come from framedata.md, and there is a font-glyph test."
+    ],
+    "problems": [
+     "A dense panel (LP bar, stakes, today, bonus, streak, tip, stage row) is shown for only 2–6 s, then the found card auto-accepts in 3 s. On a phone the player cannot actually read it, so the 'waiting window' risks being a flash. The design refuses any lengthening, even a modest 5–10 s.",
+     "«뭐 할지» is answered thinly: watch the reel, pick a stage, flip a tip. There is no practice or play while waiting, even as a planned v2 hook.",
+     "A crash with no checkpoint can only be closed by forfeiting (full LP loss). The forward button removes the lockout but punishes the user for an app fault. Robust's free void for app-fault cases is friendlier.",
+     "Leaves G8/G9 untouched: no move-aside for dbProblem, and the endless «기록 저장 실패 — 다시 시도 중» settle retry stays.",
+     "Restart keeps the same seed but empties players, so rivals' h2h vanish while the world looks identical. There is no soft new season, only a hard restart to placement 5.",
+     "A one-tap gold «기권하고 새로 찾기» relies on Ask's select-first behaviour, which protects pad presses but not touch. A thumb tap forfeits immediately.",
+     "The reel builds Avatar and pfOf on the UI thread every 300 ms while holding the League lock. It has to be precomputed to avoid jank on low-end phones."
+    ]
+   },
+   {
+    "key": "robust",
+    "userValue": 7,
+    "fitToRequest": 7,
+    "feasibility": 7,
+    "risk": 7,
+    "total": 7,
+    "best_ideas": [
+     "Free «무효로 닫고 계속» when the app is at fault (no checkpoint after a crash, a checkpoint that will not load, or an app version change). LP stays as it was and play jumps straight back into search via hubReturn(-3). This is the kindest answer to «언제든 다시» reading (b).",
+     "A 400 ms A-guard on the «상대 발견!» card, so a press left over from the search cannot accept an opponent the player has not seen. Good thumb safety.",
+     "pending.miss: two stale ready-voids against the same opponent release the hold, and every hold path releases pending. This ends the only wait-24h loop (G7).",
+     "Storage cards with [권한 설정 열기] (ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION on Android 11+, app details on 8–10) and [다시 확인] via League.reload(). Settle failure gets a [나중에 정산하기] card after 3 tries instead of an infinite toast (G8/G9).",
+     "LeagueActivity calls voidReady on open, so a leftover ready match never hides the go button (G4). pref.last_rom as a fallback means «재개» is never hidden for lack of a ROM path.",
+     "Seasons are covered fully: «시즌 N» is read from ranked.season, past-season plates, a soft «새 시즌 시작» that pulls LP halfway toward lpOfMmr (pool-consistent), and «처음부터 다시» with an archive.",
+     "Archive with «되돌리기»: no reset is ever destructive, which makes 'redo anytime' safe in both directions.",
+     "Toasts replace silent closes («앱이 내려가서 찾기를 멈췄어요 — A로 다시 찾기», and one for the menu vanishing). try/catch around startActivity resets the `leaving` flag."
+    ],
+    "problems": [
+     "The entry from a normal game is Back → 설정 → sheet link → «랭크 매치 하러 가기», about 3 taps plus a sheet animation. That is weaker for thumbs than simple's one-tap pad cell. Its stated reason, 'the bar layout is fixed', is wrong: PadView already appends a conditional UTIL_LOOK cell.",
+     "The waiting window offers little to do: tips flip on ◀▶, while A and OPTION are ignored. There is no reel and no stage choice. It has the same 2–6 s readability problem as simple: a full panel that flashes by.",
+     "There is no direct «내 게임으로» from the league session. Getting back to the user's game goes through «목록» and the launcher list.",
+     "The 보관함 restore and delete UI, the seasons section and three dialogs add screens and concepts the user did not ask for. They put weight on the LeagueActivity screen.",
+     "«처음부터 다시» uses a new seed, so every rival and the whole 39,899-player world disappear. That may feel like losing the 'real' world the user asked to build.",
+     "Some tips use 236A notation and are dense with frame numbers (e.g. «샬럿 236A는 모으는 데 36F — 발동 41F»), which is unfriendly in a 2–6 s glance on a phone.",
+     "Void abuse is accepted: deleting a checkpoint gives a free void. That is fine for single player, but worth telling the user."
+    ]
+   },
+   {
+    "key": "realism",
+    "userValue": 7,
+    "fitToRequest": 8,
+    "feasibility": 4,
+    "risk": 3,
+    "total": 6,
+    "best_ideas": [
+     "The most literal answer to «대기 때 뭐 할지»: «연습하며 기다리기» or «게임하며 기다리기». The queue keeps running in the normal session, and the «상대 발견!» card pops at a natural break (immediately in practice, at round end in arcade, deferred while menus are open). This is the SF6/Tekken pattern the user's 'like the real thing' requests point to.",
+     "A VS loading card («VS / 나 · 검객 ★3 / 칼바람 …») covers the 2–3 s session switch on accept, with a 10 s timeout that falls back to the waiting window. It turns the fragile handoff into a real-feeling moment.",
+     "Honest widening: the wait is drawn first, and the pick spread scales with it (sigma × min(3, 1 + wait/30 s)). The «범위를 넓혔어요 · ±1 티어» lines are then true. «평균 대기» is the model's real mean and is fixed for each queue.",
+     "A time-of-day factor (shorter in the Korean evening peak, longer at 3–6 am) gives realism without padding. «빠르게» keeps the old 2–6 s.",
+     "A «랭크 대기» pad cell that starts the queue in place mid-game, plus an app shortcut and a launcher link: the widest set of 'anytime' entry points.",
+     "Soft «새 시즌» with LP pulled halfway, an archived «처음부터», a «시즌 1 최고 · 검호 ★2» peak plate, and career totals.",
+     "A stash for unsettled results (league_unsettled applied once on next load) instead of an endless retry.",
+     "Result-card «연습하며 대기» closes the loop between practice and ranked."
+    ],
+    "problems": [
+     "It makes waits longer by default: median about 8–12 s, about 22 s at 3 am, about 48 s for top players, capped at 90 s. That is the boredom the user lens penalises, and plain waiting on the title gets longer for everyone who does not opt into practice.",
+     "Heavy friction from rules the user never asked for: a void budget of '2 per 7 days' («이번 주 2번 남음»), AFK auto-decline, 5 s vs 10 s countdowns, a 60 s background grace, and a 120 s round-end defer. That is a lot of hidden state for a single-player CPU league.",
+     "It is the biggest and riskiest change: about 2,165 Java lines plus native nativeRoundLive reading RAM 0x40A7/0x411A/0x5824, a cross-activity RankQueue, 19 nativeSetPaused call sites that can leak unpause, and two session switches per cycle. SF6 had a freeze report at exactly this handoff.",
+     "The «가상 리그 소식» feed conflicts with the stated no-online-imitation principle (RankUi.java:14-18) and needs a separate user decision.",
+     "The tabbed waiting window (내 정보/내 주변/소식) needs ←→ tab switching on a phone with thumbs. That is more navigation than a short wait deserves, and «내 주변» needs a background board computation.",
+     "Practice runs on the user's modded ROM and core while ranked runs on the bundled copy, so warm-up does not match ranked conditions. Accepting mid-arcade with autosave off loses the run (only a toast warns).",
+     "Having LeagueActivity also host a found Dialog plus a queue strip doubles the surfaces where the card can appear."
+    ]
+   }
+  ],
+  "winner": "simple",
+  "notes": "Through the user lens, simple wins narrowly over robust. It best covers what this thumb-playing user literally asked for at low cost:\n- **A fun, real-feeling waiting window.** The candidate reel lands on the actual opponent, and choosing the stage gives the player a real decision during the wait.\n- **One-tap 'league anytime'.** Back, then the «리그 대전» pad cell, and «내 게임으로» back out.\n\nI checked that the pad cell is feasible: PadView already appends a conditional UTIL_LOOK cell at the end (PadView.java:50,154-160,348 in /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/impl/ranked/app/src/main/java/com/dudu/pocketcore/PadView.java). Robust's claim that the bar layout is fixed is therefore wrong. The worktree is now clean at 7b35ba2, so simple's merge-conflict risk is moot.\n\nRecommended graft onto simple:\n- **From robust:** the free void for app-fault stuck matches (crash with no checkpoint, unloadable checkpoint, app version change) replacing forfeit-only. Also the 400 ms A-guard on the found card, pending.miss plus hold-releases-pending, the storage card with [권한 설정 열기]/[다시 확인], [나중에 정산하기] after 3 save failures, voidReady when LeagueActivity opens, and the pref.last_rom fallback. Also «시즌 N» read from ranked.season, and the soft «새 시즌 시작» alongside simple's archived restart.\n- **From realism:** a modest honest lengthening (about 4–10 s, with a «빠르게» option) so the panel is actually readable. Widening tied to the real pick spread, so the «범위 넓힘» line is true. The fixed «평균/예상 대기». The VS loading card, and «연습하며 기다리기» as a planned v2, which is the most literal answer to «뭐 할지».\n\nRealism is the most faithful to 'feels like real ranked' and to «뭐 할지». It scores lowest overall because it lengthens waits by default, adds gamey friction (a void budget, AFK rules, varied countdowns), and is very large and risky to build: 2,165 lines, a native RAM probe, 19 pause sites, two session switches per cycle.\n\nA shared weakness of simple and robust: a rich panel shown for only 2–6 s before a 3 s auto-accept will mostly go unread on a phone. Either lengthen the wait slightly or reduce the panel to 3–4 glanceable lines."
+ },
+ {
+  "scores": [
+   {
+    "key": "robust",
+    "userValue": 8,
+    "fitToRequest": 8,
+    "feasibility": 7,
+    "risk": 7,
+    "total": 8,
+    "best_ideas": [
+     "Write ranked.pending at card show via a new holdPending(), not in League.rankedPick (League.java:962). Release it on every hold path: League.hold AND both hold branches inside settle (League.java:571-591). Today neither releases it, so I confirmed G7. Add pending.miss so an opponent is dropped after 2 stale voids; this ends the only 'wait 24 h' loop.",
+     "canVoid only when the app is at fault (no checkpoint, checkpoint won't load, m.app != versionCode). A ROM swap stays forfeit-only. This removes the full-LP penalty for crashes without letting players dodge a loss by swapping ROMs.",
+     "Settle later goes through the existing checkpoint path: leagueSaveCkpt() then goList(). The checkpoint is frozen on the deciding frame, and the next hubStart resumes it with LEAGUE_FROM_CKPT and settles it. This is a proven code path, not a new stash.",
+     "Block-card exits reuse paths that already work. Void: toast, then hubReturn(-3). Forfeit: leagueExit(id) → hubResult → rankResult with [다음 상대]. I checked that league_hub_return resets the core and works even if the hub never ran HUB_GO.",
+     "League.reload() plus an epoch counter, checked in rankNewMatch, so a league EmuActivity left in the background cannot write into a db that was reset or restored. A storage card offers [다시 확인] (this is safe because hubStart returns before nativeLeagueHub when blocked) and [권한 설정].",
+     "Remove rankCancel from onMenu (EmuActivity:176). rankTick already freezes its clocks while pad.isBarOpen() (EmuActivity:2036), so the search survives the pause bar.",
+     "Ignore A for 400 ms after «상대 발견!» appears. Call voidReady when LeagueActivity opens so «하러 가기» is never hidden by a ready leftover (LeagueActivity:163). Fall back to pref.last_rom when the ROM path is missing.",
+     "Derive a match's season from created against season boundaries, so matches written by old builds stay correct. newSeason pulls LP toward lpOfMmr(mmr), which keeps the player consistent with the simulated pool. try/catch around startActivity resets `leaving` (G19)."
+    ],
+    "problems": [
+     "It says the pad bar 'only covers the lower area'. That holds only when barLow is on (PadView: h > 1.6w and not editing). In landscape the bar sits at the top, and rankView is added to root after PadView, so the waiting panel draws over the bar cells and takes their taps once rankCancel is removed. Hide the panel while the bar is open.",
+     "It says the bar layout is fixed. It is not: utilLabel/utilAct plus layoutBar size cells dynamically, and ACT_LOOK/UTIL_LOOK already appends a 9th cell. So it picked the slower 2-tap route (bar → 설정 → LaunchSheet link). That sheet is an android.app.Dialog; it already exists, but the route is longer than a cell.",
+     "Nothing on hubLeave leads back to the normal game («내 게임으로» → switchSession(false,false)). Leaving league to resume the game goes through 목록 → launcher.",
+     "Card D must not be stored in leagueDlg. leaguePoll calls leagueDlg.dismiss() on every pass while nativeDone() is true (EmuActivity ~1215), so the card would vanish immediately.",
+     "Archive restore lets the player save-scum (restore before a loss). Restoring an older archive (different seed, legacy data) needs upgrade-path tests, and deleteArchive adds destructive UI.",
+     "restartAll uses fresh() + upgrade + upgradeRanked, which also wipes the legacy top-level me/opps/matches. They are archived, but old builds (146 and earlier) sharing the folder will then see a reset legacy league.",
+     "The static failSaves test hook lives in production League.save().",
+     "The tip «8프레임 넘게 쥐면 강베기» matches 2-button play (framedata 4-3), but the bundled one-button core (99zc) decides at 7 frames, so it is wrong for one-button users. Tips need to follow the control mode.",
+     "voidReady and the existing markInterrupted, run from LeagueActivity, can change the match of a league EmuActivity that is still alive in the background. The epoch only covers resets, not this case."
+    ]
+   },
+   {
+    "key": "simple",
+    "userValue": 6,
+    "fitToRequest": 7,
+    "feasibility": 9,
+    "risk": 7,
+    "total": 7,
+    "best_ideas": [
+     "A «리그 대전» pad-bar cell in the normal session (ACT_LEAGUE appended after ACT_LOOK; layoutBar handles a 10th cell), gated without practiceRomOk because the league builds its own ROM copy. Plus «내 게임으로» in hubLeave → switchSession(false,false), which resumes the normal autosave mid-fight. This gives the cleanest round trip.",
+     "A reel of the candidates RankCore.pick actually sampled (the 12-iteration loop at RankCore.java:378). Collecting them into a list uses no RNG, so determinism tests stay valid. The reel settles on the real opponent inside searchMs.",
+     "Stage choice during the search with ←→/OPTION. ev 4/8/16 are already collected in H_SEARCH (league.c:438-444) and thrown away today. Changing the stage keeps auto-accept on, and rankCardShow already reads League.prefStage().",
+     "A fixed estimate of ceil(searchMs/1000)+1 that never rises. No change to the wait length and no native change.",
+     "Restart keeps the same seed, so PF_CACHE, the board and Avatar caches don't churn. The archive is written before league.json changes, and on save failure memory is rolled back and the archive file deleted.",
+     "A JVM glyph test that checks every new UI and tip string against the cmap of pixel.ttf (U+2212 is missing), plus a control-agnostic touch tip."
+    ],
+    "problems": [
+     "Same overlap as robust: with rankCancel removed from onMenu, rankView sits above PadView in z-order and covers the top bar row in landscape (barLow false). Hide or dim the panel while the bar is open.",
+     "A crash leaving no checkpoint (L3/G5) still has forfeit as its only exit, a full LP loss for an app fault. G8 (dbProblem only gets a retry) and G9 (endless «기록 저장 실패» retry, leaguePoll ~1215) are left as they are, so reading (b) is only partly solved.",
+     "The Ask for 'autosave off and not at the title' needs a title check. hub_scr / dual status is only valid when the practice hub is active, and on modded ROMs (practiceRomOk false, the exact case this cell is meant to fix) there is no hub, so the app can't tell where the player is.",
+     "The reel calls League.pfOf (synchronized on League) and Avatar.of on the UI thread every 300 ms for up to 8 profiles. Precompute them at search start.",
+     "restartRanked drops `legacy` from the new ranked object. The rules-tab line that reads it must be gated on season == 1, and old builds don't know about prev/season, so the display there is cosmetic only.",
+     "Its line numbers assume uncommitted edits, but the tree is actually clean at 7b35ba2. The anchors are still fine."
+    ]
+   },
+   {
+    "key": "realism",
+    "userValue": 8,
+    "fitToRequest": 8,
+    "feasibility": 4,
+    "risk": 3,
+    "total": 5,
+    "best_ideas": [
+     "Accepting a match from outside the league session needs no native change. Once pending is set, hubStart calls nativeHubMatch(go=false) then hubReturn(-4), which runs the existing rank-rematch branch (league.c:399-400, hub_go_fixed) straight to my character select. I verified the hub_gen and hubWaitGen arithmetic works from a fresh activity. This is the right basis for a later 'practise while waiting'.",
+     "LeagueActivity «재개» launches the hub (E7 auto-resume) instead of single-match mode, so every resumed fight ends on the in-game result card with [다음 상대].",
+     "Free voids for app-version faults, separate from ROM swaps. The «보류·무효» list shows void reasons.",
+     "A pending line with its expiry («기다리는 상대 … 21시간 뒤 풀려요») and the season label read from ranked.season, replacing the hard-coded «시즌 1» at LeagueActivity:248. A seasons[] array with a peak plate, and career totals.",
+     "An honest «평균 대기» fixed for each queue, and widening lines shown only when the search really widens."
+    ],
+    "problems": [
+     "A cross-activity RankQueue plus a found card over the normal session means adding `|| queueCardUp` to many of the 21 nativeSetPaused call sites: the onMenu recompute (EmuActivity:179), the sheet onClose (582), Ask onDismiss, hubReturn (2278) and others. Any one missed unpauses the game under the card.",
+     "New key routing for the card in the normal session (dispatchKeyEvent, onMask edges, keymap.funcOf, a convention opposite to Ask's) touches the gameplay input path.",
+     "Waits get longer (median 8-12 s, cap 90 s) plus a 60 s AFK card. Only 90 s of idle on the title has been measured, and H_SEARCH silently drops to H_TITLE if the menu vanishes (league.c:448). A 10-minute host test is needed before shipping.",
+     "pick() would draw the wait first and widen sigma up to 3×. That changes RNG order (breaking determinism tests) and match quality (opponents about 270 MMR away).",
+     "The settle-failure stash is a dead end. After «맡겨 두고 계속» the match stays `playing` in league.json, openMatch() makes newRankedMatch return null, and the next search fails. League.db() is static and has no Context for SharedPreferences.",
+     "nativeRoundLive adds native code. The app shortcut would have to be attached to 4 switchable activity-aliases (MainActivity, IconInk, IconPocket, IconModern) and launches the non-exported EmuActivity cold, skipping MainActivity's Thumbs/boot cleanup.",
+     "«가상 리그 소식» conflicts with the 'no online imitation' principle in RankUi.java:14-18. The void budget, time-of-day factor and wait setting add state the user didn't ask for.",
+     "About 2,190 lines across the same four large files (EmuActivity alone is 2,684 lines). This has the highest merge and regression exposure."
+    ]
+   }
+  ],
+  "winner": "robust",
+  "notes": "I checked the claims against the worktree at HEAD 7b35ba2. The tree is clean, so robust's snapshot note is correct; the code map and simple assume edits that are no longer uncommitted.\n\nConfirmed in code:\n- pending is written in rankedPick before the card shows (League.java:962-979). Only applyRanked releases it (League.java:1065-1066). hold() and settle's two hold branches do not, so G7 is real.\n- rankTick already freezes while the bar is open (EmuActivity:2036), but onMenu cancels the search anyway (EmuActivity:176).\n- leagueBlocked offers only «리그 화면으로» / «게임으로» (EmuActivity:1244-1253).\n- leaguePoll retries forever and dismisses leagueDlg on every pass (EmuActivity:1213-1224).\n- LeagueActivity hides the go button whenever any open match exists (:163) and hard-codes «시즌 1» (:248).\n- hubStart returns before any native call when blocked, so a «다시 확인» retry is safe.\n- league_hub_return(-3/-4) resets the core in native.c:1016 and works from any hub state. All three designs' accept and retry paths are therefore feasible with no native change.\n- The pad bar is extendable (ACT_LOOK precedent), which contradicts robust's claim. LaunchSheet is an android.app.Dialog that already exists in-game, so a link there adds no new window.\n\nCross-cutting risk none of the designs fully handles: if rankCancel is removed from onMenu, rankView (added to root after PadView) covers the top bar row whenever barLow is off. barLow is off in landscape and in edit mode; it is on in the user's tall portrait. Hide the panel while the bar is open.\n\nRecommendation:\n- Ship robust's spine: (b) first, then the info-only 대기창, then seasons with an archive.\n- Graft from simple: the «리그 대전» pad-bar cell and «내 게임으로» in hubLeave; the real-candidate reel; stage choice during the search; restart that keeps the same seed.\n- Graft from realism: «재개» launches the hub, the pending-expiry line, and the season plate.\n- Drop robust's archive restore (or move it behind a long-press) to limit save-scumming.\n- Defer realism's 'practise while waiting' to v2. It should reuse the verified pending + hubReturn(-4) accept path, and only after a 10-minute idle host test and an audit of every nativeSetPaused call site."
+ }
+]

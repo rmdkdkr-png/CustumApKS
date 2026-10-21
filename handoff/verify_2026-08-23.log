@@ -1,0 +1,51 @@
+===== 4) 검증 기준표 =====
+  badging: package: name='com.rmdkdkr.ngpemu.ss2' versionCode='16010585' versionName='1.5.85' platformBuildVersionName='16' platformBuildVersionCode='36' compileSdkVersion='36' compileSdkVersionCodename='16'
+  OK   package                      com.rmdkdkr.ngpemu.ss2
+  OK   versionCode                  16010585
+  OK   versionName                  1.5.85
+--- ABI 4종
+  OK   arm64-v8a
+  OK   armeabi-v7a
+  OK   x86
+  OK   x86_64
+--- assets/gpOverlay.png md5
+  OK   gpOverlay.png                24bed154fbd45b774a8410e90aaf8483
+--- libmain.so 안 문자열 개수 (LC_ALL=C grep -a -o -F)
+  OK   SS2 Commentator              1
+  OK   SS2 Commentary Display       1
+  OK   Band above screen            1
+  OK   겐주로                    23
+  OK   하오마루                 23
+  OK   리쿠도렛카              1
+  OK   마를 봉하는 사람      1
+  OK   유파는 달라도 저분처럼 1
+  OK   한조는 잘 있으려나   1
+  OK   딸들                       0
+  OK   붓 한 자루로 싸우는 화가 0
+
+===== 대조용 두 줄 =====
+-rw-r--r-- 1 root root 4567868 Aug 23 09:48 /home/user/emu-ex-plus-alpha/NGP.emu/build/android/build/outputs/apk/release/NgpEmu-release.apk
+ed3120c71c29c7495c3b52f53a9aadaa  lib/arm64-v8a/libmain.so
+--- .so 크기 (참고: 경로 때문에 달라도 됨)
+  arm64-v8a    2621888
+  armeabi-v7a  1833052
+  x86          2671984
+  x86_64       2970480
+
+===== 11) 서명 v1+v2+v3 =====
+Verifies
+Verified using v1 scheme (JAR signing): true
+Verified using v2 scheme (APK Signature Scheme v2): true
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+WARNING: META-INF/com/android/build/gradle/app-metadata.properties not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.
+WARNING: META-INF/version-control-info.textproto not protected by signature. Unauthorized modifications to this JAR entry will not be detected. Delete or move the entry outside of META-INF/.
+
+===== 17) 롬 혼입 =====
+(위가 비었으면 깨끗)
+
+===== 기준표 전항 통과 =====
+===== VERIFY DONE =====

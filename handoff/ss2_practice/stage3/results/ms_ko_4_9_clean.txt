@@ -1,0 +1,8 @@
+나코루루   5A    whiff S7 A6 R14 T26 probe 7 | hit -2/-2 (vs [-2, -2]) | block -6/-6 (vs [-6, -6])
+나코루루   5A+   whiff S13 A6 R26 T44 probe 13 | hit 6/6 (vs [6, 6]) | block -12/-12 (vs [-12, -12])
+나코루루   2A    whiff S7 A6 R18 T30 probe 7 | hit 2/2 (vs [2, 2]) | block -6/-6 (vs [-6, -6])
+나코루루   2A+   whiff S11 A10 R32 T52 probe 11 | hit 122다운/122다운 (vs [78, 78]) | block -10/-10 (vs [-10, -10])
+나코루루   4B    whiff S7 A6 R38 T50 probe 7 | hit -16/-16 (vs [-16, -16]) | block -32/-32 (vs [-32, -32])
+나코루루   236A  whiff S7 ANone R32 T39 proj probe 24 | hit NoneNone/NoneNone (vs [None, None]) | block NoneNone/NoneNone (vs [None, None])
+나코루루   623A  whiff S5 A34 R16 T54 probe 7 | hit 96다운/96다운 (vs [52, 52]) | block -14/-14 (vs [-14, -14])
+나코루루   잡기    whiff SNone ANone RNone TNone probe None | hit 26/26 (vs [26, 26]) | block  (vs None)

@@ -1,0 +1,95 @@
+--- /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w149/coretest2/build/mednafen/ngp/rom.c	2026-10-16 11:04:56.008198261 +0000
++++ mednafen/ngp/rom.c	2026-10-17 05:28:19.992042784 +0000
+@@ -52,9 +52,43 @@
+    ngpc_rom.data[0x024710] = 0x6E;              /* jr Z      → jr NZ     */
+ }
+ 
++
++/* ==== u159 topicD EXPERIMENT (scratch only): in-memory ROM overlay for stage pick / stage palette variants ====
++   retro_ngp_rom_overlay(cart_addr, data, len): set bytes of the in-memory ROM copy (only inside whitelisted stage regions);
++   data == NULL or len == 0 -> restore every overlaid byte from orig_data and forget. Re-applied by rom_hack() (load + state load). */
++#define OV_MAX 8192
++static uint32 ov_off[OV_MAX]; static uint8 ov_val[OV_MAX]; static int ov_n = 0;
++static int ov_ok(uint32 off)
++{
++   uint32 a = off + 0x200000;
++   if (!MATCH_CATALOG(48, 26)) return 0;
++   return (a >= 0x239056 && a < 0x2390A6)      /* bout -> stage table (10 x 8) */
++       || (a >= 0x259190 && a < 0x25AF88)      /* global palette table incl. zero padding 0x25A9D8.. */
++       || (a >= 0x2CA0E2 && a < 0x2CA1E2)      /* stage table 16 x 16 */
++       || (a >= 0x2D8086 && a < 0x2D8270);     /* palette-set lists (bgc, bg colour, indices) */
++}
++void retro_ngp_rom_overlay(uint32_t cart_addr, const uint8_t *data, uint32_t len)
++{
++   uint32 i; int k;
++   if (!ngpc_rom.data) return;
++   if (!data || !len) {
++      for (k = 0; k < ov_n; k++) ngpc_rom.data[ov_off[k]] = ngpc_rom.orig_data ? ngpc_rom.orig_data[ov_off[k]] : ngpc_rom.data[ov_off[k]];
++      ov_n = 0; return;
++   }
++   for (i = 0; i < len; i++) {
++      uint32 off = cart_addr - 0x200000 + i;
++      if (cart_addr < 0x200000 || off >= ngpc_rom.length || !ov_ok(off)) continue;
++      for (k = 0; k < ov_n; k++) if (ov_off[k] == off) break;
++      if (k == ov_n) { if (ov_n >= OV_MAX) return; ov_off[ov_n++] = off; }
++      ov_val[k] = data[i]; ngpc_rom.data[off] = data[i];
++   }
++}
++static void ov_apply(void) { int k; for (k = 0; k < ov_n; k++) ngpc_rom.data[ov_off[k]] = ov_val[k]; }
++
+ void rom_hack(void)
+ {
+    ss2_ko_reaction_guard();
++   ov_apply();
+ 
+    /*=============================
+     * SPECIFIC ROM HACKS !
+--- /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w149/coretest2/build/mednafen/ngp/gfx.c	2026-10-16 11:04:56.001593553 +0000
++++ mednafen/ngp/gfx.c	2026-10-17 05:28:19.996040488 +0000
+@@ -849,6 +849,19 @@
+    }
+ }
+ 
++
++/* ==== u159 topicD EXPERIMENT: plane-2 (+back colour) write-time colour LUT, for comparison with the ROM overlay ==== */
++static uint16 bgt_lut[4096]; static int bgt_on = 0;
++void retro_ngp_bgtint(const uint16_t *lut) { if (!lut) { bgt_on = 0; return; } memcpy(bgt_lut, lut, sizeof bgt_lut); bgt_on = 1; }
++static void bgt_apply(ngpgfx_t *gfx, uint32 off)
++{
++   uint32 idx = off >> 1; uint16 c;
++   if (!bgt_on) return;
++   if (!((idx >= 128 && idx < 192 && (idx & 3)) || (idx >= 0xF0 && idx < 0xF8))) return;
++   c = bgt_lut[(gfx->ColorPaletteRAM[idx * 2] | (gfx->ColorPaletteRAM[idx * 2 + 1] << 8)) & 0x0FFF];
++   gfx->ColorPaletteRAM[idx * 2] = (uint8)c; gfx->ColorPaletteRAM[idx * 2 + 1] = (uint8)(c >> 8);
++}
++
+ void ngpgfx_write8(ngpgfx_t *gfx, uint32 address, uint8 data)
+ {
+    ss2fg_note_write(gfx, address);
+@@ -863,7 +876,7 @@
+    else if(address >= 0x8200 && address <= 0x83ff)
+    {
+       gfx->ColorPaletteRAM[address - 0x8200] = data;
+-      if (address & 1) pal_remap(gfx, address - 0x8200);   /* 16비트 쓰기는 아랫바이트 → 윗바이트 순 */
++      if (address & 1) { pal_remap(gfx, address - 0x8200); bgt_apply(gfx, address - 0x8200); }   /* 16비트 쓰기는 아랫바이트 → 윗바이트 순 */
+    }
+    else switch(address)
+    {
+--- /tmp/claude-0/-home-user-CustumApKS/e6c46352-6bb9-5a9d-8b3a-f2da7447674e/scratchpad/w149/coretest2/build/mednafen/ngp/rtc.c	2026-10-16 11:04:55.514040940 +0000
++++ mednafen/ngp/rtc.c	2026-10-17 05:36:51.164009648 +0000
+@@ -14,6 +14,7 @@
+ 
+ #include "../mednafen-types.h"
+ #include <time.h>
++#include <stdlib.h>
+ 
+ static uint8 rtc_latch[7];
+ 
+@@ -26,6 +27,7 @@
+ 
+    //Get the system time
+    time(&long_time);
++   { const char *fx = getenv("U159_FIXTIME"); if (fx && *fx) long_time = (time_t)atoll(fx); }   /* u159 topicD: deterministic clock for A/B runs */
+    localTime = localtime(&long_time);
+    if (localTime)
+    {

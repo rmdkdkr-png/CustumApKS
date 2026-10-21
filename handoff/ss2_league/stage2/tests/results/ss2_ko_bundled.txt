@@ -1,0 +1,13 @@
+ss2_ko_bundled o01   칼끝노인   ch11 sty0 diff1 | P1 80 P2 start B0 end B0 | need 2 time 60 | lv 4 mult 00D9/0126 | W 2:0 | idle P1 hit 7 dmg 75 | OK
+ss2_ko_bundled o02   퇴근후한판  ch 3 sty1 diff1 | P1 80 P2 start 38 end 38 | need 2 time 60 | lv 4 mult 00D9/0126 | L 0:2 | idle P1 hit 5 dmg 85 | OK
+ss2_ko_bundled o03   달빛나코   ch 4 sty0 diff0 | P1 80 P2 start 40 end 40 | need 2 time 60 | lv 1 mult 00C0/0140 | W 2:0 | idle P1 hit 8 dmg 34 | OK
+ss2_ko_bundled o04   새벽검객   ch 2 sty0 diff1 | P1 80 P2 start 20 end 20 | need 2 time 60 | lv 4 mult 00D9/0126 | L 0:2 | idle P1 hit 10 dmg 82 | OK
+ss2_ko_bundled o05   장미기사   ch 9 sty1 diff1 | P1 80 P2 start 98 end 98 | need 2 time 60 | lv 4 mult 00D9/0126 | W 2:0 | idle P1 hit 21 dmg 93 | OK
+ss2_ko_bundled o06   얼음요정   ch 5 sty0 diff0 | P1 80 P2 start 50 end 50 | need 2 time 60 | lv 1 mult 00C0/0140 | L 0:2 | idle P1 hit 15 dmg 86 | OK
+ss2_ko_bundled o07   그늘닌자   ch 6 sty0 diff0 | P1 80 P2 start 60 end 60 | need 2 time 60 | lv 1 mult 00C0/0140 | W 2:0 | idle P1 hit 15 dmg 77 | OK
+ss2_ko_bundled o08   독수리산책  ch 7 sty0 diff0 | P1 80 P2 start 70 end 70 | need 2 time 60 | lv 1 mult 00C0/0140 | L 0:2 | idle P1 hit 6 dmg 65 | OK
+ss2_ko_bundled o09   불꽃형님   ch 0 sty1 diff2 | P1 80 P2 start 08 end 08 | need 2 time 60 | lv 7 mult 00F3/010C | W 2:0 | idle P1 hit 3 dmg 41 | OK
+ss2_ko_bundled o10   검은달    ch 8 sty1 diff2 | P1 80 P2 start 88 end 88 | need 2 time 60 | lv 7 mult 00F3/010C | L 0:2 | idle P1 hit 9 dmg 111 | OK
+ss2_ko_bundled o11   꽃잎칼날   ch13 sty0 diff2 | P1 80 P2 start D0 end D0 | need 2 time 60 | lv 7 mult 00F3/010C | W 2:0 | idle P1 hit 7 dmg 69 | OK
+ss2_ko_bundled o12   끝판왕    ch14 sty1 diff2 | P1 80 P2 start E8 end E8 | need 2 time 60 | lv 7 mult 00F3/010C | L 0:2 | idle P1 hit 14 dmg 144 | OK
+ss2_ko_bundled: ALL OK
