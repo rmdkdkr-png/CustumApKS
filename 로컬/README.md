@@ -50,6 +50,9 @@ POCKETCORE=<pocketcore 클론> ANDROID_HOME=/opt/android-sdk SS2CORE=<ss2-sp-cor
 - 결과 기준: `u187/README.txt`(187: 전부 통과, GapSim 카드 30/0). 큰 묶음: `u182r/chain182.sh`(STEPS=…, state/ 의 .done 은 건너뜀 — 다시 돌리려면 지움).
 - 코어 3 ABI 직접 빌드: `u182/ndk_core.sh`(ss2-sp-core 1cb33c9 + 패치 60개 → jniLibs 에 넣는 것).
 
+**PC 재현 확인(2026-10-21, 3판 edceddd · pocketcore 8dc945f)**: 빌드 경고 0 · t_hold 12/12/16/8 · 메뉴 9종·oppjvm 39·jvm 415·tview 통과 · 리그 장면 14개 310/0 · GapSim 카드 30/0 · t_uisfx 57/0 — 클라우드와 전부 같음.
+PC 실행: `wsl -d Ubuntu -u root bash /root/work/run187.sh [build|test|both|uisfx]`. 다음 판을 넘길 때는 판 번호 · 커밋 · 돌릴 시험만 적으면 됨.
+
 ## 5. 같이 일할 때 규칙 (Claude·GPT 공통)
 - **feat/framegen-art 는 여러 세션이 같이 씀.** 올리기 전에 `git fetch origin +refs/heads/feat/framegen-art:refs/remotes/origin/feat/framegen-art` → 합치고 → `app/build.gradle` versionCode 를 비어 있는 다음 번호로(주석 끝 목록에도 추가). versionName 은 0.9 그대로. 강제 푸시 금지.
 - CI: `.github/workflows/build-test-apk.yml`(APK → 릴리즈 fgtest · ci-release, 코어 → ci-core). 올린 뒤 성공 확인.
